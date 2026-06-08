@@ -17,37 +17,66 @@ class AuthTest extends TestCase
         $response = $this->postJson('/api/v1/organization/new', [
             'data' => [
                 'values' => [
-                    'name' => 'WS Bakery',
-                    'description' => 'Bakery company',
-                    'email' => 'wsbakery12@gmail.com',
+                    'name' => 'Demo',
+                    'description' => '',
+                    'firstUser' => [
+                        'firstName' => 'Arif',
+                        'lastName' => 'imran1',
+                        'email' => 'demoarif@example.com',
+                        'phoneNumber' => '+918012033834',
+                        'password' => 'Admin@123',
+                        'confirmPassword' => 'Admin@123'
+                    ]
                 ]
             ]
         ]);
 
         $response->assertStatus(201)
             ->assertJsonStructure([
+                'status',
+                'message',
                 'data' => [
-                    'values' => [
+                    'token',
+                    'user' => [
                         'id',
-                        'name',
-                        'description',
+                        'first_name',
+                        'last_name',
                         'email',
+                        'phone_number',
+                        'role',
+                        'organization' => [
+                            'id',
+                            'name'
+                        ]
                     ]
                 ]
             ])
             ->assertJson([
+                'status' => true,
+                'message' => 'Organization created successfully.',
                 'data' => [
-                    'values' => [
-                        'name' => 'WS Bakery',
-                        'description' => 'Bakery company',
-                        'email' => 'wsbakery12@gmail.com',
+                    'user' => [
+                        'first_name' => 'Arif',
+                        'last_name' => 'imran1',
+                        'email' => 'demoarif@example.com',
+                        'phone_number' => '+918012033834',
+                        'role' => 'owner',
+                        'organization' => [
+                            'name' => 'Demo'
+                        ]
                     ]
                 ]
             ]);
 
         $this->assertDatabaseHas('organizations', [
-            'name' => 'WS Bakery',
-            'email' => 'wsbakery12@gmail.com',
+            'name' => 'Demo',
+        ]);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'demoarif@example.com',
+            'first_name' => 'Arif',
+            'last_name' => 'imran1',
+            'role' => 'owner'
         ]);
     }
 
