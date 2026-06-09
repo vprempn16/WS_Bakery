@@ -22,4 +22,10 @@ Route::prefix('v1')->group(function () {
         Route::put('{id}', [UserController::class, 'update']);
         Route::delete('{id}', [UserController::class, 'destroy']);
     });
+
+    // Authentication endpoints
+    Route::prefix('auth')->group(function () {
+        Route::post('login', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'login']);
+        Route::post('logout', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'logout'])->middleware('auth:sanctum');
+    });
 });

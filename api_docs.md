@@ -214,3 +214,54 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
       ]
   }
   ```
+
+---
+
+## 3. Authentication
+
+### 3.1 Login
+* **Endpoint**: `POST /api/v1/auth/login`
+* **Request Body**:
+  ```json
+  {
+      "data": {
+          "values": {
+              "email": "demoarif@example.com",
+              "password": "Admin@123"
+          }
+      }
+  }
+  ```
+* **Response (200 OK)**:
+  ```json
+  {
+      "status": true,
+      "message": "Login successful.",
+      "data": {
+          "token": "49|newly_generated_token_here...",
+          "user": {
+              "id": "5a080142-f939-45a3-a97a-b6287b1d0414",
+              "first_name": "Arif",
+              "last_name": "imran1",
+              "email": "demoarif@example.com",
+              "phone_number": "+918012033834",          
+              "role": "owner",
+              "organization": {
+                  "id": "373c7c15-2b70-4710-a22a-9f24e7468777",
+                  "name": "Demo"
+              }
+          }
+      }
+  }
+  ```
+
+### 3.2 Logout
+* **Endpoint**: `POST /api/v1/auth/logout`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+  ```json
+  {
+      "status": true,
+      "message": "Logout successful."
+  }
+  ```
