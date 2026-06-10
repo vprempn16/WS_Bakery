@@ -265,3 +265,86 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
       "message": "Logout successful."
   }
   ```
+
+## 4. Ingredient Management
+
+### 4.1 List Ingredients
+* **Endpoint**: `GET /api/v1/ingredients`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{
+    "data": [
+        {
+            "values": {
+                "id": "uuid",
+                "organizationId": "uuid",
+                "vendorId": null,
+                "name": "Flour",
+                "unit": "g",
+                "minimumStockLevel": 0,
+                "currentStock": 1500
+            }
+        }
+    ]
+}
+```
+
+### 4.2 Create Ingredient
+* **Endpoint**: `POST /api/v1/ingredients/new`
+* **Headers**: `Authorization: Bearer {token}`
+* **Request Body**:
+```json
+{
+    "data": {
+        "values": {
+            "organizationId": "{{org_uuid}}",
+            "vendorId": "{{vendor_uuid}}",
+            "name": "Sugar",
+            "unit": "g",
+            "minimumStockLevel": 500,
+            "currentStock": 2000
+        }
+    }
+}
+```
+* **Response (201 Created)**:
+```json
+{
+    "data": {
+        "values": {
+            "id": "new_uuid",
+            "organizationId": "{{org_uuid}}",
+            "vendorId": "{{vendor_uuid}}",
+            "name": "Sugar",
+            "unit": "g",
+            "minimumStockLevel": 500,
+            "currentStock": 2000
+        }
+    }
+}
+```
+
+### 4.3 Get Ingredient by ID
+* **Endpoint**: `GET /api/v1/ingredients/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**: Same structure as single element in list response.
+
+### 4.4 Update Ingredient
+* **Endpoint**: `PUT /api/v1/ingredients/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Request Body**: Same as Create but fields to update.
+* **Response (200 OK)**: Updated ingredient object.
+
+### 4.5 Delete Ingredient
+* **Endpoint**: `DELETE /api/v1/ingredients/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{ "message": "Ingredient successfully deleted." }
+```
+
+### 4.6 Low Stock Endpoint
+* **Endpoint**: `GET /api/v1/ingredients/low-stock`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**: List of ingredients where `current_stock` < `minimum_stock_level`.

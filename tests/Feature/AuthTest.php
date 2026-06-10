@@ -87,6 +87,16 @@ class AuthTest extends TestCase
             'email' => 'wsbakery12@gmail.com',
         ]);
 
+        $user = User::create([
+            'organization_id' => $org->id,
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => 'test@example.com',
+            'role' => 'admin',
+            'password' => Hash::make('password'),
+        ]);
+        \Laravel\Sanctum\Sanctum::actingAs($user);
+
         $response = $this->getJson("/api/v1/organization/{$org->id}");
 
         $response->assertStatus(200)
@@ -107,6 +117,16 @@ class AuthTest extends TestCase
             'name' => 'WS Bakery',
             'email' => 'wsbakery12@gmail.com',
         ]);
+
+        $user = User::create([
+            'organization_id' => $org->id,
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => 'test@example.com',
+            'role' => 'admin',
+            'password' => Hash::make('password'),
+        ]);
+        \Laravel\Sanctum\Sanctum::actingAs($user);
 
         $response = $this->putJson("/api/v1/organization/{$org->id}", [
             'data' => [
@@ -137,6 +157,16 @@ class AuthTest extends TestCase
             'name' => 'WS Bakery',
         ]);
 
+        $user = User::create([
+            'organization_id' => $org->id,
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => 'test@example.com',
+            'role' => 'admin',
+            'password' => Hash::make('password'),
+        ]);
+        \Laravel\Sanctum\Sanctum::actingAs($user);
+
         $response = $this->deleteJson("/api/v1/organization/{$org->id}");
 
         $response->assertStatus(200);
@@ -145,8 +175,18 @@ class AuthTest extends TestCase
 
     public function test_can_search_organizations()
     {
-        Organization::create(['name' => 'First Bakery', 'email' => 'first@gmail.com']);
+        $org = Organization::create(['name' => 'First Bakery', 'email' => 'first@gmail.com']);
         Organization::create(['name' => 'Second Sweet Shop', 'email' => 'second@gmail.com']);
+
+        $user = User::create([
+            'organization_id' => $org->id,
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => 'test@example.com',
+            'role' => 'admin',
+            'password' => Hash::make('password'),
+        ]);
+        \Laravel\Sanctum\Sanctum::actingAs($user);
 
         $response = $this->getJson('/api/v1/organization/search?query=Bakery');
 
@@ -159,6 +199,16 @@ class AuthTest extends TestCase
         $org = Organization::create([
             'name' => 'WS Bakery',
         ]);
+
+        $admin = User::create([
+            'organization_id' => $org->id,
+            'first_name' => 'Admin',
+            'last_name' => 'User',
+            'email' => 'admin@example.com',
+            'role' => 'admin',
+            'password' => Hash::make('password'),
+        ]);
+        \Laravel\Sanctum\Sanctum::actingAs($admin);
 
         $response = $this->postJson('/api/v1/settings/User/new', [
             'data' => [
@@ -222,6 +272,8 @@ class AuthTest extends TestCase
             'password' => Hash::make('password'),
         ]);
 
+        \Laravel\Sanctum\Sanctum::actingAs($user);
+
         $response = $this->getJson("/api/v1/settings/User/{$user->id}");
 
         $response->assertStatus(200)
@@ -248,6 +300,8 @@ class AuthTest extends TestCase
             'role' => 'admin',
             'password' => Hash::make('password'),
         ]);
+
+        \Laravel\Sanctum\Sanctum::actingAs($user);
 
         $response = $this->putJson("/api/v1/settings/User/{$user->id}", [
             'data' => [
@@ -287,6 +341,8 @@ class AuthTest extends TestCase
             'password' => Hash::make('password'),
         ]);
 
+        \Laravel\Sanctum\Sanctum::actingAs($user);
+
         $response = $this->deleteJson("/api/v1/settings/User/{$user->id}");
 
         $response->assertStatus(200);
@@ -296,7 +352,7 @@ class AuthTest extends TestCase
     public function test_can_list_users()
     {
         $org = Organization::create(['name' => 'WS Bakery']);
-        User::create([
+        $user = User::create([
             'organization_id' => $org->id,
             'first_name' => 'Prem',
             'last_name' => 'Nath',
@@ -304,6 +360,8 @@ class AuthTest extends TestCase
             'role' => 'admin',
             'password' => Hash::make('password'),
         ]);
+
+        \Laravel\Sanctum\Sanctum::actingAs($user);
 
         $response = $this->getJson('/api/v1/settings/User');
 
