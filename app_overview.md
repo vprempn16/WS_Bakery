@@ -1,0 +1,408 @@
+# Bakery WMS - Application Overview
+
+## 1. What is this Application?
+
+Bakery WMS (Warehouse Management System) is a backend API application built for bakery businesses to manage their day-to-day operations. It helps bakery owners and staff to:
+
+- Manage their organization and team members
+- Track raw material (ingredient) inventory
+- Manage vendor/supplier relationships
+- Define bakery products and their recipes
+- Record stock movements (purchases, production usage, wastage)
+- Get low-stock alerts for ingredients
+
+---
+
+## 2. Tech Stack
+
+| Layer          | Technology                  |
+|----------------|-----------------------------|
+| Framework      | Laravel (PHP 8.3+)          |
+| Database       | MySQL                       |
+| Authentication | Laravel Sanctum (Token-based) |
+| API Format     | RESTful JSON API (v1)       |
+| Primary Keys   | UUID                        |
+| Testing        | PHPUnit (SQLite in-memory)  |
+
+---
+
+## 3. Architecture
+
+The application follows a **modular architecture** where each feature is organized as an independent module under `app/Modules/Api/V1/`. Each module contains its own:
+
+```
+app/Modules/Api/V1/{ModuleName}/
+├── Controllers/    # Handles HTTP requests and responses
+├── Models/         # Eloquent database models
+├── Requests/       # Form request validation rules
+└── Resources/      # API response transformers (JSON formatting)
+```
+
+All API routes are prefixed with `/api/v1/` and defined in `routes/api.php`.
+
+---
+
+## 4. Modules
+
+### 4.1 Organization Module
+**Purpose:** Represents the bakery business entity. Every other record in the system belongs to an organization.
+
+- Create, view, update, delete organizations
+- Search organizations by keyword
+- First user created with an organization is assigned the `owner` role
+
+### 4.2 User Module (Settings)
+**Purpose:** Manages team members within an organization. Supports role-based access.
+
+- Create, view, update, delete users
+- List users (filter by organization)
+- Roles: `owner`, `admin`, `staff`
+- Authentication via Laravel Sanctum (login/logout with bearer tokens)
+
+### 4.3 Vendor Module
+**Purpose:** Manages raw material suppliers. Vendors supply ingredients to the bakery.
+
+- Create, view, update, delete vendors
+- List vendors (filter by organization)
+- Each vendor is linked to an organization
+
+### 4.4 Ingredient Module
+**Purpose:** Manages raw materials used in bakery production (e.g., Flour, Sugar, Butter, Yeast).
+
+- Create, view, update, delete ingredients
+- List ingredients (filter by organization)
+- Each ingredient tracks its `current_stock` and `minimum_stock_level`
+- Low stock alert endpoint: returns ingredients where `current_stock < minimum_stock_level`
+- Optionally linked to a vendor
+
+### 4.5 Inventory Transaction Module
+**Purpose:** Records every stock movement for ingredients. Acts as a ledger/audit log.
+
+- List transactions (filter by ingredient)
+- Create transaction (automatically updates ingredient stock)
+- Transaction types:
+  - `in` — Stock received (e.g., purchase from vendor) → increases stock
+  - `out` — Stock removed manually → decreases stock
+  - `waste` — Stock lost due to spoilage/damage → decreases stock
+  - `production` — Stock consumed during baking → decreases stock
+
+### 4.6 Product Module
+**Purpose:** Manages the final bakery products that are sold to customers (e.g., Sweet Bread, Halwa, Cake).
+
+- Create, view, update, delete products
+- List products (filter by organization)
+- Auto-generated `product_number` in sequence: `PROD1`, `PROD2`, `PROD3`, etc.
+- Supports unit-based pricing via `unit` field:
+  - `pcs` — Piece-based items (e.g., 1 Bread = ₹50)
+  - `kg` — Weight-based items (e.g., 1kg Halwa = ₹400, 500g = ₹200)
+  - Other allowed units: `g`, `l`, `ml`, `pkt`
+
+### 4.7 Recipe Module
+**Purpose:** Defines the ingredient composition of a product. Specifies how much of each ingredient is required to produce one unit of a product.
+
+- List recipe ingredients for a product
+- Add an ingredient to a product's recipe
+- Remove an ingredient from a product's recipe
+- Each recipe entry records the `quantity_required` of an ingredient
+
+---
+
+## 5. Database Tables & Schema
+
+### 5.1 `organizations`
+| Column      | Type       | Constraints          |
+|-------------|------------|----------------------|
+| id          | UUID       | Primary Key          |
+| name        | string     | Required             |
+| description | text       | Nullable             |
+| email       | string     | Nullable             |
+| phone       | string     | Nullable             |
+| address     | text       | Nullable             |
+| created_at  | timestamp  |                      |
+| updated_at  | timestamp  |                      |
+
+---
+
+### 5.2 `users`
+| Column            | Type       | Constraints                       |
+|-------------------|------------|-----------------------------------|
+| id                | UUID       | Primary Key                       |
+| organization_id   | UUID       | Foreign Key → organizations (cascade delete) |
+| branch_id         | UUID       | Nullable                          |
+| first_name        | string     | Required                          |
+| last_name         | string     | Required                          |
+| email             | string     | Unique, Required                  |
+| phone             | string     | Nullable                          |
+| role              | string     | Required (owner / admin / staff)  |
+| email_verified_at | timestamp  | Nullable                          |
+| password          | string     | Required (hashed)                 |
+| remember_token    | string     | Nullable                          |
+| created_at        | timestamp  |                                   |
+| updated_at        | timestamp  |                                   |
+
+---
+
+### 5.3 `vendors`
+| Column         | Type       | Constraints                       |
+|----------------|------------|-----------------------------------|
+| id             | UUID       | Primary Key                       |
+| organization_id| UUID       | Foreign Key → organizations (cascade delete) |
+| name           | string     | Required                          |
+| contact_person | string     | Nullable                          |
+| phone          | string     | Nullable                          |
+| email          | string     | Nullable                          |
+| address        | text       | Nullable                          |
+| created_at     | timestamp  |                                   |
+| updated_at     | timestamp  |                                   |
+
+---
+
+### 5.4 `ingredients`
+| Column              | Type          | Constraints                       |
+|---------------------|---------------|-----------------------------------|
+| id                  | UUID          | Primary Key                       |
+| organization_id     | UUID          | Foreign Key → organizations (cascade delete) |
+| vendor_id           | UUID          | Nullable, Foreign Key → vendors   |
+| name                | string        | Required                          |
+| unit                | string        | Required (e.g., g, kg, l, ml)     |
+| minimum_stock_level | decimal(10,2) | Default: 0                        |
+| current_stock       | decimal(10,2) | Default: 0                        |
+| created_at          | timestamp     |                                   |
+| updated_at          | timestamp     |                                   |
+
+---
+
+### 5.5 `inventory_transactions`
+| Column          | Type          | Constraints                       |
+|-----------------|---------------|-----------------------------------|
+| id              | UUID          | Primary Key                       |
+| organization_id | UUID          | Foreign Key → organizations (cascade delete) |
+| ingredient_id   | UUID          | Foreign Key → ingredients (cascade delete) |
+| type            | string        | Required (in / out / waste / production) |
+| quantity        | decimal(10,2) | Required                          |
+| reference_note  | string        | Nullable                          |
+| created_at      | timestamp     |                                   |
+| updated_at      | timestamp     |                                   |
+
+---
+
+### 5.6 `products`
+| Column          | Type          | Constraints                       |
+|-----------------|---------------|-----------------------------------|
+| id              | UUID          | Primary Key                       |
+| organization_id | UUID          | Foreign Key → organizations (cascade delete) |
+| product_number  | string        | Unique, Auto-generated (PROD1, PROD2...) |
+| name            | string        | Required                          |
+| description     | text          | Nullable                          |
+| price           | decimal(10,2) | Nullable                          |
+| unit            | string        | Default: pcs (pcs/kg/g/l/ml/pkt)  |
+| shelf_life_days | integer       | Nullable                          |
+| current_stock   | decimal(10,2) | Default: 0                        |
+| created_at      | timestamp     |                                   |
+| updated_at      | timestamp     |                                   |
+
+---
+
+### 5.7 `recipes`
+| Column            | Type          | Constraints                                  |
+|-------------------|---------------|----------------------------------------------|
+| id                | UUID          | Primary Key                                  |
+| product_id        | UUID          | Foreign Key → products (cascade delete)      |
+| ingredient_id     | UUID          | Foreign Key → ingredients (cascade delete)   |
+| quantity_required | decimal(10,2) | Required                                     |
+| created_at        | timestamp     |                                              |
+| updated_at        | timestamp     |                                              |
+| —                 | —             | Unique constraint on (product_id, ingredient_id) |
+
+---
+
+## 6. Table Relationships (ER Diagram)
+
+```mermaid
+erDiagram
+    ORGANIZATIONS ||--o{ USERS : "has many"
+    ORGANIZATIONS ||--o{ VENDORS : "has many"
+    ORGANIZATIONS ||--o{ INGREDIENTS : "has many"
+    ORGANIZATIONS ||--o{ PRODUCTS : "has many"
+    ORGANIZATIONS ||--o{ INVENTORY_TRANSACTIONS : "has many"
+
+    VENDORS ||--o{ INGREDIENTS : "supplies"
+
+    INGREDIENTS ||--o{ INVENTORY_TRANSACTIONS : "tracked by"
+    INGREDIENTS ||--o{ RECIPES : "used in"
+
+    PRODUCTS ||--o{ RECIPES : "composed of"
+
+    ORGANIZATIONS {
+        uuid id PK
+        string name
+        text description
+        string email
+        string phone
+        text address
+    }
+
+    USERS {
+        uuid id PK
+        uuid organization_id FK
+        string first_name
+        string last_name
+        string email
+        string role
+    }
+
+    VENDORS {
+        uuid id PK
+        uuid organization_id FK
+        string name
+        string contact_person
+        string email
+    }
+
+    INGREDIENTS {
+        uuid id PK
+        uuid organization_id FK
+        uuid vendor_id FK
+        string name
+        string unit
+        decimal current_stock
+    }
+
+    PRODUCTS {
+        uuid id PK
+        uuid organization_id FK
+        string product_number
+        string name
+        decimal price
+        string unit
+    }
+
+    RECIPES {
+        uuid id PK
+        uuid product_id FK
+        uuid ingredient_id FK
+        decimal quantity_required
+    }
+
+    INVENTORY_TRANSACTIONS {
+        uuid id PK
+        uuid organization_id FK
+        uuid ingredient_id FK
+        string type
+        decimal quantity
+        string reference_note
+    }
+```
+
+---
+
+## 7. Business Workflow
+
+Below is the typical workflow of how a bakery uses this system:
+
+```
+Step 1: Create Organization
+         ↓
+Step 2: Add Users (Owner, Admin, Staff)
+         ↓
+Step 3: Add Vendors (Flour Supplier, Sugar Supplier, etc.)
+         ↓
+Step 4: Add Ingredients (Flour, Sugar, Butter, Yeast, etc.)
+         ↓
+Step 5: Record Inventory Transactions
+         • Purchase ingredients from vendors (type: "in")
+         • Track wastage (type: "waste")
+         ↓
+Step 6: Create Products (Sweet Bread, Halwa, Cake, etc.)
+         • Set unit (pcs for items, kg for loose items)
+         • Set price per unit
+         ↓
+Step 7: Define Recipes for each Product
+         • Sweet Bread needs: 500g Flour + 100g Sugar + 50g Butter
+         • Halwa needs: 300g Sugar + 200g Ghee + 100g Flour
+         ↓
+Step 8: Monitor Stock Levels
+         • Check low-stock ingredients
+         • Reorder from vendors when stock is low
+```
+
+---
+
+## 8. Authentication & Security
+
+- **Token-Based Auth:** Uses Laravel Sanctum. Every API request (except organization creation and login) requires a `Bearer` token in the `Authorization` header.
+- **Middleware:**
+  - `auth:sanctum` — Validates the bearer token
+  - `check.org` — Ensures the user has access to the organization context
+- **Password Hashing:** All passwords are hashed using bcrypt before storing.
+- **Cascade Deletes:** Deleting an organization removes all its associated users, vendors, ingredients, products, recipes, and transactions.
+
+---
+
+## 9. API Response Format
+
+All API responses follow a consistent envelope structure:
+
+**Single Resource:**
+```json
+{
+    "data": {
+        "values": {
+            "id": "uuid",
+            "field1": "value1",
+            "field2": "value2"
+        }
+    }
+}
+```
+
+**Collection (List):**
+```json
+{
+    "data": [
+        {
+            "values": {
+                "id": "uuid",
+                "field1": "value1"
+            }
+        }
+    ]
+}
+```
+
+**Delete Response:**
+```json
+{
+    "message": "Resource successfully deleted."
+}
+```
+
+---
+
+## 10. File Structure
+
+```
+backend/
+├── app/
+│   ├── Http/
+│   │   └── Controllers/         # Base controller
+│   └── Modules/
+│       └── Api/V1/
+│           ├── Organization/    # Organization module
+│           ├── User/            # User & Auth module
+│           ├── Vendor/          # Vendor module
+│           ├── Ingredient/      # Ingredient module
+│           ├── InventoryTransaction/  # Stock transaction module
+│           ├── Product/         # Product module
+│           └── Recipe/          # Recipe module
+├── database/
+│   └── migrations/              # All database migration files
+├── routes/
+│   └── api.php                  # All API route definitions
+├── tests/
+│   └── Feature/                 # Feature/integration tests
+├── api_docs.md                  # API endpoint documentation (Postman bodies)
+├── app_overview.md              # This file
+├── composer.json
+└── phpunit.xml
+```

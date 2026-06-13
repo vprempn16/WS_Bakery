@@ -348,3 +348,311 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 * **Endpoint**: `GET /api/v1/ingredients/low-stock`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**: List of ingredients where `current_stock` < `minimum_stock_level`.
+
+---
+
+## 5. Vendor Management
+
+### 5.1 List Vendors
+* **Endpoint**: `GET /api/v1/vendors`
+* **Optional Filter**: `GET /api/v1/vendors?organizationId={UUID}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{
+    "data": [
+        {
+            "values": {
+                "id": "uuid",
+                "organizationId": "uuid",
+                "name": "Global Flour Corp",
+                "contactPerson": "Jane Smith",
+                "phone": "+1-555-0199",
+                "email": "contact@globalflour.com",
+                "address": "789 Mill Road, Grain Valley",
+                "createdAt": "2026-06-11T21:31:35.000000Z",
+                "updatedAt": "2026-06-11T21:31:35.000000Z"
+            }
+        }
+    ]
+}
+```
+
+### 5.2 Create Vendor
+* **Endpoint**: `POST /api/v1/vendors/new`
+* **Headers**: `Authorization: Bearer {token}`
+* **Request Body**:
+```json
+{
+    "data": {
+        "values": {
+            "organizationId": "{{org_uuid}}",
+            "name": "Global Flour Corp",
+            "contactPerson": "Jane Smith",
+            "phone": "+1-555-0199",
+            "email": "contact@globalflour.com",
+            "address": "789 Mill Road, Grain Valley"
+        }
+    }
+}
+```
+* **Response (201 Created)**:
+```json
+{
+    "data": {
+        "values": {
+            "id": "new_vendor_uuid",
+            "organizationId": "{{org_uuid}}",
+            "name": "Global Flour Corp",
+            "contactPerson": "Jane Smith",
+            "phone": "+1-555-0199",
+            "email": "contact@globalflour.com",
+            "address": "789 Mill Road, Grain Valley",
+            "createdAt": "2026-06-11T21:31:35.000000Z",
+            "updatedAt": "2026-06-11T21:31:35.000000Z"
+        }
+    }
+}
+```
+
+### 5.3 Get Vendor by ID
+* **Endpoint**: `GET /api/v1/vendors/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**: Same structure as single element in list response.
+
+### 5.4 Update Vendor
+* **Endpoint**: `PUT /api/v1/vendors/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Request Body**:
+```json
+{
+    "data": {
+        "values": {
+            "organizationId": "{{org_uuid}}",
+            "name": "Global Flour Corp Updated",
+            "contactPerson": "Jane Smith",
+            "phone": "+1-555-0199",
+            "email": "contact@globalflour.com",
+            "address": "789 Mill Road, Grain Valley"
+        }
+    }
+}
+```
+* **Response (200 OK)**:
+```json
+{
+    "data": {
+        "values": {
+            "id": "vendor_uuid",
+            "organizationId": "{{org_uuid}}",
+            "name": "Global Flour Corp Updated",
+            "contactPerson": "Jane Smith",
+            "phone": "+1-555-0199",
+            "email": "contact@globalflour.com",
+            "address": "789 Mill Road, Grain Valley",
+            "createdAt": "2026-06-11T21:31:35.000000Z",
+            "updatedAt": "2026-06-11T21:31:35.000000Z"
+        }
+    }
+}
+```
+
+### 5.5 Delete Vendor
+* **Endpoint**: `DELETE /api/v1/vendors/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{
+    "message": "Vendor successfully deleted."
+}
+```
+
+---
+
+## 6. Inventory Transactions
+
+### 6.1 List Inventory Transactions
+* **Endpoint**: `GET /api/v1/inventory-transactions`
+* **Optional Filter**: `GET /api/v1/inventory-transactions?ingredientId={UUID}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{
+    "data": [
+        {
+            "values": {
+                "id": "uuid",
+                "organizationId": "uuid",
+                "ingredientId": "uuid",
+                "type": "in",
+                "quantity": 1000,
+                "referenceNote": "Purchased 1kg Sugar",
+                "createdAt": "2026-06-11T21:31:35.000000Z"
+            }
+        }
+    ]
+}
+```
+
+### 6.2 Create Inventory Transaction
+* **Endpoint**: `POST /api/v1/inventory-transactions/new`
+* **Headers**: `Authorization: Bearer {token}`
+* **Request Body**:
+*(Note: `type` must be one of: `in`, `out`, `waste`, `production`)*
+```json
+{
+    "data": {
+        "values": {
+            "organizationId": "{{org_uuid}}",
+            "ingredientId": "{{ingredient_uuid}}",
+            "type": "in",
+            "quantity": 1000,
+            "referenceNote": "Purchased 1kg Sugar"
+        }
+    }
+}
+```
+* **Response (201 Created)**:
+```json
+{
+    "data": {
+        "values": {
+            "id": "new_transaction_uuid",
+            "organizationId": "{{org_uuid}}",
+            "ingredientId": "{{ingredient_uuid}}",
+            "type": "in",
+            "quantity": 1000.0,
+            "referenceNote": "Purchased 1kg Sugar",
+            "createdAt": "2026-06-11T21:31:35.000000Z"
+        }
+    }
+}
+```
+
+---
+
+## 7. Product Management
+
+### 7.1 List Products
+* **Endpoint**: `GET /api/v1/products`
+* **Optional Filter**: `GET /api/v1/products?organizationId={UUID}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{
+    "data": [
+        {
+            "values": {
+                "id": "uuid",
+                "organizationId": "uuid",
+                "productNumber": "PROD1",
+                "name": "Sweet Bread",
+                "description": "Delicious baked sweet bread",
+                "price": 50,
+                "unit": "pcs",
+                "shelfLifeDays": 3,
+                "currentStock": 0,
+                "createdAt": "2026-06-11T21:31:35.000000Z",
+                "updatedAt": "2026-06-11T21:31:35.000000Z"
+            }
+        }
+    ]
+}
+```
+
+### 7.2 Create Product
+* **Endpoint**: `POST /api/v1/products/new`
+* **Headers**: `Authorization: Bearer {token}`
+* **Request Body**:
+*(Note: `productNumber` is auto-generated on creation as `PROD1`, `PROD2`, etc. `unit` must be one of: `pcs`, `kg`, `g`, `l`, `ml`, `pkt`. Defaults to `pcs` if not provided)*
+```json
+{
+    "data": {
+        "values": {
+            "organizationId": "{{org_uuid}}",
+            "name": "Sweet Bread",
+            "description": "Delicious baked sweet bread",
+            "price": 50,
+            "unit": "pcs",
+            "shelfLifeDays": 3
+        }
+    }
+}
+```
+* **Response (201 Created)**:
+```json
+{
+    "data": {
+        "values": {
+            "id": "new_product_uuid",
+            "organizationId": "{{org_uuid}}",
+            "productNumber": "PROD1",
+            "name": "Sweet Bread",
+            "description": "Delicious baked sweet bread",
+            "price": 50,
+            "unit": "pcs",
+            "shelfLifeDays": 3,
+            "currentStock": 0,
+            "createdAt": "2026-06-11T21:31:35.000000Z",
+            "updatedAt": "2026-06-11T21:31:35.000000Z"
+        }
+    }
+}
+```
+
+### 7.3 Get Product by ID
+* **Endpoint**: `GET /api/v1/products/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**: Same structure as single element in list response.
+
+### 7.4 Update Product
+* **Endpoint**: `PUT /api/v1/products/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Request Body**:
+```json
+{
+    "data": {
+        "values": {
+            "organizationId": "{{org_uuid}}",
+            "name": "Sweet Bread Updated",
+            "description": "Super soft sweet bread",
+            "price": 55,
+            "unit": "pcs",
+            "shelfLifeDays": 4
+        }
+    }
+}
+```
+* **Response (200 OK)**:
+```json
+{
+    "data": {
+        "values": {
+            "id": "product_uuid",
+            "organizationId": "{{org_uuid}}",
+            "productNumber": "PROD1",
+            "name": "Sweet Bread Updated",
+            "description": "Super soft sweet bread",
+            "price": 55,
+            "unit": "pcs",
+            "shelfLifeDays": 4,
+            "currentStock": 0,
+            "createdAt": "2026-06-11T21:31:35.000000Z",
+            "updatedAt": "2026-06-11T21:31:35.000000Z"
+        }
+    }
+}
+```
+
+### 7.5 Delete Product
+* **Endpoint**: `DELETE /api/v1/products/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{
+    "message": "Product successfully deleted."
+}
+```
+```
+
+

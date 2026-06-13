@@ -35,6 +35,7 @@ class ProductController extends Controller
             'name' => $values['name'],
             'description' => $values['description'] ?? null,
             'price' => $values['price'] ?? null,
+            'unit' => $values['unit'] ?? 'pcs',
             'shelf_life_days' => $values['shelfLifeDays'] ?? null,
             'current_stock' => 0,
         ]);
@@ -58,6 +59,7 @@ class ProductController extends Controller
             'name' => $values['name'],
             'description' => $values['description'] ?? null,
             'price' => $values['price'] ?? null,
+            'unit' => $values['unit'] ?? 'pcs',
             'shelf_life_days' => $values['shelfLifeDays'] ?? null,
         ]);
 

@@ -85,7 +85,21 @@ class Phase2Test extends TestCase
             ]
         ]);
         $productResponse->assertStatus(201);
+        $this->assertEquals('PROD1', $productResponse->json('data.values.productNumber'));
         $productId = $productResponse->json('data.values.id');
+
+        // Create second product to verify autoincrement sequence (PROD2)
+        $secondProductResponse = $this->postJson('/api/v1/products/new', [
+            'data' => [
+                'values' => [
+                    'organizationId' => $org->id,
+                    'name' => 'Sour Bread',
+                    'price' => 60,
+                ]
+            ]
+        ]);
+        $secondProductResponse->assertStatus(201);
+        $this->assertEquals('PROD2', $secondProductResponse->json('data.values.productNumber'));
 
         // 6. Recipe
         $recipeResponse = $this->postJson("/api/v1/products/{$productId}/recipe/new", [
