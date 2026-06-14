@@ -22,6 +22,17 @@ Route::prefix('v1')->group(function () {
             Route::delete('{id}', [OrganizationController::class, 'destroy']);
         });
 
+        // Saved Filter endpoints
+        Route::prefix('filters')->group(function () {
+            Route::get('', [\App\Modules\Api\V1\SavedFilter\Controllers\SavedFilterController::class, 'index']);
+            Route::post('new', [\App\Modules\Api\V1\SavedFilter\Controllers\SavedFilterController::class, 'store']);
+            Route::delete('{id}', [\App\Modules\Api\V1\SavedFilter\Controllers\SavedFilterController::class, 'destroy']);
+        });
+
+        // Header endpoints (filter field definitions)
+        Route::get('headers', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
+        Route::get('headers/{filterId}', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
+
         // Vendor endpoints
         Route::prefix('vendors')->group(function () {
             Route::get('', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'index']);

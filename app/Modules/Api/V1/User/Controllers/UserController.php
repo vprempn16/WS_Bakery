@@ -14,12 +14,38 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $orgId = $request->query('organizationId');
+        $orgId = $request->user()->organization_id;
 
-        $query = User::query();
+        $query = User::where('organization_id', $orgId);
 
-        if ($orgId) {
-            $query->where('organization_id', $orgId);
+        $query->when($request->query('role'), function ($q, $role) {
+            $q->where('role', $role);
+        });
+
+        $query->when($request->query('search'), function ($q, $search) {
+            $q->where(function ($inner) use ($search) {
+                $inner->where('first_name', 'like', "%{$search}%")
+                      ->orWhere('last_name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%");
+            });
+        });
+
+        // Apply saved filter if provided
+        if ($request->has('savedFilterId')) {
+            $savedFilter = \App\Modules\Api\V1\SavedFilter\Models\SavedFilter::where('organization_id', $orgId)
+                ->findOrFail($request->query('savedFilterId'));
+            \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'users', $savedFilter->rules);
+        }
+
+        // Apply dynamic query rules if provided
+        if ($request->has('rules')) {
+            $rules = $request->input('rules');
+            if (is_string($rules)) {
+                $rules = json_decode($rules, true);
+            }
+            if (is_array($rules)) {
+                \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'users', $rules);
+            }
         }
 
         $users = $query->get();

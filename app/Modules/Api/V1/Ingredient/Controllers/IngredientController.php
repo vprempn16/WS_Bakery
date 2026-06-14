@@ -14,7 +14,44 @@ class IngredientController extends Controller
     public function index(Request $request)
     {
         $orgId = $request->user()->organization_id;
-        $ingredients = Ingredient::where('organization_id', $orgId)->get();
+
+        $query = Ingredient::where('organization_id', $orgId);
+
+        $query->when($request->query('search'), function ($q, $search) {
+            $q->where('name', 'like', "%{$search}%");
+        });
+
+        $query->when($request->query('vendorId'), function ($q, $vendorId) {
+            $q->where('vendor_id', $vendorId);
+        });
+
+        $query->when($request->query('stockStatus'), function ($q, $stockStatus) {
+            if ($stockStatus === 'low') {
+                $q->whereColumn('current_stock', '<', 'minimum_stock_level');
+            } elseif ($stockStatus === 'in_stock') {
+                $q->whereColumn('current_stock', '>=', 'minimum_stock_level');
+            }
+        });
+
+        // Apply saved filter if provided
+        if ($request->has('savedFilterId')) {
+            $savedFilter = \App\Modules\Api\V1\SavedFilter\Models\SavedFilter::where('organization_id', $orgId)
+                ->findOrFail($request->query('savedFilterId'));
+            \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'ingredients', $savedFilter->rules);
+        }
+
+        // Apply dynamic query rules if provided
+        if ($request->has('rules')) {
+            $rules = $request->input('rules');
+            if (is_string($rules)) {
+                $rules = json_decode($rules, true);
+            }
+            if (is_array($rules)) {
+                \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'ingredients', $rules);
+            }
+        }
+
+        $ingredients = $query->get();
 
         return IngredientResource::collection($ingredients);
     }

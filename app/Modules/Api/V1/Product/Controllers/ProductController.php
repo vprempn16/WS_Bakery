@@ -13,12 +13,45 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $orgId = $request->query('organizationId');
+        $orgId = $request->user()->organization_id;
 
-        $query = Product::query();
+        $query = Product::where('organization_id', $orgId);
 
-        if ($orgId) {
-            $query->where('organization_id', $orgId);
+        $query->when($request->query('search'), function ($q, $search) {
+            $q->where(function ($inner) use ($search) {
+                $inner->where('name', 'like', "%{$search}%")
+                      ->orWhere('product_number', 'like', "%{$search}%");
+            });
+        });
+
+        $query->when($request->query('unit'), function ($q, $unit) {
+            $q->where('unit', $unit);
+        });
+
+        $query->when($request->query('stockStatus'), function ($q, $stockStatus) {
+            if ($stockStatus === 'out_of_stock') {
+                $q->where('current_stock', 0);
+            } elseif ($stockStatus === 'in_stock') {
+                $q->where('current_stock', '>', 0);
+            }
+        });
+
+        // Apply saved filter if provided
+        if ($request->has('savedFilterId')) {
+            $savedFilter = \App\Modules\Api\V1\SavedFilter\Models\SavedFilter::where('organization_id', $orgId)
+                ->findOrFail($request->query('savedFilterId'));
+            \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'products', $savedFilter->rules);
+        }
+
+        // Apply dynamic query rules if provided
+        if ($request->has('rules')) {
+            $rules = $request->input('rules');
+            if (is_string($rules)) {
+                $rules = json_decode($rules, true);
+            }
+            if (is_array($rules)) {
+                \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'products', $rules);
+            }
         }
 
         $products = $query->get();

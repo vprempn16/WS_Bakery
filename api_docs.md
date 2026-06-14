@@ -194,7 +194,11 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 
 ### 2.5 List Users
 * **Endpoint**: `GET /api/v1/settings/User`
-* **Optional Filter**: `GET /api/v1/settings/User?organizationId={UUID}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Optional Filters**:
+  * Filter by Role: `GET /api/v1/settings/User?role={owner|admin|staff}`
+  * Search by name/email: `GET /api/v1/settings/User?search={keyword}`
+  * Combined: `GET /api/v1/settings/User?role={role}&search={keyword}`
 * **Response (200 OK)**:
   ```json
   {
@@ -271,6 +275,11 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ### 4.1 List Ingredients
 * **Endpoint**: `GET /api/v1/ingredients`
 * **Headers**: `Authorization: Bearer {token}`
+* **Optional Filters**:
+  * Search by name: `GET /api/v1/ingredients?search={keyword}`
+  * Filter by Vendor: `GET /api/v1/ingredients?vendorId={vendor_uuid}`
+  * Filter by Stock Status: `GET /api/v1/ingredients?stockStatus={low|in_stock}`
+  * Combined: `GET /api/v1/ingredients?search={keyword}&vendorId={vendor_uuid}&stockStatus={low}`
 * **Response (200 OK)**:
 ```json
 {
@@ -355,8 +364,9 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 
 ### 5.1 List Vendors
 * **Endpoint**: `GET /api/v1/vendors`
-* **Optional Filter**: `GET /api/v1/vendors?organizationId={UUID}`
 * **Headers**: `Authorization: Bearer {token}`
+* **Optional Filters**:
+  * Search by name, contact person, email, or phone: `GET /api/v1/vendors?search={keyword}`
 * **Response (200 OK)**:
 ```json
 {
@@ -473,8 +483,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 
 ### 6.1 List Inventory Transactions
 * **Endpoint**: `GET /api/v1/inventory-transactions`
-* **Optional Filter**: `GET /api/v1/inventory-transactions?ingredientId={UUID}`
 * **Headers**: `Authorization: Bearer {token}`
+* **Optional Filters**:
+  * Filter by Ingredient: `GET /api/v1/inventory-transactions?ingredientId={ingredient_uuid}`
+  * Filter by Transaction Type: `GET /api/v1/inventory-transactions?type={in|out|waste|production}`
+  * Date Range Filters: `GET /api/v1/inventory-transactions?startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}`
+  * Combined: `GET /api/v1/inventory-transactions?ingredientId={ingredient_uuid}&type=waste&startDate=2026-06-01&endDate=2026-06-15`
 * **Response (200 OK)**:
 ```json
 {
@@ -535,8 +549,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 
 ### 7.1 List Products
 * **Endpoint**: `GET /api/v1/products`
-* **Optional Filter**: `GET /api/v1/products?organizationId={UUID}`
 * **Headers**: `Authorization: Bearer {token}`
+* **Optional Filters**:
+  * Search by name or product number: `GET /api/v1/products?search={keyword_or_product_number}`
+  * Filter by Unit: `GET /api/v1/products?unit={pcs|kg|g|l|ml|pkt}`
+  * Filter by Stock Status: `GET /api/v1/products?stockStatus={out_of_stock|in_stock}`
+  * Combined: `GET /api/v1/products?search=Bread&unit=pcs&stockStatus=in_stock`
 * **Response (200 OK)**:
 ```json
 {
@@ -653,6 +671,415 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
     "message": "Product successfully deleted."
 }
 ```
+
+---
+
+## 8. Recipe Management
+
+### 8.1 List Recipe Ingredients for a Product
+* **Endpoint**: `GET /api/v1/products/{productId}/recipe`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{
+    "data": [
+        {
+            "values": {
+                "id": "recipe_uuid",
+                "productId": "product_uuid",
+                "ingredientId": "ingredient_uuid",
+                "quantityRequired": 200.0,
+                "ingredient": {
+                    "values": {
+                        "id": "ingredient_uuid",
+                        "organizationId": "org_uuid",
+                        "vendorId": "vendor_uuid",
+                        "name": "Sugar",
+                        "unit": "g",
+                        "minimumStockLevel": 500.0,
+                        "currentStock": 2000.0,
+                        "createdAt": "2026-06-11T21:31:35.000000Z",
+                        "updatedAt": "2026-06-11T21:31:35.000000Z"
+                    }
+                }
+            }
+        }
+    ]
+}
 ```
 
+### 8.2 Add or Update Recipe Ingredient for a Product
+* **Endpoint**: `POST /api/v1/products/{productId}/recipe/new`
+* **Headers**: `Authorization: Bearer {token}`
+* **Request Body**:
+```json
+{
+    "data": {
+        "values": {
+            "ingredientId": "ingredient_uuid",
+            "quantityRequired": 200.0
+        }
+    }
+}
+```
+* **Response (201 Created)**:
+```json
+{
+    "data": {
+        "values": {
+            "id": "recipe_uuid",
+            "productId": "product_uuid",
+            "ingredientId": "ingredient_uuid",
+            "quantityRequired": 200.0,
+            "ingredient": {
+                "values": {
+                    "id": "ingredient_uuid",
+                    "organizationId": "org_uuid",
+                    "vendorId": "vendor_uuid",
+                    "name": "Sugar",
+                    "unit": "g",
+                    "minimumStockLevel": 500.0,
+                    "currentStock": 2000.0,
+                    "createdAt": "2026-06-11T21:31:35.000000Z",
+                    "updatedAt": "2026-06-11T21:31:35.000000Z"
+                }
+            }
+        }
+    }
+}
+```
 
+### 8.3 Remove Ingredient from a Product's Recipe
+* **Endpoint**: `DELETE /api/v1/products/{productId}/recipe/{ingredientId}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+}
+```
+
+---
+
+## 9. Saved Filters
+
+### 9.1 Create a Saved Filter
+* **Endpoint**: `POST /api/v1/filters/new`
+* **Headers**: `Authorization: Bearer {token}`
+* **Request Body**:
+*(Note: `module` accepts both PascalCase and lowercase: `User`/`users`, `Vendor`/`vendors`, `Ingredient`/`ingredients`, `InventoryTransaction`/`inventory_transactions`, `Product`/`products`)*
+
+*(Note: `rules.conditions` is required. Each condition needs `field`, `operator`, and `value`. Allowed operators: `=`, `!=`, `>`, `<`, `>=`, `<=`, `like`, `LIKE`, `in`, `IN`)*
+
+**Example 1: Filter Users by role (single condition)**
+```json
+{
+    "data": {
+        "values": {
+            "name": "Admin Users Only",
+            "module": "User",
+            "isPublic": false,
+            "rules": {
+                "logical_operator": "AND",
+                "conditions": [
+                    {
+                        "field": "role",
+                        "operator": "=",
+                        "value": "admin"
+                    }
+                ]
+            }
+        }
+    }
+}
+```
+
+**Example 2: Filter Users by role AND name search (multiple conditions)**
+```json
+{
+    "data": {
+        "values": {
+            "name": "Admin Johns",
+            "module": "User",
+            "isPublic": false,
+            "rules": {
+                "logical_operator": "AND",
+                "conditions": [
+                    {
+                        "field": "role",
+                        "operator": "=",
+                        "value": "admin"
+                    },
+                    {
+                        "field": "firstName",
+                        "operator": "like",
+                        "value": "%john%"
+                    }
+                ]
+            }
+        }
+    }
+}
+```
+
+**Example 3: Filter Products by price range (OR logic)**
+```json
+{
+    "data": {
+        "values": {
+            "name": "Cheap or Premium Products",
+            "module": "Product",
+            "isPublic": true,
+            "rules": {
+                "logical_operator": "OR",
+                "conditions": [
+                    {
+                        "field": "price",
+                        "operator": "<",
+                        "value": 50
+                    },
+                    {
+                        "field": "price",
+                        "operator": ">",
+                        "value": 500
+                    }
+                ]
+            }
+        }
+    }
+}
+```
+
+**Example 4: Filter Ingredients by vendor (single condition)**
+```json
+{
+    "data": {
+        "values": {
+            "name": "Sugar Supplier Items",
+            "module": "Ingredient",
+            "isPublic": false,
+            "rules": {
+                "conditions": [
+                    {
+                        "field": "vendorId",
+                        "operator": "=",
+                        "value": "{{vendor_uuid}}"
+                    }
+                ]
+            }
+        }
+    }
+}
+```
+
+* **Response (201 Created)**:
+```json
+{
+    "data": {
+        "values": {
+            "id": "new_filter_uuid",
+            "organizationId": "{{org_uuid}}",
+            "userId": "user_uuid",
+            "name": "Admin Users Only",
+            "module": "users",
+            "rules": {
+                "logical_operator": "AND",
+                "conditions": [
+                    {
+                        "field": "role",
+                        "operator": "=",
+                        "value": "admin"
+                    }
+                ]
+            },
+            "isPublic": false,
+            "createdAt": "2026-06-13T17:31:35.000000Z",
+            "updatedAt": "2026-06-13T17:31:35.000000Z"
+        }
+    }
+}
+```
+
+### 9.2 Allowed Fields per Module
+| Module | Allowed Fields (camelCase or snake_case) |
+|--------|------------------------------------------|
+| `User` / `users` | `firstName`, `lastName`, `email`, `role`, `createdAt` |
+| `Vendor` / `vendors` | `name`, `contactPerson`, `email`, `phone`, `createdAt` |
+| `Ingredient` / `ingredients` | `name`, `unit`, `minimumStockLevel`, `currentStock`, `vendorId`, `createdAt` |
+| `InventoryTransaction` / `inventory_transactions` | `type`, `quantity`, `ingredientId`, `createdAt` |
+| `Product` / `products` | `name`, `productNumber`, `price`, `unit`, `shelfLifeDays`, `currentStock`, `createdAt` |
+
+### 9.3 List Saved Filters
+* **Endpoint**: `GET /api/v1/filters`
+* **Headers**: `Authorization: Bearer {token}`
+* **Optional Filters**:
+  * Filter by module: `GET /api/v1/filters?module=users`
+* **Response (200 OK)**:
+```json
+{
+    "data": [
+        {
+            "values": {
+                "id": "filter_uuid",
+                "organizationId": "org_uuid",
+                "userId": "user_uuid",
+                "name": "Admin Users Only",
+                "module": "users",
+                "rules": {
+                    "logical_operator": "AND",
+                    "conditions": [
+                        {
+                            "field": "role",
+                            "operator": "=",
+                            "value": "admin"
+                        }
+                    ]
+                },
+                "isPublic": false,
+                "createdAt": "2026-06-13T17:31:35.000000Z",
+                "updatedAt": "2026-06-13T17:31:35.000000Z"
+            }
+        }
+    ]
+}
+```
+
+### 9.4 Delete a Saved Filter
+* **Endpoint**: `DELETE /api/v1/filters/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{
+    "message": "Saved filter successfully deleted."
+}
+```
+
+### 9.5 Applying Saved Filters on Module Listings
+For any list endpoint, append `?savedFilterId={filter_uuid}` to apply a previously saved filter:
+* `GET /api/v1/settings/User?savedFilterId={filter_uuid}`
+* `GET /api/v1/vendors?savedFilterId={filter_uuid}`
+* `GET /api/v1/ingredients?savedFilterId={filter_uuid}`
+* `GET /api/v1/inventory-transactions?savedFilterId={filter_uuid}`
+* `GET /api/v1/products?savedFilterId={filter_uuid}`
+
+### 9.6 Default Filters
+When the app is first installed and migrations run, a default **"All"** filter is automatically created for each module (`users`, `vendors`, `ingredients`, `inventory_transactions`, `products`). These default filters:
+* Have `is_default: true`
+* Are global (not organization-specific)
+* Include all module fields in `header_details`
+* Cannot be deleted
+
+### 9.7 Create Filter with Custom Header Details
+When creating a saved filter, you can optionally pass `headerDetails` to specify which columns should be visible in the list view for that filter. If not provided, all module fields are used as default.
+
+```json
+{
+    "data": {
+        "values": {
+            "name": "Admin Users - Name Only",
+            "module": "User",
+            "isPublic": false,
+            "rules": {
+                "logical_operator": "AND",
+                "conditions": [
+                    {
+                        "field": "role",
+                        "operator": "=",
+                        "value": "admin"
+                    }
+                ]
+            },
+            "headerDetails": [
+                { "fieldname": "id", "fieldlabel": "ID" },
+                { "fieldname": "firstName", "fieldlabel": "First Name" },
+                { "fieldname": "lastName", "fieldlabel": "Last Name" },
+                { "fieldname": "email", "fieldlabel": "Email" }
+            ]
+        }
+    }
+}
+```
+
+---
+
+## 10. Headers (Filter Field Definitions)
+
+The Headers API returns the column/field definitions for a filter. It tells the frontend which columns to display in a list view.
+
+### 10.1 Get Headers by Module (Default Filter)
+* **Endpoint**: `GET /api/v1/headers?module={module_name}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Returns the default "All" filter's field definitions for the given module.
+
+**Example**: `GET /api/v1/headers?module=users`
+
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "Success",
+    "data": {
+        "filter_id": "fa47fe48-a6b3-49db-9803-9d90755d5e88",
+        "is_default": true,
+        "fields": [
+            { "fieldname": "id", "fieldlabel": "ID" },
+            { "fieldname": "firstName", "fieldlabel": "First Name" },
+            { "fieldname": "lastName", "fieldlabel": "Last Name" },
+            { "fieldname": "email", "fieldlabel": "Email" },
+            { "fieldname": "phone", "fieldlabel": "Phone" },
+            { "fieldname": "role", "fieldlabel": "Role" },
+            { "fieldname": "organizationId", "fieldlabel": "Organization ID" },
+            { "fieldname": "createdAt", "fieldlabel": "Created At" }
+        ]
+    }
+}
+```
+
+**Example**: `GET /api/v1/headers?module=products`
+
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "Success",
+    "data": {
+        "filter_id": "849e4b64-b23a-4638-bd6e-afea74216ff9",
+        "is_default": true,
+        "fields": [
+            { "fieldname": "id", "fieldlabel": "ID" },
+            { "fieldname": "productNumber", "fieldlabel": "Product Number" },
+            { "fieldname": "name", "fieldlabel": "Name" },
+            { "fieldname": "description", "fieldlabel": "Description" },
+            { "fieldname": "price", "fieldlabel": "Price" },
+            { "fieldname": "unit", "fieldlabel": "Unit" },
+            { "fieldname": "shelfLifeDays", "fieldlabel": "Shelf Life Days" },
+            { "fieldname": "currentStock", "fieldlabel": "Current Stock" },
+            { "fieldname": "createdAt", "fieldlabel": "Created At" },
+            { "fieldname": "updatedAt", "fieldlabel": "Updated At" }
+        ]
+    }
+}
+```
+
+### 10.2 Get Headers by Filter ID
+* **Endpoint**: `GET /api/v1/headers/{filterId}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Returns the field definitions stored in the given filter's `header_details`. If that filter has custom `headerDetails`, only those fields are returned (matched against the module's full field list).
+
+**Example**: `GET /api/v1/headers/a3ae37e8-fc06-443f-a7fa-7c5fe4f6c62f`
+
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "Success",
+    "data": {
+        "filter_id": "a3ae37e8-fc06-443f-a7fa-7c5fe4f6c62f",
+        "is_default": false,
+        "fields": [
+            { "fieldname": "id", "fieldlabel": "ID" },
+            { "fieldname": "firstName", "fieldlabel": "First Name" },
+            { "fieldname": "lastName", "fieldlabel": "Last Name" },
+            { "fieldname": "email", "fieldlabel": "Email" }
+        ]
+    }
+}
+```

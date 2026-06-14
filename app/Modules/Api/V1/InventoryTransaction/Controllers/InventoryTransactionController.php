@@ -14,12 +14,42 @@ class InventoryTransactionController extends Controller
 {
     public function index(Request $request)
     {
-        $ingredientId = $request->query('ingredientId');
+        $orgId = $request->user()->organization_id;
 
-        $query = InventoryTransaction::query();
+        $query = InventoryTransaction::where('organization_id', $orgId);
 
-        if ($ingredientId) {
-            $query->where('ingredient_id', $ingredientId);
+        $query->when($request->query('ingredientId'), function ($q, $ingredientId) {
+            $q->where('ingredient_id', $ingredientId);
+        });
+
+        $query->when($request->query('type'), function ($q, $type) {
+            $q->where('type', $type);
+        });
+
+        $query->when($request->query('startDate'), function ($q, $startDate) {
+            $q->whereDate('created_at', '>=', $startDate);
+        });
+
+        $query->when($request->query('endDate'), function ($q, $endDate) {
+            $q->whereDate('created_at', '<=', $endDate);
+        });
+
+        // Apply saved filter if provided
+        if ($request->has('savedFilterId')) {
+            $savedFilter = \App\Modules\Api\V1\SavedFilter\Models\SavedFilter::where('organization_id', $orgId)
+                ->findOrFail($request->query('savedFilterId'));
+            \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'inventory_transactions', $savedFilter->rules);
+        }
+
+        // Apply dynamic query rules if provided
+        if ($request->has('rules')) {
+            $rules = $request->input('rules');
+            if (is_string($rules)) {
+                $rules = json_decode($rules, true);
+            }
+            if (is_array($rules)) {
+                \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'inventory_transactions', $rules);
+            }
         }
 
         $transactions = $query->orderBy('created_at', 'desc')->get();
