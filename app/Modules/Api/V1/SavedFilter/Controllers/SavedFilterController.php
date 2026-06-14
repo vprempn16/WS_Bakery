@@ -43,7 +43,11 @@ class SavedFilterController extends Controller
 
         $filters = $query->orderBy('is_default', 'desc')->orderBy('created_at', 'asc')->get();
 
-        return SavedFilterResource::collection($filters);
+        return response()->json([
+            'status' => true,
+            'message' => 'Success',
+            'data' => SavedFilterResource::collection($filters),
+        ]);
     }
 
     public function store(StoreSavedFilterRequest $request)
@@ -71,7 +75,11 @@ class SavedFilterController extends Controller
             'header_details' => $headerDetails,
         ]);
 
-        return new SavedFilterResource($savedFilter);
+        return response()->json([
+            'status' => true,
+            'message' => 'Success',
+            'data' => new SavedFilterResource($savedFilter),
+        ], 201);
     }
 
     public function destroy(Request $request, $id)

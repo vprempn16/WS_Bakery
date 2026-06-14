@@ -873,6 +873,8 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 * **Response (201 Created)**:
 ```json
 {
+    "status": true,
+    "message": "Success",
     "data": {
         "values": {
             "id": "new_filter_uuid",
@@ -915,6 +917,8 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 * **Response (200 OK)**:
 ```json
 {
+    "status": true,
+    "message": "Success",
     "data": [
         {
             "values": {

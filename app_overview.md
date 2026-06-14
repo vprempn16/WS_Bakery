@@ -105,6 +105,15 @@ All API routes are prefixed with `/api/v1/` and defined in `routes/api.php`.
 - Remove an ingredient from a product's recipe
 - Each recipe entry records the `quantity_required` of an ingredient
 
+### 4.8 Saved Filters & Headers Module
+**Purpose:** Allows users to create, delete, and apply custom search filters (with conditional rules like field, operator, and value) dynamically. It also manages custom table column visibility (headers configuration) per module.
+
+- Create custom saved filters with logical conditions (`AND`/`OR`) and safety-whitelisted operator rules
+- List saved filters (with automatically seeded system-wide default "All" filters)
+- Delete user-defined filters (system default filters cannot be deleted)
+- Dynamically filter resources on-the-fly for any list endpoint (e.g. `GET /api/v1/products?savedFilterId=...` or using raw inline `rules`)
+- Match, query, and return module field configuration configurations and header mappings via `/api/v1/headers` and `/api/v1/headers/{filterId}`
+
 ---
 
 ## 5. Database Tables & Schema
@@ -216,6 +225,23 @@ All API routes are prefixed with `/api/v1/` and defined in `routes/api.php`.
 
 ---
 
+### 5.8 `saved-filters`
+| Column          | Type      | Constraints                                  |
+|-----------------|-----------|----------------------------------------------|
+| id              | UUID      | Primary Key                                  |
+| organization_id | UUID      | Nullable, Foreign Key → organizations (cascade delete) |
+| user_id         | UUID      | Nullable, Foreign Key → users (cascade delete)   |
+| name            | string    | Required                                     |
+| module          | string    | Required (User / Vendor / Ingredient / InventoryTransaction / Product) |
+| rules           | JSON      | Required                                     |
+| is_public       | boolean   | Default: false                               |
+| is_default      | boolean   | Default: false                               |
+| header_details  | JSON      | Nullable                                     |
+| created_at      | timestamp |                                              |
+| updated_at      | timestamp |                                              |
+
+---
+
 ## 6. Table Relationships (ER Diagram)
 
 ```mermaid
@@ -232,6 +258,9 @@ erDiagram
     INGREDIENTS ||--o{ RECIPES : "used in"
 
     PRODUCTS ||--o{ RECIPES : "composed of"
+
+    ORGANIZATIONS ||--o{ "SAVED-FILTERS" : "has many"
+    USERS ||--o{ "SAVED-FILTERS" : "owns"
 
     ORGANIZATIONS {
         uuid id PK
@@ -291,6 +320,18 @@ erDiagram
         string type
         decimal quantity
         string reference_note
+    }
+
+    "SAVED-FILTERS" {
+        uuid id PK
+        uuid organization_id FK
+        uuid user_id FK
+        string name
+        string module
+        json rules
+        boolean is_public
+        boolean is_default
+        json header_details
     }
 ```
 
@@ -394,7 +435,8 @@ backend/
 │           ├── Ingredient/      # Ingredient module
 │           ├── InventoryTransaction/  # Stock transaction module
 │           ├── Product/         # Product module
-│           └── Recipe/          # Recipe module
+│           ├── Recipe/          # Recipe module
+│           └── SavedFilter/     # Saved filters & dynamic headers module
 ├── database/
 │   └── migrations/              # All database migration files
 ├── routes/
