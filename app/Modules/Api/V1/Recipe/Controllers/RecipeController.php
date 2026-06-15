@@ -10,12 +10,13 @@ use App\Modules\Api\V1\Recipe\Resources\RecipeResource;
 
 class RecipeController extends Controller
 {
-    public function index($productId)
+    public function index(Request $request, $productId)
     {
+        $perPage = $request->query('per_page', 20);
         $product = Product::findOrFail($productId);
-        $recipes = $product->recipes()->with('ingredient')->get();
+        $recipes = $product->recipes()->with('ingredient')->paginate($perPage);
 
-        return RecipeResource::collection($recipes);
+        return $this->paginated(RecipeResource::collection($recipes)->resource);
     }
 
     public function store(StoreRecipeRequest $request, $productId)
@@ -30,7 +31,7 @@ class RecipeController extends Controller
 
         $recipe->load('ingredient');
 
-        return new RecipeResource($recipe);
+        return $this->success(new RecipeResource($recipe), 'Recipe ingredient added successfully.', 201);
     }
 
     public function destroy($productId, $ingredientId)
@@ -39,8 +40,6 @@ class RecipeController extends Controller
               ->where('ingredient_id', $ingredientId)
               ->delete();
 
-        return response()->json([
-            'message' => 'Recipe ingredient successfully removed.'
-        ]);
+        return $this->success(null, 'Recipe ingredient successfully removed.');
     }
 }

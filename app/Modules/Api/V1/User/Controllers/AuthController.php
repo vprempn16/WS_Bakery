@@ -17,42 +17,32 @@ class AuthController extends Controller
         $user = User::with('organization')->where('email', $values['email'])->first();
 
         if (!$user || !Hash::check($values['password'], $user->password)) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Invalid email or password.'
-            ], 401);
+            return $this->error('Invalid email or password.', null, null, null, 401);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Login successful.',
-            'data' => [
-                'token' => $token,
-                'user' => [
-                    'id' => $user->id,
-                    'first_name' => $user->first_name,
-                    'last_name' => $user->last_name,
-                    'email' => $user->email,
-                    'phone_number' => $user->phone,
-                    'role' => $user->role,
-                    'organization' => $user->organization ? [
-                        'id' => $user->organization->id,
-                        'name' => $user->organization->name,
-                    ] : null
-                ]
+        return $this->success([
+            'token' => $token,
+            'user' => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'phone_number' => $user->phone,
+                'role' => $user->role,
+                'organization' => $user->organization ? [
+                    'id' => $user->organization->id,
+                    'name' => $user->organization->name,
+                ] : null
             ]
-        ], 200);
+        ], 'Login successful.');
     }
 
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Logout successful.'
-        ], 200);
+        return $this->success(null, 'Logout successful.');
     }
 }

@@ -14,6 +14,7 @@ class IngredientController extends Controller
     public function index(Request $request)
     {
         $orgId = $request->user()->organization_id;
+        $perPage = $request->query('per_page', 20);
 
         $query = Ingredient::where('organization_id', $orgId);
 
@@ -51,9 +52,9 @@ class IngredientController extends Controller
             }
         }
 
-        $ingredients = $query->get();
+        $ingredients = $query->paginate($perPage);
 
-        return IngredientResource::collection($ingredients);
+        return $this->paginated(IngredientResource::collection($ingredients)->resource);
     }
 
     public function store(StoreIngredientRequest $request)
@@ -70,14 +71,14 @@ class IngredientController extends Controller
             'current_stock' => $values['currentStock'] ?? 0,
         ]);
 
-        return new IngredientResource($ingredient);
+        return $this->success(new IngredientResource($ingredient), 'Ingredient created successfully.', 201);
     }
 
     public function show(Request $request, $id)
     {
         $orgId = $request->user()->organization_id;
         $ingredient = Ingredient::where('organization_id', $orgId)->findOrFail($id);
-        return new IngredientResource($ingredient);
+        return $this->success(new IngredientResource($ingredient));
     }
 
     public function update(UpdateIngredientRequest $request, $id)
@@ -93,7 +94,7 @@ class IngredientController extends Controller
             'minimum_stock_level' => $values['minimumStockLevel'] ?? 0,
         ]);
 
-        return new IngredientResource($ingredient);
+        return $this->success(new IngredientResource($ingredient));
     }
 
     public function destroy(Request $request, $id)
@@ -102,19 +103,18 @@ class IngredientController extends Controller
         $ingredient = Ingredient::where('organization_id', $orgId)->findOrFail($id);
         $ingredient->delete();
 
-        return response()->json([
-            'message' => 'Ingredient successfully deleted.'
-        ]);
+        return $this->success(null, 'Ingredient successfully deleted.');
     }
 
     public function lowStock(Request $request)
     {
         $orgId = $request->user()->organization_id;
+        $perPage = $request->query('per_page', 20);
         $ingredients = Ingredient::where('organization_id', $orgId)
             ->whereColumn('current_stock', '<', 'minimum_stock_level')
-            ->get();
+            ->paginate($perPage);
 
-        return IngredientResource::collection($ingredients);
+        return $this->paginated(IngredientResource::collection($ingredients)->resource);
     }
 }
 

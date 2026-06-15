@@ -43,11 +43,7 @@ class SavedFilterController extends Controller
 
         $filters = $query->orderBy('is_default', 'desc')->orderBy('created_at', 'asc')->get();
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Success',
-            'data' => SavedFilterResource::collection($filters),
-        ]);
+        return $this->success(SavedFilterResource::collection($filters));
     }
 
     public function store(StoreSavedFilterRequest $request)
@@ -75,11 +71,7 @@ class SavedFilterController extends Controller
             'header_details' => $headerDetails,
         ]);
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Success',
-            'data' => new SavedFilterResource($savedFilter),
-        ], 201);
+        return $this->success(new SavedFilterResource($savedFilter), 'Saved filter created successfully.', 201);
     }
 
     public function destroy(Request $request, $id)
@@ -89,15 +81,11 @@ class SavedFilterController extends Controller
 
         // Prevent deleting default filters
         if ($savedFilter->is_default) {
-            return response()->json([
-                'message' => 'Cannot delete a default filter.'
-            ], 403);
+            return $this->error('Cannot delete a default filter.', null, null, null, 403);
         }
 
         $savedFilter->delete();
 
-        return response()->json([
-            'message' => 'Saved filter successfully deleted.'
-        ]);
+        return $this->success(null, 'Saved filter successfully deleted.');
     }
 }

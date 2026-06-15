@@ -7,19 +7,15 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class OrganizationResource extends JsonResource
 {
-    public static $wrap = 'data';
-
     public function toArray(Request $request): array
     {
         return [
-            'values' => [
-                'id' => $this->id,
-                'name' => $this->name,
-                'description' => $this->description,
-                'email' => $this->email,
-                'phone' => $this->phone,
-                'address' => $this->address,
-            ]
+            'id' => $this->id,
+            'name' => $this->name,
+            'description' => $this->description,
+            'email' => $this->email,
+            'phone' => $this->phone,
+            'address' => $this->address,
         ];
     }
 }

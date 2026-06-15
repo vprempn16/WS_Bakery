@@ -14,6 +14,7 @@ class VendorController extends Controller
     public function index(Request $request)
     {
         $orgId = $request->user()->organization_id;
+        $perPage = $request->query('per_page', 20);
 
         $query = Vendor::where('organization_id', $orgId);
 
@@ -44,9 +45,9 @@ class VendorController extends Controller
             }
         }
 
-        $vendors = $query->get();
+        $vendors = $query->paginate($perPage);
 
-        return VendorResource::collection($vendors);
+        return $this->paginated(VendorResource::collection($vendors)->resource);
     }
 
     public function store(StoreVendorRequest $request)
@@ -62,13 +63,13 @@ class VendorController extends Controller
             'address' => $values['address'] ?? null,
         ]);
 
-        return new VendorResource($vendor);
+        return $this->success(new VendorResource($vendor), 'Vendor created successfully.', 201);
     }
 
     public function show($id)
     {
         $vendor = Vendor::findOrFail($id);
-        return new VendorResource($vendor);
+        return $this->success(new VendorResource($vendor));
     }
 
     public function update(UpdateVendorRequest $request, $id)
@@ -85,7 +86,7 @@ class VendorController extends Controller
             'address' => $values['address'] ?? null,
         ]);
 
-        return new VendorResource($vendor);
+        return $this->success(new VendorResource($vendor));
     }
 
     public function destroy($id)
@@ -93,8 +94,6 @@ class VendorController extends Controller
         $vendor = Vendor::findOrFail($id);
         $vendor->delete();
 
-        return response()->json([
-            'message' => 'Vendor successfully deleted.'
-        ]);
+        return $this->success(null, 'Vendor successfully deleted.');
     }
 }

@@ -27,10 +27,7 @@ class HeaderController extends Controller
             $allFields = ModuleFieldConfig::getFields($module);
 
             if (!$allFields) {
-                return response()->json([
-                    'status' => false,
-                    'message' => "Unknown module: {$module}",
-                ], 422);
+                return $this->error("Unknown module: {$module}", null, null, null, 422);
             }
 
             // If this filter has header_details saved, use those to determine which fields to show
@@ -47,34 +44,24 @@ class HeaderController extends Controller
                 $fields = $allFields;
             }
 
-            return response()->json([
-                'status' => true,
-                'message' => 'Success',
-                'data' => [
-                    'filter_id' => $filter->id,
-                    'is_default' => (bool) $filter->is_default,
-                    'fields' => $fields,
-                ],
+            return $this->success([
+                'filter_id' => $filter->id,
+                'is_default' => (bool) $filter->is_default,
+                'fields' => $fields,
             ]);
         }
 
         // No filterId → need module query param to find the default filter
         $module = $request->query('module');
         if (!$module) {
-            return response()->json([
-                'status' => false,
-                'message' => 'The module query parameter is required.',
-            ], 422);
+            return $this->error('The module query parameter is required.', null, null, null, 422);
         }
 
         $normalizedModule = ModuleFieldConfig::normalizeModule($module);
         $allFields = ModuleFieldConfig::getFields($normalizedModule);
 
         if (!$allFields) {
-            return response()->json([
-                'status' => false,
-                'message' => "Unknown module: {$module}",
-            ], 422);
+            return $this->error("Unknown module: {$module}", null, null, null, 422);
         }
 
         // Find the default filter for this module
@@ -94,26 +81,18 @@ class HeaderController extends Controller
                 $fields = $allFields;
             }
 
-            return response()->json([
-                'status' => true,
-                'message' => 'Success',
-                'data' => [
-                    'filter_id' => $defaultFilter->id,
-                    'is_default' => true,
-                    'fields' => $fields,
-                ],
+            return $this->success([
+                'filter_id' => $defaultFilter->id,
+                'is_default' => true,
+                'fields' => $fields,
             ]);
         }
 
         // No default filter exists in DB → return all module fields without filter_id
-        return response()->json([
-            'status' => true,
-            'message' => 'Success',
-            'data' => [
-                'filter_id' => null,
-                'is_default' => true,
-                'fields' => $allFields,
-            ],
+        return $this->success([
+            'filter_id' => null,
+            'is_default' => true,
+            'fields' => $allFields,
         ]);
     }
 }

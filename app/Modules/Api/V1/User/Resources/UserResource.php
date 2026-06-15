@@ -7,8 +7,6 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class UserResource extends JsonResource
 {
-    public static $wrap = 'data';
-
     protected ?string $token = null;
 
     public function __construct($resource, ?string $token = null)
@@ -34,8 +32,6 @@ class UserResource extends JsonResource
             $data['token'] = $this->token;
         }
 
-        return [
-            'values' => $data
-        ];
+        return $data;
     }
 }

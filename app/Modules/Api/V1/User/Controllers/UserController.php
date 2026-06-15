@@ -15,6 +15,7 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $orgId = $request->user()->organization_id;
+        $perPage = $request->query('per_page', 20);
 
         $query = User::where('organization_id', $orgId);
 
@@ -48,9 +49,9 @@ class UserController extends Controller
             }
         }
 
-        $users = $query->get();
+        $users = $query->paginate($perPage);
 
-        return UserResource::collection($users);
+        return $this->paginated(UserResource::collection($users)->resource);
     }
 
     public function store(StoreUserRequest $request)
@@ -70,13 +71,13 @@ class UserController extends Controller
         // Generate token upon creation
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        return new UserResource($user, $token);
+        return $this->success(new UserResource($user, $token), 'User created successfully.', 201);
     }
 
     public function show($id)
     {
         $user = User::findOrFail($id);
-        return new UserResource($user);
+        return $this->success(new UserResource($user));
     }
 
     public function update(UpdateUserRequest $request, $id)
@@ -99,7 +100,7 @@ class UserController extends Controller
 
         $user->update($data);
 
-        return new UserResource($user);
+        return $this->success(new UserResource($user));
     }
 
     public function destroy($id)
@@ -107,8 +108,6 @@ class UserController extends Controller
         $user = User::findOrFail($id);
         $user->delete();
 
-        return response()->json([
-            'message' => 'User successfully deleted.'
-        ]);
+        return $this->success(null, 'User successfully deleted.');
     }
 }

@@ -15,6 +15,7 @@ class InventoryTransactionController extends Controller
     public function index(Request $request)
     {
         $orgId = $request->user()->organization_id;
+        $perPage = $request->query('per_page', 20);
 
         $query = InventoryTransaction::where('organization_id', $orgId);
 
@@ -52,9 +53,9 @@ class InventoryTransactionController extends Controller
             }
         }
 
-        $transactions = $query->orderBy('created_at', 'desc')->get();
+        $transactions = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        return InventoryTransactionResource::collection($transactions);
+        return $this->paginated(InventoryTransactionResource::collection($transactions)->resource);
     }
 
     public function store(StoreInventoryTransactionRequest $request)
@@ -82,6 +83,6 @@ class InventoryTransactionController extends Controller
             return $transaction;
         });
 
-        return new InventoryTransactionResource($transaction);
+        return $this->success(new InventoryTransactionResource($transaction), 'Transaction created successfully.', 201);
     }
 }

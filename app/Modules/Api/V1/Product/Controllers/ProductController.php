@@ -14,6 +14,7 @@ class ProductController extends Controller
     public function index(Request $request)
     {
         $orgId = $request->user()->organization_id;
+        $perPage = $request->query('per_page', 20);
 
         $query = Product::where('organization_id', $orgId);
 
@@ -54,9 +55,9 @@ class ProductController extends Controller
             }
         }
 
-        $products = $query->get();
+        $products = $query->paginate($perPage);
 
-        return ProductResource::collection($products);
+        return $this->paginated(ProductResource::collection($products)->resource);
     }
 
     public function store(StoreProductRequest $request)
@@ -73,13 +74,13 @@ class ProductController extends Controller
             'current_stock' => 0,
         ]);
 
-        return new ProductResource($product);
+        return $this->success(new ProductResource($product), 'Product created successfully.', 201);
     }
 
     public function show($id)
     {
         $product = Product::findOrFail($id);
-        return new ProductResource($product);
+        return $this->success(new ProductResource($product));
     }
 
     public function update(UpdateProductRequest $request, $id)
@@ -96,7 +97,7 @@ class ProductController extends Controller
             'shelf_life_days' => $values['shelfLifeDays'] ?? null,
         ]);
 
-        return new ProductResource($product);
+        return $this->success(new ProductResource($product));
     }
 
     public function destroy($id)
@@ -104,8 +105,6 @@ class ProductController extends Controller
         $product = Product::findOrFail($id);
         $product->delete();
 
-        return response()->json([
-            'message' => 'Product successfully deleted.'
-        ]);
+        return $this->success(null, 'Product successfully deleted.');
     }
 }

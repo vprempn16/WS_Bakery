@@ -47,31 +47,13 @@ class OrganizationController extends Controller
             ];
         });
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Organization created successfully.',
-            'data' => [
-                'token' => $result['token'],
-                'user' => [
-                    'id' => $result['user']->id,
-                    'first_name' => $result['user']->first_name,
-                    'last_name' => $result['user']->last_name,
-                    'email' => $result['user']->email,
-                    'phone_number' => $result['user']->phone,
-                    'role' => $result['user']->role,
-                    'organization' => [
-                        'id' => $result['organization']->id,
-                        'name' => $result['organization']->name,
-                    ]
-                ]
-            ]
-        ], 201);
+        return $this->success($result, 'Organization created successfully.', 201);
     }
 
     public function show($id)
     {
         $organization = Organization::findOrFail($id);
-        return new OrganizationResource($organization);
+        return $this->success(new OrganizationResource($organization));
     }
 
     public function update(UpdateOrganizationRequest $request, $id)
@@ -87,7 +69,7 @@ class OrganizationController extends Controller
             'address' => $values['address'] ?? null,
         ]);
 
-        return new OrganizationResource($organization);
+        return $this->success(new OrganizationResource($organization));
     }
 
     public function destroy($id)
@@ -95,19 +77,18 @@ class OrganizationController extends Controller
         $organization = Organization::findOrFail($id);
         $organization->delete();
 
-        return response()->json([
-            'message' => 'Organization successfully deleted.'
-        ]);
+        return $this->success(null, 'Organization successfully deleted.');
     }
 
     public function search(Request $request)
     {
         $query = $request->query('query');
+        $perPage = $request->query('per_page', 20);
         
         $results = Organization::where('name', 'like', "%{$query}%")
             ->orWhere('email', 'like', "%{$query}%")
-            ->get();
+            ->paginate($perPage);
 
-        return OrganizationResource::collection($results);
+        return $this->paginated(OrganizationResource::collection($results)->resource);
     }
 }
