@@ -29,7 +29,7 @@ class Phase2Test extends TestCase
         \Laravel\Sanctum\Sanctum::actingAs($user);
 
         // 2. Vendor
-        $vendorResponse = $this->postJson('/api/v1/vendors/new', [
+        $vendorResponse = $this->postJson('/api/v1/Vendor/new', [
             'data' => [
                 'values' => [
                     'organizationId' => $org->id,
@@ -41,7 +41,7 @@ class Phase2Test extends TestCase
         $vendorId = $vendorResponse->json('data.values.id');
 
         // 3. Ingredient
-        $ingredientResponse = $this->postJson('/api/v1/ingredients/new', [
+        $ingredientResponse = $this->postJson('/api/v1/Ingredient/new', [
             'data' => [
                 'values' => [
                     'organizationId' => $org->id,
@@ -55,7 +55,7 @@ class Phase2Test extends TestCase
         $ingredientId = $ingredientResponse->json('data.values.id');
 
         // 4. Inventory Transaction (Add Stock)
-        $txResponse = $this->postJson('/api/v1/inventory-transactions/new', [
+        $txResponse = $this->postJson('/api/v1/InventoryTransaction/new', [
             'data' => [
                 'values' => [
                     'organizationId' => $org->id,
@@ -75,7 +75,7 @@ class Phase2Test extends TestCase
         ]);
 
         // 5. Product
-        $productResponse = $this->postJson('/api/v1/products/new', [
+        $productResponse = $this->postJson('/api/v1/Product/new', [
             'data' => [
                 'values' => [
                     'organizationId' => $org->id,
@@ -89,7 +89,7 @@ class Phase2Test extends TestCase
         $productId = $productResponse->json('data.values.id');
 
         // Create second product to verify autoincrement sequence (PROD2)
-        $secondProductResponse = $this->postJson('/api/v1/products/new', [
+        $secondProductResponse = $this->postJson('/api/v1/Product/new', [
             'data' => [
                 'values' => [
                     'organizationId' => $org->id,
@@ -102,7 +102,7 @@ class Phase2Test extends TestCase
         $this->assertEquals('PROD2', $secondProductResponse->json('data.values.productNumber'));
 
         // 6. Recipe
-        $recipeResponse = $this->postJson("/api/v1/products/{$productId}/recipe/new", [
+        $recipeResponse = $this->postJson("/api/v1/Product/{$productId}/recipe/new", [
             'data' => [
                 'values' => [
                     'ingredientId' => $ingredientId,

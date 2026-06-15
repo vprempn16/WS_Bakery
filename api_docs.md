@@ -7,7 +7,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ## 1. Organization Management
 
 ### 1.1 Create Organization (and Initial Owner User)
-* **Endpoint**: `POST /api/v1/organization/new`
+* **Endpoint**: `POST /api/v1/Organization/new`
 * **Request Body**:
   ```json
   {
@@ -51,7 +51,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   ```
 
 ### 1.2 Get Organization by ID
-* **Endpoint**: `GET /api/v1/organization/{id}`
+* **Endpoint**: `GET /api/v1/Organization/{id}`
 * **Response (200 OK)**:
   ```json
   {
@@ -69,12 +69,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   ```
 
 ### 1.3 Update Organization
-* **Endpoint**: `PUT /api/v1/organization/{id}`
+* **Endpoint**: `PUT /api/v1/Organization/{id}`
 * **Request Body**: Same as Create Organization.
 * **Response (200 OK)**: Returns the updated organization in the wrapped structure.
 
 ### 1.4 Delete Organization
-* **Endpoint**: `DELETE /api/v1/organization/{id}`
+* **Endpoint**: `DELETE /api/v1/Organization/{id}`
 * **Response (200 OK)**:
   ```json
   {
@@ -83,7 +83,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   ```
 
 ### 1.5 Search Organizations
-* **Endpoint**: `GET /api/v1/organization/search?query={keyword}`
+* **Endpoint**: `GET /api/v1/Organization/search?query={keyword}`
 * **Response (200 OK)**:
   ```json
   {
@@ -273,13 +273,13 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ## 4. Ingredient Management
 
 ### 4.1 List Ingredients
-* **Endpoint**: `GET /api/v1/ingredients`
+* **Endpoint**: `GET /api/v1/Ingredient`
 * **Headers**: `Authorization: Bearer {token}`
 * **Optional Filters**:
-  * Search by name: `GET /api/v1/ingredients?search={keyword}`
-  * Filter by Vendor: `GET /api/v1/ingredients?vendorId={vendor_uuid}`
-  * Filter by Stock Status: `GET /api/v1/ingredients?stockStatus={low|in_stock}`
-  * Combined: `GET /api/v1/ingredients?search={keyword}&vendorId={vendor_uuid}&stockStatus={low}`
+  * Search by name: `GET /api/v1/Ingredient?search={keyword}`
+  * Filter by Vendor: `GET /api/v1/Ingredient?vendorId={vendor_uuid}`
+  * Filter by Stock Status: `GET /api/v1/Ingredient?stockStatus={low|in_stock}`
+  * Combined: `GET /api/v1/Ingredient?search={keyword}&vendorId={vendor_uuid}&stockStatus={low}`
 * **Response (200 OK)**:
 ```json
 {
@@ -300,7 +300,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ```
 
 ### 4.2 Create Ingredient
-* **Endpoint**: `POST /api/v1/ingredients/new`
+* **Endpoint**: `POST /api/v1/Ingredient/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
 ```json
@@ -335,18 +335,18 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ```
 
 ### 4.3 Get Ingredient by ID
-* **Endpoint**: `GET /api/v1/ingredients/{id}`
+* **Endpoint**: `GET /api/v1/Ingredient/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**: Same structure as single element in list response.
 
 ### 4.4 Update Ingredient
-* **Endpoint**: `PUT /api/v1/ingredients/{id}`
+* **Endpoint**: `PUT /api/v1/Ingredient/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**: Same as Create but fields to update.
 * **Response (200 OK)**: Updated ingredient object.
 
 ### 4.5 Delete Ingredient
-* **Endpoint**: `DELETE /api/v1/ingredients/{id}`
+* **Endpoint**: `DELETE /api/v1/Ingredient/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
 ```json
@@ -354,7 +354,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ```
 
 ### 4.6 Low Stock Endpoint
-* **Endpoint**: `GET /api/v1/ingredients/low-stock`
+* **Endpoint**: `GET /api/v1/Ingredient/low-stock`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**: List of ingredients where `current_stock` < `minimum_stock_level`.
 
@@ -363,10 +363,10 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ## 5. Vendor Management
 
 ### 5.1 List Vendors
-* **Endpoint**: `GET /api/v1/vendors`
+* **Endpoint**: `GET /api/v1/Vendor`
 * **Headers**: `Authorization: Bearer {token}`
 * **Optional Filters**:
-  * Search by name, contact person, email, or phone: `GET /api/v1/vendors?search={keyword}`
+  * Search by name, contact person, email, or phone: `GET /api/v1/Vendor?search={keyword}`
 * **Response (200 OK)**:
 ```json
 {
@@ -389,7 +389,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ```
 
 ### 5.2 Create Vendor
-* **Endpoint**: `POST /api/v1/vendors/new`
+* **Endpoint**: `POST /api/v1/Vendor/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
 ```json
@@ -426,12 +426,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ```
 
 ### 5.3 Get Vendor by ID
-* **Endpoint**: `GET /api/v1/vendors/{id}`
+* **Endpoint**: `GET /api/v1/Vendor/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**: Same structure as single element in list response.
 
 ### 5.4 Update Vendor
-* **Endpoint**: `PUT /api/v1/vendors/{id}`
+* **Endpoint**: `PUT /api/v1/Vendor/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
 ```json
@@ -468,7 +468,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ```
 
 ### 5.5 Delete Vendor
-* **Endpoint**: `DELETE /api/v1/vendors/{id}`
+* **Endpoint**: `DELETE /api/v1/Vendor/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
 ```json
@@ -482,13 +482,13 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ## 6. Inventory Transactions
 
 ### 6.1 List Inventory Transactions
-* **Endpoint**: `GET /api/v1/inventory-transactions`
+* **Endpoint**: `GET /api/v1/InventoryTransaction`
 * **Headers**: `Authorization: Bearer {token}`
 * **Optional Filters**:
-  * Filter by Ingredient: `GET /api/v1/inventory-transactions?ingredientId={ingredient_uuid}`
-  * Filter by Transaction Type: `GET /api/v1/inventory-transactions?type={in|out|waste|production}`
-  * Date Range Filters: `GET /api/v1/inventory-transactions?startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}`
-  * Combined: `GET /api/v1/inventory-transactions?ingredientId={ingredient_uuid}&type=waste&startDate=2026-06-01&endDate=2026-06-15`
+  * Filter by Ingredient: `GET /api/v1/InventoryTransaction?ingredientId={ingredient_uuid}`
+  * Filter by Transaction Type: `GET /api/v1/InventoryTransaction?type={in|out|waste|production}`
+  * Date Range Filters: `GET /api/v1/InventoryTransaction?startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}`
+  * Combined: `GET /api/v1/InventoryTransaction?ingredientId={ingredient_uuid}&type=waste&startDate=2026-06-01&endDate=2026-06-15`
 * **Response (200 OK)**:
 ```json
 {
@@ -509,7 +509,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ```
 
 ### 6.2 Create Inventory Transaction
-* **Endpoint**: `POST /api/v1/inventory-transactions/new`
+* **Endpoint**: `POST /api/v1/InventoryTransaction/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
 *(Note: `type` must be one of: `in`, `out`, `waste`, `production`)*
@@ -544,7 +544,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ```
 
 ### 6.3 Get Inventory Transaction by ID
-* **Endpoint**: `GET /api/v1/inventory-transactions/{id}`
+* **Endpoint**: `GET /api/v1/InventoryTransaction/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
 ```json
@@ -596,13 +596,13 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ## 7. Product Management
 
 ### 7.1 List Products
-* **Endpoint**: `GET /api/v1/products`
+* **Endpoint**: `GET /api/v1/Product`
 * **Headers**: `Authorization: Bearer {token}`
 * **Optional Filters**:
-  * Search by name or product number: `GET /api/v1/products?search={keyword_or_product_number}`
-  * Filter by Unit: `GET /api/v1/products?unit={pcs|kg|g|l|ml|pkt}`
-  * Filter by Stock Status: `GET /api/v1/products?stockStatus={out_of_stock|in_stock}`
-  * Combined: `GET /api/v1/products?search=Bread&unit=pcs&stockStatus=in_stock`
+  * Search by name or product number: `GET /api/v1/Product?search={keyword_or_product_number}`
+  * Filter by Unit: `GET /api/v1/Product?unit={pcs|kg|g|l|ml|pkt}`
+  * Filter by Stock Status: `GET /api/v1/Product?stockStatus={out_of_stock|in_stock}`
+  * Combined: `GET /api/v1/Product?search=Bread&unit=pcs&stockStatus=in_stock`
 * **Response (200 OK)**:
 ```json
 {
@@ -627,7 +627,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ```
 
 ### 7.2 Create Product
-* **Endpoint**: `POST /api/v1/products/new`
+* **Endpoint**: `POST /api/v1/Product/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
 *(Note: `productNumber` is auto-generated on creation as `PROD1`, `PROD2`, etc. `unit` must be one of: `pcs`, `kg`, `g`, `l`, `ml`, `pkt`. Defaults to `pcs` if not provided)*
@@ -667,12 +667,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ```
 
 ### 7.3 Get Product by ID
-* **Endpoint**: `GET /api/v1/products/{id}`
+* **Endpoint**: `GET /api/v1/Product/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**: Same structure as single element in list response.
 
 ### 7.4 Update Product
-* **Endpoint**: `PUT /api/v1/products/{id}`
+* **Endpoint**: `PUT /api/v1/Product/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
 ```json
@@ -711,7 +711,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ```
 
 ### 7.5 Delete Product
-* **Endpoint**: `DELETE /api/v1/products/{id}`
+* **Endpoint**: `DELETE /api/v1/Product/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
 ```json
@@ -725,11 +725,13 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ## 8. Recipe Management
 
 ### 8.1 List Recipe Ingredients for a Product
-* **Endpoint**: `GET /api/v1/products/{productId}/recipe`
+* **Endpoint**: `GET /api/v1/Product/{productId}/recipe`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
 ```json
 {
+    "status": true,
+    "message": "Success",
     "data": [
         {
             "values": {
@@ -757,7 +759,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ```
 
 ### 8.2 Add or Update Recipe Ingredient for a Product
-* **Endpoint**: `POST /api/v1/products/{productId}/recipe/new`
+* **Endpoint**: `POST /api/v1/Product/{productId}/recipe/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
 ```json
@@ -773,6 +775,8 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 * **Response (201 Created)**:
 ```json
 {
+    "status": true,
+    "message": "Recipe ingredient added successfully.",
     "data": {
         "values": {
             "id": "recipe_uuid",
@@ -798,7 +802,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ```
 
 ### 8.3 Get Recipe Ingredient by ID
-* **Endpoint**: `GET /api/v1/products/{productId}/recipe/{ingredientId}`
+* **Endpoint**: `GET /api/v1/Product/{productId}/recipe/{ingredientId}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
 ```json
@@ -846,10 +850,13 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ```
 
 ### 8.4 Remove Ingredient from a Product's Recipe
-* **Endpoint**: `DELETE /api/v1/products/{productId}/recipe/{ingredientId}`
+* **Endpoint**: `DELETE /api/v1/Product/{productId}/recipe/{ingredientId}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
 ```json
+{
+    "status": true,
+    "message": "Recipe ingredient successfully removed."
 }
 ```
 
@@ -1055,10 +1062,10 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ### 9.5 Applying Saved Filters on Module Listings
 For any list endpoint, append `?savedFilterId={filter_uuid}` to apply a previously saved filter:
 * `GET /api/v1/settings/User?savedFilterId={filter_uuid}`
-* `GET /api/v1/vendors?savedFilterId={filter_uuid}`
-* `GET /api/v1/ingredients?savedFilterId={filter_uuid}`
-* `GET /api/v1/inventory-transactions?savedFilterId={filter_uuid}`
-* `GET /api/v1/products?savedFilterId={filter_uuid}`
+* `GET /api/v1/Vendor?savedFilterId={filter_uuid}`
+* `GET /api/v1/Ingredient?savedFilterId={filter_uuid}`
+* `GET /api/v1/InventoryTransaction?savedFilterId={filter_uuid}`
+* `GET /api/v1/Product?savedFilterId={filter_uuid}`
 
 ### 9.6 Default Filters
 When the app is first installed and migrations run, a default **"All"** filter is automatically created for each module (`users`, `vendors`, `ingredients`, `inventory_transactions`, `products`). These default filters:

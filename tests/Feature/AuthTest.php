@@ -14,7 +14,7 @@ class AuthTest extends TestCase
 
     public function test_can_create_organization()
     {
-        $response = $this->postJson('/api/v1/organization/new', [
+        $response = $this->postJson('/api/v1/Organization/new', [
             'data' => [
                 'values' => [
                     'name' => 'Demo',
@@ -97,7 +97,7 @@ class AuthTest extends TestCase
         ]);
         \Laravel\Sanctum\Sanctum::actingAs($user);
 
-        $response = $this->getJson("/api/v1/organization/{$org->id}");
+        $response = $this->getJson("/api/v1/Organization/{$org->id}");
 
         $response->assertStatus(200)
             ->assertJson([
@@ -128,7 +128,7 @@ class AuthTest extends TestCase
         ]);
         \Laravel\Sanctum\Sanctum::actingAs($user);
 
-        $response = $this->putJson("/api/v1/organization/{$org->id}", [
+        $response = $this->putJson("/api/v1/Organization/{$org->id}", [
             'data' => [
                 'values' => [
                     'name' => 'WS Bakery Updated',
@@ -167,7 +167,7 @@ class AuthTest extends TestCase
         ]);
         \Laravel\Sanctum\Sanctum::actingAs($user);
 
-        $response = $this->deleteJson("/api/v1/organization/{$org->id}");
+        $response = $this->deleteJson("/api/v1/Organization/{$org->id}");
 
         $response->assertStatus(200);
         $this->assertDatabaseMissing('organizations', ['id' => $org->id]);
@@ -188,7 +188,7 @@ class AuthTest extends TestCase
         ]);
         \Laravel\Sanctum\Sanctum::actingAs($user);
 
-        $response = $this->getJson('/api/v1/organization/search?query=Bakery');
+        $response = $this->getJson('/api/v1/Organization/search?query=Bakery');
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data');

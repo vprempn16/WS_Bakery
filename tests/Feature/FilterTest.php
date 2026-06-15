@@ -107,25 +107,25 @@ class FilterTest extends TestCase
         $this->assertEquals($this->userA->id, $res->json('data.0.values.id'));
 
         // 2. Vendors List
-        $res = $this->getJson('/api/v1/vendors');
+        $res = $this->getJson('/api/v1/Vendor');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($vendorA->id, $res->json('data.0.values.id'));
 
         // 3. Ingredients List
-        $res = $this->getJson('/api/v1/ingredients');
+        $res = $this->getJson('/api/v1/Ingredient');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($ingA->id, $res->json('data.0.values.id'));
 
         // 4. Products List
-        $res = $this->getJson('/api/v1/products');
+        $res = $this->getJson('/api/v1/Product');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($prodA->id, $res->json('data.0.values.id'));
 
         // 5. Inventory Transactions List
-        $res = $this->getJson('/api/v1/inventory-transactions');
+        $res = $this->getJson('/api/v1/InventoryTransaction');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($txA->id, $res->json('data.0.values.id'));
@@ -171,13 +171,13 @@ class FilterTest extends TestCase
         \Laravel\Sanctum\Sanctum::actingAs($this->userA);
 
         // Search by name "Global"
-        $res = $this->getJson('/api/v1/vendors?search=Global');
+        $res = $this->getJson('/api/v1/Vendor?search=Global');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($vendor1->id, $res->json('data.0.values.id'));
 
         // Search by contact person "Jack"
-        $res = $this->getJson('/api/v1/vendors?search=Jack');
+        $res = $this->getJson('/api/v1/Vendor?search=Jack');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($vendor2->id, $res->json('data.0.values.id'));
@@ -207,25 +207,25 @@ class FilterTest extends TestCase
         \Laravel\Sanctum\Sanctum::actingAs($this->userA);
 
         // 1. Search by name "Wheat"
-        $res = $this->getJson('/api/v1/ingredients?search=Wheat');
+        $res = $this->getJson('/api/v1/Ingredient?search=Wheat');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($ing2->id, $res->json('data.0.values.id'));
 
         // 2. Filter by vendor
-        $res = $this->getJson('/api/v1/ingredients?vendorId=' . $vendor->id);
+        $res = $this->getJson('/api/v1/Ingredient?vendorId=' . $vendor->id);
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($ing1->id, $res->json('data.0.values.id'));
 
         // 3. Filter by stockStatus=low
-        $res = $this->getJson('/api/v1/ingredients?stockStatus=low');
+        $res = $this->getJson('/api/v1/Ingredient?stockStatus=low');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($ing1->id, $res->json('data.0.values.id'));
 
         // 4. Filter by stockStatus=in_stock
-        $res = $this->getJson('/api/v1/ingredients?stockStatus=in_stock');
+        $res = $this->getJson('/api/v1/Ingredient?stockStatus=in_stock');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($ing2->id, $res->json('data.0.values.id'));
@@ -260,18 +260,18 @@ class FilterTest extends TestCase
         \Laravel\Sanctum\Sanctum::actingAs($this->userA);
 
         // 1. Filter by ingredientId
-        $res = $this->getJson('/api/v1/inventory-transactions?ingredientId=' . $ing->id);
+        $res = $this->getJson('/api/v1/InventoryTransaction?ingredientId=' . $ing->id);
         $res->assertStatus(200);
         $this->assertCount(2, $res->json('data'));
 
         // 2. Filter by type=waste
-        $res = $this->getJson('/api/v1/inventory-transactions?type=waste');
+        $res = $this->getJson('/api/v1/InventoryTransaction?type=waste');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($tx2->id, $res->json('data.0.values.id'));
 
         // 3. Filter by date range (startDate & endDate)
-        $res = $this->getJson('/api/v1/inventory-transactions?startDate=2026-06-05&endDate=2026-06-15');
+        $res = $this->getJson('/api/v1/InventoryTransaction?startDate=2026-06-05&endDate=2026-06-15');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($tx2->id, $res->json('data.0.values.id'));
@@ -298,25 +298,25 @@ class FilterTest extends TestCase
         \Laravel\Sanctum\Sanctum::actingAs($this->userA);
 
         // 1. Search by product_number
-        $res = $this->getJson('/api/v1/products?search=' . $prod1->product_number);
+        $res = $this->getJson('/api/v1/Product?search=' . $prod1->product_number);
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($prod1->id, $res->json('data.0.values.id'));
 
         // 2. Filter by unit=kg
-        $res = $this->getJson('/api/v1/products?unit=kg');
+        $res = $this->getJson('/api/v1/Product?unit=kg');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($prod2->id, $res->json('data.0.values.id'));
 
         // 3. Filter by stockStatus=out_of_stock
-        $res = $this->getJson('/api/v1/products?stockStatus=out_of_stock');
+        $res = $this->getJson('/api/v1/Product?stockStatus=out_of_stock');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($prod1->id, $res->json('data.0.values.id'));
 
         // 4. Filter by stockStatus=in_stock
-        $res = $this->getJson('/api/v1/products?stockStatus=in_stock');
+        $res = $this->getJson('/api/v1/Product?stockStatus=in_stock');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($prod2->id, $res->json('data.0.values.id'));
@@ -338,7 +338,7 @@ class FilterTest extends TestCase
             'data' => [
                 'values' => [
                     'name' => 'High Price Products',
-                    'module' => 'products',
+                    'module' => 'Product',
                     'isPublic' => true,
                     'rules' => $rules
                 ]
@@ -350,7 +350,7 @@ class FilterTest extends TestCase
                 'data' => [
                     'values' => [
                         'name' => 'High Price Products',
-                        'module' => 'products',
+                        'module' => 'Product',
                         'isPublic' => true,
                         'rules' => $rules
                     ]
@@ -380,7 +380,7 @@ class FilterTest extends TestCase
             'organization_id' => $this->orgB->id,
             'user_id' => $this->userB->id,
             'name' => 'Org B Filter',
-            'module' => 'products',
+            'module' => 'Product',
             'rules' => ['conditions' => []],
             'is_public' => true
         ]);
@@ -419,7 +419,7 @@ class FilterTest extends TestCase
             'organization_id' => $this->orgA->id,
             'user_id' => $this->userA->id,
             'name' => 'Expensive',
-            'module' => 'products',
+            'module' => 'Product',
             'rules' => [
                 'logical_operator' => 'AND',
                 'conditions' => [
@@ -431,7 +431,7 @@ class FilterTest extends TestCase
 
         \Laravel\Sanctum\Sanctum::actingAs($this->userA);
 
-        $res = $this->getJson('/api/v1/products?savedFilterId=' . $filter->id);
+        $res = $this->getJson('/api/v1/Product?savedFilterId=' . $filter->id);
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($prod1->id, $res->json('data.0.values.id'));
@@ -463,7 +463,7 @@ class FilterTest extends TestCase
             ]
         ];
 
-        $res = $this->getJson('/api/v1/products?' . http_build_query(['rules' => $rules]));
+        $res = $this->getJson('/api/v1/Product?' . http_build_query(['rules' => $rules]));
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($prod2->id, $res->json('data.0.values.id'));
@@ -481,7 +481,7 @@ class FilterTest extends TestCase
             ]
         ];
 
-        $res = $this->getJson('/api/v1/products?' . http_build_query(['rules' => $rules]));
+        $res = $this->getJson('/api/v1/Product?' . http_build_query(['rules' => $rules]));
         
         $res->assertStatus(422)
             ->assertJsonValidationErrors(['rules']);

@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     // 1. Publicly accessible routes
-    Route::post('organization/new', [OrganizationController::class, 'store']);
+    Route::post('Organization/new', [OrganizationController::class, 'store']);
     Route::post('auth/login', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'login']);
 
     // 2. Protected routes requiring authentication AND organization context checking
@@ -15,7 +15,7 @@ Route::prefix('v1')->group(function () {
         Route::post('auth/logout', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'logout']);
 
         // Organization endpoints
-        Route::prefix('organization')->group(function () {
+        Route::prefix('Organization')->group(function () {
             Route::get('search', [OrganizationController::class, 'search']);
             Route::get('{id}', [OrganizationController::class, 'show']);
             Route::put('{id}', [OrganizationController::class, 'update']);
@@ -34,7 +34,7 @@ Route::prefix('v1')->group(function () {
         Route::get('{module}/headers/{filterId}', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
 
         // Vendor endpoints
-        Route::prefix('vendors')->group(function () {
+        Route::prefix('Vendor')->group(function () {
             Route::get('', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'index']);
             Route::post('new', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'store']);
             Route::get('{id}', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'show']);
@@ -43,7 +43,7 @@ Route::prefix('v1')->group(function () {
         });
 
         // Ingredient endpoints
-        Route::prefix('ingredients')->group(function () {
+        Route::prefix('Ingredient')->group(function () {
             Route::get('', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'index']);
             Route::get('low-stock', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'lowStock']);
             Route::post('new', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'store']);
@@ -53,14 +53,14 @@ Route::prefix('v1')->group(function () {
         });
 
         // Inventory Transaction endpoints
-        Route::prefix('inventory-transactions')->group(function () {
+        Route::prefix('InventoryTransaction')->group(function () {
             Route::get('', [\App\Modules\Api\V1\InventoryTransaction\Controllers\InventoryTransactionController::class, 'index']);
             Route::post('new', [\App\Modules\Api\V1\InventoryTransaction\Controllers\InventoryTransactionController::class, 'store']);
             Route::get('{id}', [\App\Modules\Api\V1\InventoryTransaction\Controllers\InventoryTransactionController::class, 'show']);
         });
 
         // Product and Recipe endpoints
-        Route::prefix('products')->group(function () {
+        Route::prefix('Product')->group(function () {
             Route::get('', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'index']);
             Route::post('new', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'store']);
             Route::get('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'show']);
