@@ -17,14 +17,15 @@ class HeaderController extends Controller
      *  - If filterId is given → fetch that filter, return its header_details matched with module fields
      *  - If no filterId → find the default (is_default=true) filter for the given module, return all fields
      */
-    public function show(Request $request, ?string $filterId = null)
+    public function show(Request $request, string $module, ?string $filterId = null)
     {
+        $normalizedModule = ModuleFieldConfig::normalizeModule($module);
+
         if ($filterId) {
             // Specific filter requested
-            $filter = SavedFilter::findOrFail($filterId);
+            $filter = SavedFilter::where('id', $filterId)->where('module', $normalizedModule)->firstOrFail();
 
-            $module = $filter->module;
-            $allFields = ModuleFieldConfig::getFields($module);
+            $allFields = ModuleFieldConfig::getFields($normalizedModule);
 
             if (!$allFields) {
                 return $this->error("Unknown module: {$module}", null, null, null, 422);
@@ -51,13 +52,6 @@ class HeaderController extends Controller
             ]);
         }
 
-        // No filterId → need module query param to find the default filter
-        $module = $request->query('module');
-        if (!$module) {
-            return $this->error('The module query parameter is required.', null, null, null, 422);
-        }
-
-        $normalizedModule = ModuleFieldConfig::normalizeModule($module);
         $allFields = ModuleFieldConfig::getFields($normalizedModule);
 
         if (!$allFields) {

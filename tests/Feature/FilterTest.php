@@ -360,7 +360,7 @@ class FilterTest extends TestCase
         $filterId = $res->json('data.values.id');
 
         // 2. List Saved Filters (includes 1 default "All" + 1 user-created)
-        $res = $this->getJson('/api/v1/filters?module=products');
+        $res = $this->getJson('/api/v1/filters?module=Product');
         $res->assertStatus(200);
         $filterIds = collect($res->json('data'))->pluck('values.id')->toArray();
         $this->assertContains($filterId, $filterIds);
@@ -388,7 +388,7 @@ class FilterTest extends TestCase
         \Laravel\Sanctum\Sanctum::actingAs($this->userA);
 
         // 1. Listing should not return Org B's filter (only default "All" should appear)
-        $res = $this->getJson('/api/v1/filters?module=products');
+        $res = $this->getJson('/api/v1/filters?module=Product');
         $res->assertStatus(200);
         $filterIds = collect($res->json('data'))->pluck('values.id')->toArray();
         $this->assertNotContains($filterB->id, $filterIds);

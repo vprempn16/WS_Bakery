@@ -1009,7 +1009,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 * **Endpoint**: `GET /api/v1/filters`
 * **Headers**: `Authorization: Bearer {token}`
 * **Optional Filters**:
-  * Filter by module: `GET /api/v1/filters?module=users`
+  * Filter by module: `GET /api/v1/filters?module=User`
 * **Response (200 OK)**:
 ```json
 {
@@ -1105,11 +1105,11 @@ When creating a saved filter, you can optionally pass `headerDetails` to specify
 The Headers API returns the column/field definitions for a filter. It tells the frontend which columns to display in a list view.
 
 ### 10.1 Get Headers by Module (Default Filter)
-* **Endpoint**: `GET /api/v1/headers?module={module_name}`
+* **Endpoint**: `GET /api/v1/{module_name}/headers`
 * **Headers**: `Authorization: Bearer {token}`
 * **Description**: Returns the default "All" filter's field definitions for the given module.
 
-**Example**: `GET /api/v1/headers?module=users`
+**Example**: `GET /api/v1/User/headers`
 
 * **Response (200 OK)**:
 ```json
@@ -1133,7 +1133,7 @@ The Headers API returns the column/field definitions for a filter. It tells the 
 }
 ```
 
-**Example**: `GET /api/v1/headers?module=products`
+**Example**: `GET /api/v1/Product/headers`
 
 * **Response (200 OK)**:
 ```json
@@ -1160,11 +1160,11 @@ The Headers API returns the column/field definitions for a filter. It tells the 
 ```
 
 ### 10.2 Get Headers by Filter ID
-* **Endpoint**: `GET /api/v1/headers/{filterId}`
+* **Endpoint**: `GET /api/v1/{module_name}/headers/{filterId}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Description**: Returns the field definitions stored in the given filter's `header_details`. If that filter has custom `headerDetails`, only those fields are returned (matched against the module's full field list).
 
-**Example**: `GET /api/v1/headers/a3ae37e8-fc06-443f-a7fa-7c5fe4f6c62f`
+**Example**: `GET /api/v1/User/headers/a3ae37e8-fc06-443f-a7fa-7c5fe4f6c62f`
 
 * **Response (200 OK)**:
 ```json
