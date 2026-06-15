@@ -543,6 +543,54 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+### 6.3 Get Inventory Transaction by ID
+* **Endpoint**: `GET /api/v1/inventory-transactions/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "Success",
+    "data": {
+        "fields": [
+            {
+                "fieldname": "id",
+                "fieldlabel": "ID"
+            },
+            {
+                "fieldname": "ingredientId",
+                "fieldlabel": "Ingredient ID"
+            },
+            {
+                "fieldname": "type",
+                "fieldlabel": "Type"
+            },
+            {
+                "fieldname": "quantity",
+                "fieldlabel": "Quantity"
+            },
+            {
+                "fieldname": "referenceNote",
+                "fieldlabel": "Reference Note"
+            },
+            {
+                "fieldname": "createdAt",
+                "fieldlabel": "Created At"
+            }
+        ],
+        "values": {
+            "id": "transaction_uuid",
+            "organizationId": "org_uuid",
+            "ingredientId": "ingredient_uuid",
+            "type": "in",
+            "quantity": 1000.0,
+            "referenceNote": "Purchased 1kg Sugar",
+            "createdAt": "2026-06-11T21:31:35.000000Z"
+        }
+    }
+}
+```
+
 ---
 
 ## 7. Product Management
@@ -749,7 +797,55 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
-### 8.3 Remove Ingredient from a Product's Recipe
+### 8.3 Get Recipe Ingredient by ID
+* **Endpoint**: `GET /api/v1/products/{productId}/recipe/{ingredientId}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "Success",
+    "data": {
+        "fields": [
+            {
+                "fieldname": "id",
+                "fieldlabel": "ID"
+            },
+            {
+                "fieldname": "productId",
+                "fieldlabel": "Product ID"
+            },
+            {
+                "fieldname": "ingredientId",
+                "fieldlabel": "Ingredient ID"
+            },
+            {
+                "fieldname": "quantityRequired",
+                "fieldlabel": "Quantity Required"
+            }
+        ],
+        "values": {
+            "id": "recipe_uuid",
+            "productId": "product_uuid",
+            "ingredientId": "ingredient_uuid",
+            "quantityRequired": 200.0,
+            "ingredient": {
+                "id": "ingredient_uuid",
+                "organizationId": "org_uuid",
+                "vendorId": "vendor_uuid",
+                "name": "Sugar",
+                "unit": "g",
+                "minimumStockLevel": 500.0,
+                "currentStock": 2000.0,
+                "createdAt": "2026-06-11T21:31:35.000000Z",
+                "updatedAt": "2026-06-11T21:31:35.000000Z"
+            }
+        }
+    }
+}
+```
+
+### 8.4 Remove Ingredient from a Product's Recipe
 * **Endpoint**: `DELETE /api/v1/products/{productId}/recipe/{ingredientId}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:

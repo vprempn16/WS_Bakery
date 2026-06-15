@@ -56,6 +56,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('inventory-transactions')->group(function () {
             Route::get('', [\App\Modules\Api\V1\InventoryTransaction\Controllers\InventoryTransactionController::class, 'index']);
             Route::post('new', [\App\Modules\Api\V1\InventoryTransaction\Controllers\InventoryTransactionController::class, 'store']);
+            Route::get('{id}', [\App\Modules\Api\V1\InventoryTransaction\Controllers\InventoryTransactionController::class, 'show']);
         });
 
         // Product and Recipe endpoints
@@ -69,6 +70,7 @@ Route::prefix('v1')->group(function () {
             // Recipe endpoints (nested under product)
             Route::get('{productId}/recipe', [\App\Modules\Api\V1\Recipe\Controllers\RecipeController::class, 'index']);
             Route::post('{productId}/recipe/new', [\App\Modules\Api\V1\Recipe\Controllers\RecipeController::class, 'store']);
+            Route::get('{productId}/recipe/{ingredientId}', [\App\Modules\Api\V1\Recipe\Controllers\RecipeController::class, 'show']);
             Route::delete('{productId}/recipe/{ingredientId}', [\App\Modules\Api\V1\Recipe\Controllers\RecipeController::class, 'destroy']);
         });
 

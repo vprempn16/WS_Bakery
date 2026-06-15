@@ -85,4 +85,23 @@ class InventoryTransactionController extends Controller
 
         return $this->success(new InventoryTransactionResource($transaction), 'Transaction created successfully.', 201);
     }
+
+    public function show($id)
+    {
+        $transaction = InventoryTransaction::findOrFail($id);
+        $resource = new InventoryTransactionResource($transaction);
+        
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('InventoryTransaction');
+        $fieldList = array_map(function($field) {
+            return [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel']
+            ];
+        }, $fields);
+        
+        return $this->success([
+            'fields' => $fieldList,
+            'values' => $resource->toArray(request())
+        ]);
+    }
 }

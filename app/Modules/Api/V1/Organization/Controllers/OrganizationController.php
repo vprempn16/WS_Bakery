@@ -53,7 +53,20 @@ class OrganizationController extends Controller
     public function show($id)
     {
         $organization = Organization::findOrFail($id);
-        return $this->success(new OrganizationResource($organization));
+        $resource = new OrganizationResource($organization);
+        
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Organization');
+        $fieldList = array_map(function($field) {
+            return [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel']
+            ];
+        }, $fields);
+        
+        return $this->success([
+            'fields' => $fieldList,
+            'values' => $resource->toArray(request())
+        ]);
     }
 
     public function update(UpdateOrganizationRequest $request, $id)

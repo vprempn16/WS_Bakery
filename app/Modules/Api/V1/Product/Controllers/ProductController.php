@@ -80,7 +80,20 @@ class ProductController extends Controller
     public function show($id)
     {
         $product = Product::findOrFail($id);
-        return $this->success(new ProductResource($product));
+        $resource = new ProductResource($product);
+        
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Product');
+        $fieldList = array_map(function($field) {
+            return [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel']
+            ];
+        }, $fields);
+        
+        return $this->success([
+            'fields' => $fieldList,
+            'values' => $resource->toArray(request())
+        ]);
     }
 
     public function update(UpdateProductRequest $request, $id)

@@ -77,7 +77,20 @@ class UserController extends Controller
     public function show($id)
     {
         $user = User::findOrFail($id);
-        return $this->success(new UserResource($user));
+        $resource = new UserResource($user);
+        
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('User');
+        $fieldList = array_map(function($field) {
+            return [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel']
+            ];
+        }, $fields);
+        
+        return $this->success([
+            'fields' => $fieldList,
+            'values' => $resource->toArray(request())
+        ]);
     }
 
     public function update(UpdateUserRequest $request, $id)

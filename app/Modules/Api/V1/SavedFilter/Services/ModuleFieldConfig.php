@@ -13,6 +13,14 @@ class ModuleFieldConfig
      * These match exactly what each module's Resource returns.
      */
     private static array $moduleFields = [
+        'organizations' => [
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
+            ['fieldname' => 'name', 'fieldlabel' => 'Name', 'fieldtype' => 'text'],
+            ['fieldname' => 'description', 'fieldlabel' => 'Description', 'fieldtype' => 'textarea'],
+            ['fieldname' => 'email', 'fieldlabel' => 'Email', 'fieldtype' => 'email'],
+            ['fieldname' => 'phone', 'fieldlabel' => 'Phone', 'fieldtype' => 'phone'],
+            ['fieldname' => 'address', 'fieldlabel' => 'Address', 'fieldtype' => 'textarea'],
+        ],
         'users' => [
             ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
             ['fieldname' => 'firstName', 'fieldlabel' => 'First Name', 'fieldtype' => 'text'],
@@ -21,6 +29,7 @@ class ModuleFieldConfig
             ['fieldname' => 'phone', 'fieldlabel' => 'Phone', 'fieldtype' => 'phone'],
             ['fieldname' => 'role', 'fieldlabel' => 'Role', 'fieldtype' => 'picklist'],
             ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization ID', 'fieldtype' => 'text'],
+            ['fieldname' => 'branchId', 'fieldlabel' => 'Branch ID', 'fieldtype' => 'text'],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'time/datetime'],
         ],
         'vendors' => [
@@ -63,17 +72,25 @@ class ModuleFieldConfig
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'time/datetime'],
             ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'time/datetime'],
         ],
+        'recipes' => [
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
+            ['fieldname' => 'productId', 'fieldlabel' => 'Product ID', 'fieldtype' => 'text'],
+            ['fieldname' => 'ingredientId', 'fieldlabel' => 'Ingredient ID', 'fieldtype' => 'text'],
+            ['fieldname' => 'quantityRequired', 'fieldlabel' => 'Quantity Required', 'fieldtype' => 'decimal'],
+        ],
     ];
 
     /**
      * Map PascalCase module names to lowercase keys.
      */
     private static array $moduleAliases = [
+        'Organization' => 'organizations',
         'User' => 'users',
         'Vendor' => 'vendors',
         'Ingredient' => 'ingredients',
         'InventoryTransaction' => 'inventory_transactions',
         'Product' => 'products',
+        'Recipe' => 'recipes',
     ];
 
     /**

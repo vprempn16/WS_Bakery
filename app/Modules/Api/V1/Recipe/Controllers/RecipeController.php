@@ -34,6 +34,29 @@ class RecipeController extends Controller
         return $this->success(new RecipeResource($recipe), 'Recipe ingredient added successfully.', 201);
     }
 
+    public function show($productId, $ingredientId)
+    {
+        $recipe = Recipe::where('product_id', $productId)
+            ->where('ingredient_id', $ingredientId)
+            ->with('ingredient')
+            ->firstOrFail();
+        
+        $resource = new RecipeResource($recipe);
+        
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Recipe');
+        $fieldList = array_map(function($field) {
+            return [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel']
+            ];
+        }, $fields);
+        
+        return $this->success([
+            'fields' => $fieldList,
+            'values' => $resource->toArray(request())
+        ]);
+    }
+
     public function destroy($productId, $ingredientId)
     {
         Recipe::where('product_id', $productId)
