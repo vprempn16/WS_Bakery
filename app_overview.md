@@ -448,3 +448,24 @@ backend/
 ├── composer.json
 └── phpunit.xml
 ```
+
+---
+
+## 11. Recent Updates & Refactoring
+
+The following recent changes were implemented across the application:
+
+1. **Standardized Update Operations**: All module update endpoints were changed from `PUT /{id}` to `POST /{id}` for consistency across the API.
+   - *Files modified*: `routes/api.php`, `api_docs.md`, and multiple tests (`AuthTest.php`, `Phase2Test.php`, `FilterTest.php`).
+
+2. **PascalCase Endpoint Naming**: All module endpoint prefixes were standardized to singular PascalCase (e.g., `/api/v1/Ingredient` instead of `/api/v1/ingredients`).
+   - *Files modified*: `routes/api.php`, `api_docs.md`.
+
+3. **Dynamic Headers Retrieval**: Implemented the `{module}/headers` and `{module}/headers/{filterId}` dynamic routes to fetch frontend table column definitions based on saved filters or the module default.
+   - *Files modified*: `routes/api.php`, `api_docs.md`, `HeaderController.php`.
+
+4. **Saved Filters Module Completion**: Finished the implementation of the `SavedFilter` system including database migrations, rules definition parsing, and default filter seeding.
+   - *Files worked on*: `SavedFilterController.php`, `FilterTest.php`, `ResultTrait.php` (restored paginated response structure format `list`, `meta`, `links`).
+
+5. **Postman API Documentation**: Expanded `api_docs.md` with comprehensive request body examples for `POST` and creation events, specifically including real-world examples for creating Ingredients (Flour, Butter, Yeast, Chocolate Chips) and integrating them into Recipes.
+

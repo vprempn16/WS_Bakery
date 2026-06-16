@@ -69,7 +69,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   ```
 
 ### 1.3 Update Organization
-* **Endpoint**: `PUT /api/v1/Organization/{id}`
+* **Endpoint**: `POST /api/v1/Organization/{id}`
 * **Request Body**: Same as Create Organization.
 * **Response (200 OK)**: Returns the updated organization in the wrapped structure.
 
@@ -165,7 +165,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   ```
 
 ### 2.3 Update User
-* **Endpoint**: `PUT /api/v1/settings/User/{id}`
+* **Endpoint**: `POST /api/v1/settings/User/{id}`
 * **Request Body**:
   ```json
   {
@@ -334,13 +334,79 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+* **Additional Request Body Examples**:
+
+**Example: All-Purpose Flour (Staple)**
+```json
+{
+    "data": {
+        "values": {
+            "organizationId": "{{org_uuid}}",
+            "vendorId": "{{vendor_uuid}}",
+            "name": "All-Purpose Flour",
+            "unit": "kg",
+            "minimumStockLevel": 50,
+            "currentStock": 200
+        }
+    }
+}
+```
+
+**Example: Unsalted Butter (Dairy)**
+```json
+{
+    "data": {
+        "values": {
+            "organizationId": "{{org_uuid}}",
+            "vendorId": "{{vendor_uuid}}",
+            "name": "Unsalted Butter",
+            "unit": "kg",
+            "minimumStockLevel": 10,
+            "currentStock": 25
+        }
+    }
+}
+```
+
+**Example: Active Dry Yeast (Leavening Agent)**
+```json
+{
+    "data": {
+        "values": {
+            "organizationId": "{{org_uuid}}",
+            "vendorId": "{{vendor_uuid}}",
+            "name": "Active Dry Yeast",
+            "unit": "g",
+            "minimumStockLevel": 500,
+            "currentStock": 2000
+        }
+    }
+}
+```
+
+**Example: Dark Chocolate Chips (Add-ins)**
+```json
+{
+    "data": {
+        "values": {
+            "organizationId": "{{org_uuid}}",
+            "vendorId": "{{vendor_uuid}}",
+            "name": "Dark Chocolate Chips",
+            "unit": "kg",
+            "minimumStockLevel": 5,
+            "currentStock": 15
+        }
+    }
+}
+```
+
 ### 4.3 Get Ingredient by ID
 * **Endpoint**: `GET /api/v1/Ingredient/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**: Same structure as single element in list response.
 
 ### 4.4 Update Ingredient
-* **Endpoint**: `PUT /api/v1/Ingredient/{id}`
+* **Endpoint**: `POST /api/v1/Ingredient/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**: Same as Create but fields to update.
 * **Response (200 OK)**: Updated ingredient object.
@@ -431,7 +497,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 * **Response (200 OK)**: Same structure as single element in list response.
 
 ### 5.4 Update Vendor
-* **Endpoint**: `PUT /api/v1/Vendor/{id}`
+* **Endpoint**: `POST /api/v1/Vendor/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
 ```json
@@ -672,7 +738,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 * **Response (200 OK)**: Same structure as single element in list response.
 
 ### 7.4 Update Product
-* **Endpoint**: `PUT /api/v1/Product/{id}`
+* **Endpoint**: `POST /api/v1/Product/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
 ```json
@@ -796,6 +862,60 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
                     "updatedAt": "2026-06-11T21:31:35.000000Z"
                 }
             }
+        }
+    }
+}
+```
+
+* **Additional Request Body Examples**:
+
+**Example: Adding Flour Requirement**
+*(e.g., Recipe requires 1.5 kg of flour per batch)*
+```json
+{
+    "data": {
+        "values": {
+            "ingredientId": "{{flour_ingredient_uuid}}",
+            "quantityRequired": 1.5
+        }
+    }
+}
+```
+
+**Example: Adding Butter Requirement**
+*(e.g., Recipe requires 0.5 kg of butter per batch)*
+```json
+{
+    "data": {
+        "values": {
+            "ingredientId": "{{butter_ingredient_uuid}}",
+            "quantityRequired": 0.5
+        }
+    }
+}
+```
+
+**Example: Adding Yeast Requirement**
+*(e.g., Recipe requires 15 grams of yeast per batch)*
+```json
+{
+    "data": {
+        "values": {
+            "ingredientId": "{{yeast_ingredient_uuid}}",
+            "quantityRequired": 15
+        }
+    }
+}
+```
+
+**Example: Adding Chocolate Chips Requirement**
+*(e.g., Recipe requires 2 kg of chocolate chips per batch)*
+```json
+{
+    "data": {
+        "values": {
+            "ingredientId": "{{chocolate_chips_ingredient_uuid}}",
+            "quantityRequired": 2
         }
     }
 }

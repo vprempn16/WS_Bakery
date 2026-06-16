@@ -128,7 +128,7 @@ class AuthTest extends TestCase
         ]);
         \Laravel\Sanctum\Sanctum::actingAs($user);
 
-        $response = $this->putJson("/api/v1/Organization/{$org->id}", [
+        $response = $this->postJson("/api/v1/Organization/{$org->id}", [
             'data' => [
                 'values' => [
                     'name' => 'WS Bakery Updated',
@@ -303,7 +303,7 @@ class AuthTest extends TestCase
 
         \Laravel\Sanctum\Sanctum::actingAs($user);
 
-        $response = $this->putJson("/api/v1/settings/User/{$user->id}", [
+        $response = $this->postJson("/api/v1/settings/User/{$user->id}", [
             'data' => [
                 'values' => [
                     'lastName' => 'Nath Updated',

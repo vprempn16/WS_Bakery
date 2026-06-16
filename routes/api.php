@@ -18,7 +18,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('Organization')->group(function () {
             Route::get('search', [OrganizationController::class, 'search']);
             Route::get('{id}', [OrganizationController::class, 'show']);
-            Route::put('{id}', [OrganizationController::class, 'update']);
+            Route::post('{id}', [OrganizationController::class, 'update']);
             Route::delete('{id}', [OrganizationController::class, 'destroy']);
         });
 
@@ -38,7 +38,7 @@ Route::prefix('v1')->group(function () {
             Route::get('', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'index']);
             Route::post('new', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'store']);
             Route::get('{id}', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'show']);
-            Route::put('{id}', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'update']);
+            Route::post('{id}', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'update']);
             Route::delete('{id}', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'destroy']);
         });
 
@@ -48,7 +48,7 @@ Route::prefix('v1')->group(function () {
             Route::get('low-stock', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'lowStock']);
             Route::post('new', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'store']);
             Route::get('{id}', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'show']);
-            Route::put('{id}', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'update']);
+            Route::post('{id}', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'update']);
             Route::delete('{id}', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'destroy']);
         });
 
@@ -64,7 +64,7 @@ Route::prefix('v1')->group(function () {
             Route::get('', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'index']);
             Route::post('new', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'store']);
             Route::get('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'show']);
-            Route::put('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'update']);
+            Route::post('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'update']);
             Route::delete('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'destroy']);
             
             // Recipe endpoints (nested under product)
@@ -79,7 +79,7 @@ Route::prefix('v1')->group(function () {
             Route::get('', [UserController::class, 'index']);
             Route::post('new', [UserController::class, 'store']);
             Route::get('{id}', [UserController::class, 'show']);
-            Route::put('{id}', [UserController::class, 'update']);
+            Route::post('{id}', [UserController::class, 'update']);
             Route::delete('{id}', [UserController::class, 'destroy']);
         });
     });
