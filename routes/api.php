@@ -14,6 +14,9 @@ Route::prefix('v1')->group(function () {
         // Logout endpoint
         Route::post('auth/logout', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'logout']);
 
+        // Global Search endpoint
+        Route::get('search/{fieldname}', [\App\Modules\Api\V1\GlobalSearch\Controllers\GlobalSearchController::class, 'searchByField']);
+
         // Organization endpoints
         Route::prefix('Organization')->group(function () {
             Route::get('search', [OrganizationController::class, 'search']);

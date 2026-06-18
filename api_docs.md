@@ -7,6 +7,8 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 ## 1. Organization Management
 
 ### 1.1 Create Organization (and Initial Owner User)
+
+**Create Organization (and Initial Owner User) starting**
 * **Endpoint**: `POST /api/v1/Organization/new`
 * **Request Body**:
   ```json
@@ -50,7 +52,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   }
   ```
 
+**Create Organization (and Initial Owner User) ending**
+
+
 ### 1.2 Get Organization by ID
+
+**Get Organization by ID starting**
 * **Endpoint**: `GET /api/v1/Organization/{id}`
 * **Response (200 OK)**:
   ```json
@@ -68,12 +75,22 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   }
   ```
 
+**Get Organization by ID ending**
+
+
 ### 1.3 Update Organization
+
+**Update Organization starting**
 * **Endpoint**: `POST /api/v1/Organization/{id}`
 * **Request Body**: Same as Create Organization.
 * **Response (200 OK)**: Returns the updated organization in the wrapped structure.
 
+**Update Organization ending**
+
+
 ### 1.4 Delete Organization
+
+**Delete Organization starting**
 * **Endpoint**: `DELETE /api/v1/Organization/{id}`
 * **Response (200 OK)**:
   ```json
@@ -82,7 +99,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   }
   ```
 
+**Delete Organization ending**
+
+
 ### 1.5 Search Organizations
+
+**Search Organizations starting**
 * **Endpoint**: `GET /api/v1/Organization/search?query={keyword}`
 * **Response (200 OK)**:
   ```json
@@ -102,11 +124,16 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   }
   ```
 
+**Search Organizations ending**
+
+
 ---
 
 ## 2. User Management (under Settings)
 
 ### 2.1 Create User (including Auto-Login Token)
+
+**Create User (including Auto-Login Token) starting**
 * **Endpoint**: `POST /api/v1/settings/User/new`
 * **Request Body**:
   ```json
@@ -144,7 +171,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   }
   ```
 
+**Create User (including Auto-Login Token) ending**
+
+
 ### 2.2 Get User by ID
+
+**Get User by ID starting**
 * **Endpoint**: `GET /api/v1/settings/User/{id}`
 * **Response (200 OK)**:
   ```json
@@ -164,7 +196,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   }
   ```
 
+**Get User by ID ending**
+
+
 ### 2.3 Update User
+
+**Update User starting**
 * **Endpoint**: `POST /api/v1/settings/User/{id}`
 * **Request Body**:
   ```json
@@ -183,7 +220,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   ```
 * **Response (200 OK)**: Returns the updated user details inside the wrapped structure.
 
+**Update User ending**
+
+
 ### 2.4 Delete User
+
+**Delete User starting**
 * **Endpoint**: `DELETE /api/v1/settings/User/{id}`
 * **Response (200 OK)**:
   ```json
@@ -192,7 +234,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   }
   ```
 
+**Delete User ending**
+
+
 ### 2.5 List Users
+
+**List Users starting**
 * **Endpoint**: `GET /api/v1/settings/User`
 * **Headers**: `Authorization: Bearer {token}`
 * **Optional Filters**:
@@ -219,11 +266,16 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   }
   ```
 
+**List Users ending**
+
+
 ---
 
 ## 3. Authentication
 
 ### 3.1 Login
+
+**Login starting**
 * **Endpoint**: `POST /api/v1/auth/login`
 * **Request Body**:
   ```json
@@ -259,7 +311,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   }
   ```
 
+**Login ending**
+
+
 ### 3.2 Logout
+
+**Logout starting**
 * **Endpoint**: `POST /api/v1/auth/logout`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
@@ -270,9 +327,14 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
   }
   ```
 
+**Logout ending**
+
+
 ## 4. Ingredient Management
 
 ### 4.1 List Ingredients
+
+**List Ingredients starting**
 * **Endpoint**: `GET /api/v1/Ingredient`
 * **Headers**: `Authorization: Bearer {token}`
 * **Optional Filters**:
@@ -299,7 +361,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**List Ingredients ending**
+
+
 ### 4.2 Create Ingredient
+
+**Create Ingredient starting**
 * **Endpoint**: `POST /api/v1/Ingredient/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
@@ -400,18 +467,33 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**Create Ingredient ending**
+
+
 ### 4.3 Get Ingredient by ID
+
+**Get Ingredient by ID starting**
 * **Endpoint**: `GET /api/v1/Ingredient/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**: Same structure as single element in list response.
 
+**Get Ingredient by ID ending**
+
+
 ### 4.4 Update Ingredient
+
+**Update Ingredient starting**
 * **Endpoint**: `POST /api/v1/Ingredient/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**: Same as Create but fields to update.
 * **Response (200 OK)**: Updated ingredient object.
 
+**Update Ingredient ending**
+
+
 ### 4.5 Delete Ingredient
+
+**Delete Ingredient starting**
 * **Endpoint**: `DELETE /api/v1/Ingredient/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
@@ -419,16 +501,26 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 { "message": "Ingredient successfully deleted." }
 ```
 
+**Delete Ingredient ending**
+
+
 ### 4.6 Low Stock Endpoint
+
+**Low Stock Endpoint starting**
 * **Endpoint**: `GET /api/v1/Ingredient/low-stock`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**: List of ingredients where `current_stock` < `minimum_stock_level`.
+
+**Low Stock Endpoint ending**
+
 
 ---
 
 ## 5. Vendor Management
 
 ### 5.1 List Vendors
+
+**List Vendors starting**
 * **Endpoint**: `GET /api/v1/Vendor`
 * **Headers**: `Authorization: Bearer {token}`
 * **Optional Filters**:
@@ -454,7 +546,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**List Vendors ending**
+
+
 ### 5.2 Create Vendor
+
+**Create Vendor starting**
 * **Endpoint**: `POST /api/v1/Vendor/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
@@ -491,12 +588,22 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**Create Vendor ending**
+
+
 ### 5.3 Get Vendor by ID
+
+**Get Vendor by ID starting**
 * **Endpoint**: `GET /api/v1/Vendor/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**: Same structure as single element in list response.
 
+**Get Vendor by ID ending**
+
+
 ### 5.4 Update Vendor
+
+**Update Vendor starting**
 * **Endpoint**: `POST /api/v1/Vendor/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
@@ -533,7 +640,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**Update Vendor ending**
+
+
 ### 5.5 Delete Vendor
+
+**Delete Vendor starting**
 * **Endpoint**: `DELETE /api/v1/Vendor/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
@@ -543,11 +655,16 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**Delete Vendor ending**
+
+
 ---
 
 ## 6. Inventory Transactions
 
 ### 6.1 List Inventory Transactions
+
+**List Inventory Transactions starting**
 * **Endpoint**: `GET /api/v1/InventoryTransaction`
 * **Headers**: `Authorization: Bearer {token}`
 * **Optional Filters**:
@@ -574,7 +691,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**List Inventory Transactions ending**
+
+
 ### 6.2 Create Inventory Transaction
+
+**Create Inventory Transaction starting**
 * **Endpoint**: `POST /api/v1/InventoryTransaction/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
@@ -609,7 +731,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**Create Inventory Transaction ending**
+
+
 ### 6.3 Get Inventory Transaction by ID
+
+**Get Inventory Transaction by ID starting**
 * **Endpoint**: `GET /api/v1/InventoryTransaction/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
@@ -657,11 +784,16 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**Get Inventory Transaction by ID ending**
+
+
 ---
 
 ## 7. Product Management
 
 ### 7.1 List Products
+
+**List Products starting**
 * **Endpoint**: `GET /api/v1/Product`
 * **Headers**: `Authorization: Bearer {token}`
 * **Optional Filters**:
@@ -692,7 +824,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**List Products ending**
+
+
 ### 7.2 Create Product
+
+**Create Product starting**
 * **Endpoint**: `POST /api/v1/Product/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
@@ -732,12 +869,22 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**Create Product ending**
+
+
 ### 7.3 Get Product by ID
+
+**Get Product by ID starting**
 * **Endpoint**: `GET /api/v1/Product/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**: Same structure as single element in list response.
 
+**Get Product by ID ending**
+
+
 ### 7.4 Update Product
+
+**Update Product starting**
 * **Endpoint**: `POST /api/v1/Product/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
@@ -776,7 +923,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**Update Product ending**
+
+
 ### 7.5 Delete Product
+
+**Delete Product starting**
 * **Endpoint**: `DELETE /api/v1/Product/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
@@ -786,11 +938,16 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**Delete Product ending**
+
+
 ---
 
 ## 8. Recipe Management
 
 ### 8.1 List Recipe Ingredients for a Product
+
+**List Recipe Ingredients for a Product starting**
 * **Endpoint**: `GET /api/v1/Product/{productId}/recipe`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
@@ -824,7 +981,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**List Recipe Ingredients for a Product ending**
+
+
 ### 8.2 Add or Update Recipe Ingredient for a Product
+
+**Add or Update Recipe Ingredient for a Product starting**
 * **Endpoint**: `POST /api/v1/Product/{productId}/recipe/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
@@ -921,7 +1083,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**Add or Update Recipe Ingredient for a Product ending**
+
+
 ### 8.3 Get Recipe Ingredient by ID
+
+**Get Recipe Ingredient by ID starting**
 * **Endpoint**: `GET /api/v1/Product/{productId}/recipe/{ingredientId}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
@@ -969,7 +1136,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**Get Recipe Ingredient by ID ending**
+
+
 ### 8.4 Remove Ingredient from a Product's Recipe
+
+**Remove Ingredient from a Product's Recipe starting**
 * **Endpoint**: `DELETE /api/v1/Product/{productId}/recipe/{ingredientId}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
@@ -980,11 +1152,16 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**Remove Ingredient from a Product's Recipe ending**
+
+
 ---
 
 ## 9. Saved Filters
 
 ### 9.1 Create a Saved Filter
+
+**Create a Saved Filter starting**
 * **Endpoint**: `POST /api/v1/filters/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
@@ -1123,7 +1300,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**Create a Saved Filter ending**
+
+
 ### 9.2 Allowed Fields per Module
+
+**Allowed Fields per Module starting**
 | Module | Allowed Fields (camelCase or snake_case) |
 |--------|------------------------------------------|
 | `User` / `users` | `firstName`, `lastName`, `email`, `role`, `createdAt` |
@@ -1132,7 +1314,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 | `InventoryTransaction` / `inventory_transactions` | `type`, `quantity`, `ingredientId`, `createdAt` |
 | `Product` / `products` | `name`, `productNumber`, `price`, `unit`, `shelfLifeDays`, `currentStock`, `createdAt` |
 
+**Allowed Fields per Module ending**
+
+
 ### 9.3 List Saved Filters
+
+**List Saved Filters starting**
 * **Endpoint**: `GET /api/v1/filters`
 * **Headers**: `Authorization: Bearer {token}`
 * **Optional Filters**:
@@ -1169,7 +1356,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**List Saved Filters ending**
+
+
 ### 9.4 Delete a Saved Filter
+
+**Delete a Saved Filter starting**
 * **Endpoint**: `DELETE /api/v1/filters/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Response (200 OK)**:
@@ -1179,7 +1371,12 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 }
 ```
 
+**Delete a Saved Filter ending**
+
+
 ### 9.5 Applying Saved Filters on Module Listings
+
+**Applying Saved Filters on Module Listings starting**
 For any list endpoint, append `?savedFilterId={filter_uuid}` to apply a previously saved filter:
 * `GET /api/v1/settings/User?savedFilterId={filter_uuid}`
 * `GET /api/v1/Vendor?savedFilterId={filter_uuid}`
@@ -1187,14 +1384,24 @@ For any list endpoint, append `?savedFilterId={filter_uuid}` to apply a previous
 * `GET /api/v1/InventoryTransaction?savedFilterId={filter_uuid}`
 * `GET /api/v1/Product?savedFilterId={filter_uuid}`
 
+**Applying Saved Filters on Module Listings ending**
+
+
 ### 9.6 Default Filters
+
+**Default Filters starting**
 When the app is first installed and migrations run, a default **"All"** filter is automatically created for each module (`users`, `vendors`, `ingredients`, `inventory_transactions`, `products`). These default filters:
 * Have `is_default: true`
 * Are global (not organization-specific)
 * Include all module fields in `header_details`
 * Cannot be deleted
 
+**Default Filters ending**
+
+
 ### 9.7 Create Filter with Custom Header Details
+
+**Create Filter with Custom Header Details starting**
 When creating a saved filter, you can optionally pass `headerDetails` to specify which columns should be visible in the list view for that filter. If not provided, all module fields are used as default.
 
 ```json
@@ -1225,6 +1432,9 @@ When creating a saved filter, you can optionally pass `headerDetails` to specify
 }
 ```
 
+**Create Filter with Custom Header Details ending**
+
+
 ---
 
 ## 10. Headers (Filter Field Definitions)
@@ -1232,6 +1442,8 @@ When creating a saved filter, you can optionally pass `headerDetails` to specify
 The Headers API returns the column/field definitions for a filter. It tells the frontend which columns to display in a list view.
 
 ### 10.1 Get Headers by Module (Default Filter)
+
+**Get Headers by Module (Default Filter) starting**
 * **Endpoint**: `GET /api/v1/{module_name}/headers`
 * **Headers**: `Authorization: Bearer {token}`
 * **Description**: Returns the default "All" filter's field definitions for the given module.
@@ -1286,7 +1498,12 @@ The Headers API returns the column/field definitions for a filter. It tells the 
 }
 ```
 
+**Get Headers by Module (Default Filter) ending**
+
+
 ### 10.2 Get Headers by Filter ID
+
+**Get Headers by Filter ID starting**
 * **Endpoint**: `GET /api/v1/{module_name}/headers/{filterId}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Description**: Returns the field definitions stored in the given filter's `header_details`. If that filter has custom `headerDetails`, only those fields are returned (matched against the module's full field list).
@@ -1310,3 +1527,71 @@ The Headers API returns the column/field definitions for a filter. It tells the 
     }
 }
 ```
+
+**Get Headers by Filter ID ending**
+
+
+---
+
+## 11. Global Search (Relation Picklists)
+
+The Global Search API is used to populate relational picklists (dropdowns) across the application. When a user searches within a relational field (e.g., `vendorId`), this endpoint returns the matching records from the target module, along with the field definitions needed to display them.
+
+### 11.1 Search by Field Name
+
+**Search by Field Name starting**
+* **Endpoint**: `GET /api/v1/search/{fieldname}?value={search_string}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Returns matching records for a specific relation field. Allowed fields include `vendorId`, `userId`, `ingredientId`, `productId`, and `organizationId`.
+
+**Example**: `GET /api/v1/search/vendorId?value=Gorf`
+
+* **Response (200 OK)**:
+```json
+{
+  "status": true,
+  "message": "Success",
+  "data": {
+    "results": {
+      "Vendor": {
+        "fields": [
+          {
+            "fieldname": "id",
+            "fieldlabel": "ID"
+          },
+          {
+            "fieldname": "name",
+            "fieldlabel": "Name"
+          },
+          {
+            "fieldname": "contactPerson",
+            "fieldlabel": "Contact Person"
+          },
+          {
+            "fieldname": "phone",
+            "fieldlabel": "Phone"
+          },
+          {
+            "fieldname": "email",
+            "fieldlabel": "Email"
+          },
+          {
+            "fieldname": "createdAt",
+            "fieldlabel": "Created At"
+          }
+        ],
+        "values": [
+          {
+            "id": "a85bb0bc-260e-4970-b758-1b423e8e0332",
+            "label": "Gorf Supplies",
+            "search_text": "Gorf Supplies,Tammie Simon"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+**Search by Field Name ending**
+
