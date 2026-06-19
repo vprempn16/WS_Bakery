@@ -47,7 +47,16 @@ class VendorController extends Controller
 
         $vendors = $query->paginate($perPage);
 
-        return $this->paginated(VendorResource::collection($vendors)->resource);
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Vendor');
+        $fieldList = array_map(function($field) {
+            return [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
+            ];
+        }, $fields);
+
+        return $this->paginated(VendorResource::collection($vendors)->resource, $fieldList);
     }
 
     public function store(StoreVendorRequest $request)
@@ -75,7 +84,8 @@ class VendorController extends Controller
         $fieldList = array_map(function($field) {
             return [
                 'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel']
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
             ];
         }, $fields);
         

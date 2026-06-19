@@ -12,31 +12,55 @@ use App\Traits\FilterableTrait;
 
 class BranchController extends Controller
 {
-    use ResultTrait, FilterableTrait;
-
     public function index(Request $request)
     {
         $organizationId = auth()->user()->organization_id;
         $query = Branch::where('organization_id', $organizationId);
 
-        // Apply filters
-        $filters = $this->parseFilters($request);
-        $query = $this->applyFilters($query, $filters, 'Branch');
+        $query->when($request->query('search'), function ($q, $search) {
+            $q->where(function ($inner) use ($search) {
+                $inner->where('name', 'like', "%{$search}%")
+                      ->orWhere('address', 'like', "%{$search}%")
+                      ->orWhere('phone', 'like', "%{$search}%");
+            });
+        });
 
-        // Check if pagination is requested
-        $perPage = $request->get('limit');
-        if ($perPage) {
-            $branches = $query->paginate($perPage);
-            return $this->paginated(BranchResource::collection($branches));
+        // Apply saved filter if provided
+        if ($request->has('savedFilterId')) {
+            $savedFilter = \App\Modules\Api\V1\SavedFilter\Models\SavedFilter::where('organization_id', $organizationId)
+                ->findOrFail($request->query('savedFilterId'));
+            \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'branches', $savedFilter->rules);
         }
 
-        $branches = $query->get();
-        return $this->success(BranchResource::collection($branches));
+        // Apply dynamic query rules if provided
+        if ($request->has('rules')) {
+            $rules = $request->input('rules');
+            if (is_string($rules)) {
+                $rules = json_decode($rules, true);
+            }
+            if (is_array($rules)) {
+                \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'branches', $rules);
+            }
+        }
+
+        // Check if pagination is requested
+        $perPage = $request->query('limit', $request->query('per_page', 20));
+        $branches = $query->paginate($perPage);
+
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Branch');
+        $fieldList = array_map(function($field) {
+            return [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
+            ];
+        }, $fields);
+
+        return $this->paginated(BranchResource::collection($branches)->resource, $fieldList);
     }
 
     public function store(Request $request)
     {
-        // Actually this is an update if ID is provided, else create. But the standard pattern uses /new for store and /{id} for update using POST.
         $organizationId = auth()->user()->organization_id;
         
         $branchRequest = app(BranchRequest::class);
@@ -46,7 +70,7 @@ class BranchController extends Controller
 
         $branch = Branch::create($validated);
 
-        return $this->created(new BranchResource($branch), 'Branch created successfully.');
+        return $this->success(new BranchResource($branch), 'Branch created successfully.', 201);
     }
 
     public function show($id)
@@ -56,7 +80,21 @@ class BranchController extends Controller
             ->where('id', $id)
             ->firstOrFail();
 
-        return $this->success(new BranchResource($branch));
+        $resource = new BranchResource($branch);
+        
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Branch');
+        $fieldList = array_map(function($field) {
+            return [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
+            ];
+        }, $fields);
+        
+        return $this->success([
+            'fields' => $fieldList,
+            'values' => $resource->toArray(request())
+        ]);
     }
 
     public function update(Request $request, $id)

@@ -55,7 +55,16 @@ class InventoryTransactionController extends Controller
 
         $transactions = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        return $this->paginated(InventoryTransactionResource::collection($transactions)->resource);
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('InventoryTransaction');
+        $fieldList = array_map(function($field) {
+            return [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
+            ];
+        }, $fields);
+
+        return $this->paginated(InventoryTransactionResource::collection($transactions)->resource, $fieldList);
     }
 
     public function store(StoreInventoryTransactionRequest $request)
@@ -95,7 +104,8 @@ class InventoryTransactionController extends Controller
         $fieldList = array_map(function($field) {
             return [
                 'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel']
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
             ];
         }, $fields);
         

@@ -54,7 +54,16 @@ class IngredientController extends Controller
 
         $ingredients = $query->paginate($perPage);
 
-        return $this->paginated(IngredientResource::collection($ingredients)->resource);
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Ingredient');
+        $fieldList = array_map(function($field) {
+            return [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
+            ];
+        }, $fields);
+
+        return $this->paginated(IngredientResource::collection($ingredients)->resource, $fieldList);
     }
 
     public function store(StoreIngredientRequest $request)
@@ -84,7 +93,8 @@ class IngredientController extends Controller
         $fieldList = array_map(function($field) {
             return [
                 'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel']
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
             ];
         }, $fields);
         
@@ -127,7 +137,16 @@ class IngredientController extends Controller
             ->whereColumn('current_stock', '<', 'minimum_stock_level')
             ->paginate($perPage);
 
-        return $this->paginated(IngredientResource::collection($ingredients)->resource);
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Ingredient');
+        $fieldList = array_map(function($field) {
+            return [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
+            ];
+        }, $fields);
+
+        return $this->paginated(IngredientResource::collection($ingredients)->resource, $fieldList);
     }
 }
 

@@ -51,7 +51,16 @@ class UserController extends Controller
 
         $users = $query->paginate($perPage);
 
-        return $this->paginated(UserResource::collection($users)->resource);
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('User');
+        $fieldList = array_map(function($field) {
+            return [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
+            ];
+        }, $fields);
+
+        return $this->paginated(UserResource::collection($users)->resource, $fieldList);
     }
 
     public function store(StoreUserRequest $request)
@@ -83,7 +92,8 @@ class UserController extends Controller
         $fieldList = array_map(function($field) {
             return [
                 'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel']
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
             ];
         }, $fields);
         

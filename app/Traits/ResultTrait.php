@@ -23,25 +23,32 @@ trait ResultTrait
     /**
      * Paginated response for list endpoints.
      */
-    protected function paginated($paginator, $message = 'Success', int $status = 200): JsonResponse
+    protected function paginated($paginator, $fields = null, $message = 'Success', int $status = 200): JsonResponse
     {
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'list' => $paginator->items(),
-                'meta' => [
-                    'current_page' => $paginator->currentPage(),
-                    'last_page' => $paginator->lastPage(),
-                    'per_page' => $paginator->perPage(),
-                    'total' => $paginator->total(),
-                ],
-                'links' => [
-                    'first' => $paginator->url(1),
-                    'last' => $paginator->url($paginator->lastPage()),
-                    'prev' => $paginator->previousPageUrl(),
-                    'next' => $paginator->nextPageUrl(),
-                ],
+        $data = [
+            'list' => $paginator->items(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
             ],
+            'links' => [
+                'first' => $paginator->url(1),
+                'last' => $paginator->url($paginator->lastPage()),
+                'prev' => $paginator->previousPageUrl(),
+                'next' => $paginator->nextPageUrl(),
+            ],
+        ];
+
+        if ($fields !== null) {
+            $data['fields'] = $fields;
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => $message,
+            'data' => $data,
         ], $status);
     }
 

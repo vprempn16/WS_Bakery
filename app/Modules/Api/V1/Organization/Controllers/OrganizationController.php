@@ -59,7 +59,8 @@ class OrganizationController extends Controller
         $fieldList = array_map(function($field) {
             return [
                 'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel']
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
             ];
         }, $fields);
         
@@ -102,6 +103,15 @@ class OrganizationController extends Controller
             ->orWhere('email', 'like', "%{$query}%")
             ->paginate($perPage);
 
-        return $this->paginated(OrganizationResource::collection($results)->resource);
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Organization');
+        $fieldList = array_map(function($field) {
+            return [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
+            ];
+        }, $fields);
+
+        return $this->paginated(OrganizationResource::collection($results)->resource, $fieldList);
     }
 }

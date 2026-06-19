@@ -16,7 +16,16 @@ class RecipeController extends Controller
         $product = Product::findOrFail($productId);
         $recipes = $product->recipes()->with('ingredient')->paginate($perPage);
 
-        return $this->paginated(RecipeResource::collection($recipes)->resource);
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Recipe');
+        $fieldList = array_map(function($field) {
+            return [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
+            ];
+        }, $fields);
+
+        return $this->paginated(RecipeResource::collection($recipes)->resource, $fieldList);
     }
 
     public function store(StoreRecipeRequest $request, $productId)
@@ -47,7 +56,8 @@ class RecipeController extends Controller
         $fieldList = array_map(function($field) {
             return [
                 'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel']
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype']
             ];
         }, $fields);
         
