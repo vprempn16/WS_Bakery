@@ -12,7 +12,9 @@ class SavedFilterResource extends JsonResource
         return [
             'id' => $this->id,
             'organizationId' => $this->organization_id,
+            'organizationId_label' => $this->organization ? $this->organization->name : null,
             'userId' => $this->user_id,
+            'userId_label' => $this->user ? trim($this->user->first_name . ' ' . $this->user->last_name) : null,
             'name' => $this->name,
             'module' => $this->module,
             'rules' => $this->rules,

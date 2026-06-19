@@ -41,4 +41,9 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Organization::class);
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Modules\Api\V1\Branch\Models\Branch::class);
+    }
 }

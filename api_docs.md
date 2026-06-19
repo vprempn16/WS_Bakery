@@ -1595,3 +1595,111 @@ The Global Search API is used to populate relational picklists (dropdowns) acros
 
 **Search by Field Name ending**
 
+---
+
+## 12. Branch Management (Phase 2)
+
+### 12.1 Create Branch
+
+**Branch Create starting**
+* **Endpoint**: `POST /api/v1/Branch/new`
+* **Request Body**:
+  ```json
+  {
+      "data": {
+          "values": {
+              "name": "Main Warehouse",
+              "type": "warehouse",
+              "address": "123 Main St",
+              "phone": "555-1234"
+          }
+      }
+  }
+  ```
+* **Success Response (201 Created)**:
+  ```json
+  {
+      "status": true,
+      "message": "Branch created successfully.",
+      "data": {
+          "values": {
+              "id": "e446549a-...",
+              "organizationId": "...",
+              "organizationId_label": "Demo",
+              "name": "Main Warehouse",
+              "type": "warehouse",
+              "address": "123 Main St",
+              "phone": "555-1234",
+              "createdAt": "2026-06-18T10:00:00.000000Z",
+              "updatedAt": "2026-06-18T10:00:00.000000Z"
+          }
+      }
+  }
+  ```
+**Branch Create ending**
+
+### 12.2 List Branches
+
+**Branch List starting**
+* **Endpoint**: `GET /api/v1/Branch`
+* **Success Response (200 OK)**:
+  ```json
+  {
+      "status": true,
+      "message": "Success",
+      "data": {
+          "values": [
+              {
+                  "id": "e446549a-...",
+                  "name": "Main Warehouse",
+                  "type": "warehouse",
+                  ...
+              }
+          ]
+      }
+  }
+  ```
+**Branch List ending**
+
+### 12.3 Get Branch Details
+
+**Branch Detail starting**
+* **Endpoint**: `GET /api/v1/Branch/{id}`
+* **Success Response (200 OK)**:
+  ```json
+  {
+      "status": true,
+      "message": "Success",
+      "data": {
+          "values": {
+              "id": "e446549a-...",
+              "name": "Main Warehouse",
+              "type": "warehouse",
+              ...
+          }
+      }
+  }
+  ```
+**Branch Detail ending**
+
+### 12.4 Update Branch
+
+**Branch Update starting**
+* **Endpoint**: `POST /api/v1/Branch/{id}`
+* **Request Body**: Same as Create.
+* **Success Response (200 OK)**: Same structure as Create.
+**Branch Update ending**
+
+### 12.5 Delete Branch
+
+**Branch Delete starting**
+* **Endpoint**: `DELETE /api/v1/Branch/{id}`
+* **Success Response (200 OK)**:
+  ```json
+  {
+      "status": true,
+      "message": "Branch successfully deleted.",
+      "data": null
+  }
+  ```
+**Branch Delete ending**

@@ -49,6 +49,13 @@ class GlobalSearchController extends Controller
                 'label' => function($r) { return $r->name; },
                 'searchText' => function($r) { return $r->name; }
             ],
+            'branchId' => [
+                'module' => 'Branch',
+                'model' => \App\Modules\Api\V1\Branch\Models\Branch::class,
+                'searchColumns' => ['name', 'address', 'phone'],
+                'label' => function($r) { return $r->name; },
+                'searchText' => function($r) { return $r->name . ',' . $r->phone; }
+            ],
         ];
     }
 

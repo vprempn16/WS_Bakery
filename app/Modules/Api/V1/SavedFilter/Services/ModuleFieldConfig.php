@@ -78,6 +78,16 @@ class ModuleFieldConfig
             ['fieldname' => 'ingredientId', 'fieldlabel' => 'Ingredient ID', 'fieldtype' => 'text'],
             ['fieldname' => 'quantityRequired', 'fieldlabel' => 'Quantity Required', 'fieldtype' => 'decimal'],
         ],
+        'branches' => [
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
+            ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization ID', 'fieldtype' => 'text'],
+            ['fieldname' => 'name', 'fieldlabel' => 'Name', 'fieldtype' => 'text'],
+            ['fieldname' => 'type', 'fieldlabel' => 'Type', 'fieldtype' => 'picklist'],
+            ['fieldname' => 'address', 'fieldlabel' => 'Address', 'fieldtype' => 'textarea'],
+            ['fieldname' => 'phone', 'fieldlabel' => 'Phone', 'fieldtype' => 'phone'],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'time/datetime'],
+            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'time/datetime'],
+        ],
     ];
 
     /**
@@ -91,6 +101,7 @@ class ModuleFieldConfig
         'InventoryTransaction' => 'inventory_transactions',
         'Product' => 'products',
         'Recipe' => 'recipes',
+        'Branch' => 'branches',
     ];
 
     /**

@@ -25,6 +25,15 @@ Route::prefix('v1')->group(function () {
             Route::delete('{id}', [OrganizationController::class, 'destroy']);
         });
 
+        // Branch endpoints
+        Route::prefix('Branch')->group(function () {
+            Route::get('', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'index']);
+            Route::post('new', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'store']);
+            Route::get('{id}', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'show']);
+            Route::post('{id}', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'update']);
+            Route::delete('{id}', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'destroy']);
+        });
+
         // Saved Filter endpoints
         Route::prefix('filters')->group(function () {
             Route::get('', [\App\Modules\Api\V1\SavedFilter\Controllers\SavedFilterController::class, 'index']);

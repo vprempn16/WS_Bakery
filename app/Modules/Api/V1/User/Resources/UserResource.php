@@ -25,7 +25,9 @@ class UserResource extends JsonResource
             'phone' => $this->phone,
             'role' => $this->role,
             'organizationId' => $this->organization_id,
+            'organizationId_label' => $this->organization ? $this->organization->name : null,
             'branchId' => $this->branch_id,
+            'branchId_label' => $this->branch ? $this->branch->name : null,
         ];
 
         if ($this->token) {
