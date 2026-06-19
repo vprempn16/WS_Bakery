@@ -77,46 +77,58 @@ class VendorController extends Controller
 
     public function show($id)
     {
-        $vendor = Vendor::findOrFail($id);
-        $resource = new VendorResource($vendor);
-        
-        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Vendor');
-        $fieldList = array_map(function($field) {
-            return [
-                'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel'],
-                'fieldtype' => $field['fieldtype']
-            ];
-        }, $fields);
-        
-        return $this->success([
-            'fields' => $fieldList,
-            'values' => $resource->toArray(request())
-        ]);
+        try {
+            $vendor = Vendor::findOrFail($id);
+            $resource = new VendorResource($vendor);
+            
+            $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Vendor');
+            $fieldList = array_map(function($field) {
+                return [
+                    'fieldname' => $field['fieldname'],
+                    'fieldlabel' => $field['fieldlabel'],
+                    'fieldtype' => $field['fieldtype']
+                ];
+            }, $fields);
+            
+            return $this->success([
+                'fields' => $fieldList,
+                'values' => $resource->toArray(request())
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Vendor not found.', null, null, null, 404);
+        }
     }
 
     public function update(UpdateVendorRequest $request, $id)
     {
-        $vendor = Vendor::findOrFail($id);
-        $values = $request->input('data.values');
+        try {
+            $vendor = Vendor::findOrFail($id);
+            $values = $request->input('data.values');
 
-        $vendor->update([
-            'organization_id' => $values['organizationId'],
-            'name' => $values['name'],
-            'contact_person' => $values['contactPerson'] ?? null,
-            'email' => $values['email'] ?? null,
-            'phone' => $values['phone'] ?? null,
-            'address' => $values['address'] ?? null,
-        ]);
+            $vendor->update([
+                'organization_id' => $values['organizationId'],
+                'name' => $values['name'],
+                'contact_person' => $values['contactPerson'] ?? null,
+                'email' => $values['email'] ?? null,
+                'phone' => $values['phone'] ?? null,
+                'address' => $values['address'] ?? null,
+            ]);
 
-        return $this->success(new VendorResource($vendor));
+            return $this->success(new VendorResource($vendor));
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Vendor not found.', null, null, null, 404);
+        }
     }
 
     public function destroy($id)
     {
-        $vendor = Vendor::findOrFail($id);
-        $vendor->delete();
+        try {
+            $vendor = Vendor::findOrFail($id);
+            $vendor->delete();
 
-        return $this->success(null, 'Vendor successfully deleted.');
+            return $this->success(null, 'Vendor successfully deleted.');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Vendor not found.', null, null, null, 404);
+        }
     }
 }

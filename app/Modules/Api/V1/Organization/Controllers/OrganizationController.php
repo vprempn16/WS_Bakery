@@ -52,46 +52,58 @@ class OrganizationController extends Controller
 
     public function show($id)
     {
-        $organization = Organization::findOrFail($id);
-        $resource = new OrganizationResource($organization);
-        
-        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Organization');
-        $fieldList = array_map(function($field) {
-            return [
-                'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel'],
-                'fieldtype' => $field['fieldtype']
-            ];
-        }, $fields);
-        
-        return $this->success([
-            'fields' => $fieldList,
-            'values' => $resource->toArray(request())
-        ]);
+        try {
+            $organization = Organization::findOrFail($id);
+            $resource = new OrganizationResource($organization);
+            
+            $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Organization');
+            $fieldList = array_map(function($field) {
+                return [
+                    'fieldname' => $field['fieldname'],
+                    'fieldlabel' => $field['fieldlabel'],
+                    'fieldtype' => $field['fieldtype']
+                ];
+            }, $fields);
+            
+            return $this->success([
+                'fields' => $fieldList,
+                'values' => $resource->toArray(request())
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Organization not found.', null, null, null, 404);
+        }
     }
 
     public function update(UpdateOrganizationRequest $request, $id)
     {
-        $organization = Organization::findOrFail($id);
-        $values = $request->input('data.values');
+        try {
+            $organization = Organization::findOrFail($id);
+            $values = $request->input('data.values');
 
-        $organization->update([
-            'name' => $values['name'],
-            'description' => $values['description'] ?? null,
-            'email' => $values['email'] ?? null,
-            'phone' => $values['phone'] ?? null,
-            'address' => $values['address'] ?? null,
-        ]);
+            $organization->update([
+                'name' => $values['name'],
+                'description' => $values['description'] ?? null,
+                'email' => $values['email'] ?? null,
+                'phone' => $values['phone'] ?? null,
+                'address' => $values['address'] ?? null,
+            ]);
 
-        return $this->success(new OrganizationResource($organization));
+            return $this->success(new OrganizationResource($organization));
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Organization not found.', null, null, null, 404);
+        }
     }
 
     public function destroy($id)
     {
-        $organization = Organization::findOrFail($id);
-        $organization->delete();
+        try {
+            $organization = Organization::findOrFail($id);
+            $organization->delete();
 
-        return $this->success(null, 'Organization successfully deleted.');
+            return $this->success(null, 'Organization successfully deleted.');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Organization not found.', null, null, null, 404);
+        }
     }
 
     public function search(Request $request)

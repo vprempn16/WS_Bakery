@@ -30,7 +30,7 @@ class ModuleFieldConfig
             ['fieldname' => 'role', 'fieldlabel' => 'Role', 'fieldtype' => 'picklist'],
             ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization ID', 'fieldtype' => 'relationPickList'],
             ['fieldname' => 'branchId', 'fieldlabel' => 'Branch ID', 'fieldtype' => 'relationPickList'],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'time/datetime'],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date'],
         ],
         'vendors' => [
             ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
@@ -39,8 +39,8 @@ class ModuleFieldConfig
             ['fieldname' => 'phone', 'fieldlabel' => 'Phone', 'fieldtype' => 'phone'],
             ['fieldname' => 'email', 'fieldlabel' => 'Email', 'fieldtype' => 'email'],
             ['fieldname' => 'address', 'fieldlabel' => 'Address', 'fieldtype' => 'textarea'],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'time/datetime'],
-            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'time/datetime'],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date'],
+            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date'],
         ],
         'ingredients' => [
             ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
@@ -49,8 +49,8 @@ class ModuleFieldConfig
             ['fieldname' => 'vendorId', 'fieldlabel' => 'Vendor ID', 'fieldtype' => 'relationPickList'],
             ['fieldname' => 'minimumStockLevel', 'fieldlabel' => 'Minimum Stock Level', 'fieldtype' => 'decimal'],
             ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock', 'fieldtype' => 'decimal'],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'time/datetime'],
-            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'time/datetime'],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date'],
+            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date'],
         ],
         'inventory_transactions' => [
             ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
@@ -58,7 +58,7 @@ class ModuleFieldConfig
             ['fieldname' => 'type', 'fieldlabel' => 'Type', 'fieldtype' => 'picklist'],
             ['fieldname' => 'quantity', 'fieldlabel' => 'Quantity', 'fieldtype' => 'decimal'],
             ['fieldname' => 'referenceNote', 'fieldlabel' => 'Reference Note', 'fieldtype' => 'textarea'],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'time/datetime'],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date'],
         ],
         'products' => [
             ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
@@ -69,8 +69,8 @@ class ModuleFieldConfig
             ['fieldname' => 'unit', 'fieldlabel' => 'Unit', 'fieldtype' => 'picklist'],
             ['fieldname' => 'shelfLifeDays', 'fieldlabel' => 'Shelf Life Days', 'fieldtype' => 'integer/number'],
             ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock', 'fieldtype' => 'decimal'],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'time/datetime'],
-            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'time/datetime'],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date'],
+            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date'],
         ],
         'recipes' => [
             ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
@@ -85,8 +85,8 @@ class ModuleFieldConfig
             ['fieldname' => 'type', 'fieldlabel' => 'Type', 'fieldtype' => 'picklist'],
             ['fieldname' => 'address', 'fieldlabel' => 'Address', 'fieldtype' => 'textarea'],
             ['fieldname' => 'phone', 'fieldlabel' => 'Phone', 'fieldtype' => 'phone'],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'time/datetime'],
-            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'time/datetime'],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date'],
+            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date'],
         ],
     ];
 

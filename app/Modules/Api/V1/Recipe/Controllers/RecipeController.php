@@ -45,34 +45,46 @@ class RecipeController extends Controller
 
     public function show($productId, $ingredientId)
     {
-        $recipe = Recipe::where('product_id', $productId)
-            ->where('ingredient_id', $ingredientId)
-            ->with('ingredient')
-            ->firstOrFail();
-        
-        $resource = new RecipeResource($recipe);
-        
-        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Recipe');
-        $fieldList = array_map(function($field) {
-            return [
-                'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel'],
-                'fieldtype' => $field['fieldtype']
-            ];
-        }, $fields);
-        
-        return $this->success([
-            'fields' => $fieldList,
-            'values' => $resource->toArray(request())
-        ]);
+        try {
+            $recipe = Recipe::where('product_id', $productId)
+                ->where('ingredient_id', $ingredientId)
+                ->with('ingredient')
+                ->firstOrFail();
+            
+            $resource = new RecipeResource($recipe);
+            
+            $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Recipe');
+            $fieldList = array_map(function($field) {
+                return [
+                    'fieldname' => $field['fieldname'],
+                    'fieldlabel' => $field['fieldlabel'],
+                    'fieldtype' => $field['fieldtype']
+                ];
+            }, $fields);
+            
+            return $this->success([
+                'fields' => $fieldList,
+                'values' => $resource->toArray(request())
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Recipe not found.', null, null, null, 404);
+        }
     }
 
     public function destroy($productId, $ingredientId)
     {
-        Recipe::where('product_id', $productId)
-              ->where('ingredient_id', $ingredientId)
-              ->delete();
+        try {
+            $deleted = Recipe::where('product_id', $productId)
+                  ->where('ingredient_id', $ingredientId)
+                  ->delete();
 
-        return $this->success(null, 'Recipe ingredient successfully removed.');
+            if (!$deleted) {
+                throw new \Illuminate\Database\Eloquent\ModelNotFoundException();
+            }
+
+            return $this->success(null, 'Recipe ingredient successfully removed.');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Recipe not found.', null, null, null, 404);
+        }
     }
 }

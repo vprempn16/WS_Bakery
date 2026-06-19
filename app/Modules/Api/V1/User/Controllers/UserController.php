@@ -85,52 +85,64 @@ class UserController extends Controller
 
     public function show($id)
     {
-        $user = User::findOrFail($id);
-        $resource = new UserResource($user);
-        
-        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('User');
-        $fieldList = array_map(function($field) {
-            return [
-                'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel'],
-                'fieldtype' => $field['fieldtype']
-            ];
-        }, $fields);
-        
-        return $this->success([
-            'fields' => $fieldList,
-            'values' => $resource->toArray(request())
-        ]);
+        try {
+            $user = User::findOrFail($id);
+            $resource = new UserResource($user);
+            
+            $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('User');
+            $fieldList = array_map(function($field) {
+                return [
+                    'fieldname' => $field['fieldname'],
+                    'fieldlabel' => $field['fieldlabel'],
+                    'fieldtype' => $field['fieldtype']
+                ];
+            }, $fields);
+            
+            return $this->success([
+                'fields' => $fieldList,
+                'values' => $resource->toArray(request())
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('User not found.', null, null, null, 404);
+        }
     }
 
     public function update(UpdateUserRequest $request, $id)
     {
-        $user = User::findOrFail($id);
-        $values = $request->input('data.values');
+        try {
+            $user = User::findOrFail($id);
+            $values = $request->input('data.values');
 
-        $data = [
-            'organization_id' => $values['organizationId'],
-            'first_name' => $values['firstName'],
-            'last_name' => $values['lastName'],
-            'email' => $values['email'],
-            'phone' => $values['phone'] ?? null,
-            'role' => $values['role'],
-        ];
+            $data = [
+                'organization_id' => $values['organizationId'],
+                'first_name' => $values['firstName'],
+                'last_name' => $values['lastName'],
+                'email' => $values['email'],
+                'phone' => $values['phone'] ?? null,
+                'role' => $values['role'],
+            ];
 
-        if (!empty($values['password'])) {
-            $data['password'] = Hash::make($values['password']);
+            if (!empty($values['password'])) {
+                $data['password'] = Hash::make($values['password']);
+            }
+
+            $user->update($data);
+
+            return $this->success(new UserResource($user));
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('User not found.', null, null, null, 404);
         }
-
-        $user->update($data);
-
-        return $this->success(new UserResource($user));
     }
 
     public function destroy($id)
     {
-        $user = User::findOrFail($id);
-        $user->delete();
+        try {
+            $user = User::findOrFail($id);
+            $user->delete();
 
-        return $this->success(null, 'User successfully deleted.');
+            return $this->success(null, 'User successfully deleted.');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('User not found.', null, null, null, 404);
+        }
     }
 }

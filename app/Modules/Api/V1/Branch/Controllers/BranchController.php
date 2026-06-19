@@ -75,52 +75,64 @@ class BranchController extends Controller
 
     public function show($id)
     {
-        $organizationId = auth()->user()->organization_id;
-        $branch = Branch::where('organization_id', $organizationId)
-            ->where('id', $id)
-            ->firstOrFail();
+        try {
+            $organizationId = auth()->user()->organization_id;
+            $branch = Branch::where('organization_id', $organizationId)
+                ->where('id', $id)
+                ->firstOrFail();
 
-        $resource = new BranchResource($branch);
-        
-        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Branch');
-        $fieldList = array_map(function($field) {
-            return [
-                'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel'],
-                'fieldtype' => $field['fieldtype']
-            ];
-        }, $fields);
-        
-        return $this->success([
-            'fields' => $fieldList,
-            'values' => $resource->toArray(request())
-        ]);
+            $resource = new BranchResource($branch);
+            
+            $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Branch');
+            $fieldList = array_map(function($field) {
+                return [
+                    'fieldname' => $field['fieldname'],
+                    'fieldlabel' => $field['fieldlabel'],
+                    'fieldtype' => $field['fieldtype']
+                ];
+            }, $fields);
+            
+            return $this->success([
+                'fields' => $fieldList,
+                'values' => $resource->toArray(request())
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Branch not found.', null, null, null, 404);
+        }
     }
 
     public function update(Request $request, $id)
     {
-        $organizationId = auth()->user()->organization_id;
-        $branch = Branch::where('organization_id', $organizationId)
-            ->where('id', $id)
-            ->firstOrFail();
+        try {
+            $organizationId = auth()->user()->organization_id;
+            $branch = Branch::where('organization_id', $organizationId)
+                ->where('id', $id)
+                ->firstOrFail();
 
-        $branchRequest = app(BranchRequest::class);
-        $validated = $branchRequest->validated()['data']['values'];
+            $branchRequest = app(BranchRequest::class);
+            $validated = $branchRequest->validated()['data']['values'];
 
-        $branch->update($validated);
+            $branch->update($validated);
 
-        return $this->success(new BranchResource($branch), 'Branch updated successfully.');
+            return $this->success(new BranchResource($branch), 'Branch updated successfully.');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Branch not found.', null, null, null, 404);
+        }
     }
 
     public function destroy($id)
     {
-        $organizationId = auth()->user()->organization_id;
-        $branch = Branch::where('organization_id', $organizationId)
-            ->where('id', $id)
-            ->firstOrFail();
+        try {
+            $organizationId = auth()->user()->organization_id;
+            $branch = Branch::where('organization_id', $organizationId)
+                ->where('id', $id)
+                ->firstOrFail();
 
-        $branch->delete();
+            $branch->delete();
 
-        return $this->deleted('Branch successfully deleted.');
+            return $this->success(null, 'Branch successfully deleted.');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Branch not found.', null, null, null, 404);
+        }
     }
 }

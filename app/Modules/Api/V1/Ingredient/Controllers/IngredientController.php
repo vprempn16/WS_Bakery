@@ -85,48 +85,60 @@ class IngredientController extends Controller
 
     public function show(Request $request, $id)
     {
-        $orgId = $request->user()->organization_id;
-        $ingredient = Ingredient::where('organization_id', $orgId)->findOrFail($id);
-        $resource = new IngredientResource($ingredient);
-        
-        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Ingredient');
-        $fieldList = array_map(function($field) {
-            return [
-                'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel'],
-                'fieldtype' => $field['fieldtype']
-            ];
-        }, $fields);
-        
-        return $this->success([
-            'fields' => $fieldList,
-            'values' => $resource->toArray(request())
-        ]);
+        try {
+            $orgId = $request->user()->organization_id;
+            $ingredient = Ingredient::where('organization_id', $orgId)->findOrFail($id);
+            $resource = new IngredientResource($ingredient);
+            
+            $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Ingredient');
+            $fieldList = array_map(function($field) {
+                return [
+                    'fieldname' => $field['fieldname'],
+                    'fieldlabel' => $field['fieldlabel'],
+                    'fieldtype' => $field['fieldtype']
+                ];
+            }, $fields);
+            
+            return $this->success([
+                'fields' => $fieldList,
+                'values' => $resource->toArray(request())
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Ingredient not found.', null, null, null, 404);
+        }
     }
 
     public function update(UpdateIngredientRequest $request, $id)
     {
-        $orgId = $request->user()->organization_id;
-        $ingredient = Ingredient::where('organization_id', $orgId)->findOrFail($id);
-        $values = $request->input('data.values');
+        try {
+            $orgId = $request->user()->organization_id;
+            $ingredient = Ingredient::where('organization_id', $orgId)->findOrFail($id);
+            $values = $request->input('data.values');
 
-        $ingredient->update([
-            'vendor_id' => $values['vendorId'] ?? null,
-            'name' => $values['name'],
-            'unit' => $values['unit'] ?? 'g',
-            'minimum_stock_level' => $values['minimumStockLevel'] ?? 0,
-        ]);
+            $ingredient->update([
+                'vendor_id' => $values['vendorId'] ?? null,
+                'name' => $values['name'],
+                'unit' => $values['unit'] ?? 'g',
+                'minimum_stock_level' => $values['minimumStockLevel'] ?? 0,
+            ]);
 
-        return $this->success(new IngredientResource($ingredient));
+            return $this->success(new IngredientResource($ingredient));
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Ingredient not found.', null, null, null, 404);
+        }
     }
 
     public function destroy(Request $request, $id)
     {
-        $orgId = $request->user()->organization_id;
-        $ingredient = Ingredient::where('organization_id', $orgId)->findOrFail($id);
-        $ingredient->delete();
+        try {
+            $orgId = $request->user()->organization_id;
+            $ingredient = Ingredient::where('organization_id', $orgId)->findOrFail($id);
+            $ingredient->delete();
 
-        return $this->success(null, 'Ingredient successfully deleted.');
+            return $this->success(null, 'Ingredient successfully deleted.');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Ingredient not found.', null, null, null, 404);
+        }
     }
 
     public function lowStock(Request $request)

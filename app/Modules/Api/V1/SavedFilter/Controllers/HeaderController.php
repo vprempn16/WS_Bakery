@@ -89,4 +89,22 @@ class HeaderController extends Controller
             'fields' => $allFields,
         ]);
     }
+
+    /**
+     * GET /api/v1/{module}/new
+     * Returns the fields for the module, used by the frontend to render a Create view.
+     */
+    public function getCreateFields(string $module)
+    {
+        $normalizedModule = ModuleFieldConfig::normalizeModule($module);
+        $fields = ModuleFieldConfig::getFields($normalizedModule);
+
+        if (!$fields) {
+            return $this->error("Unknown module: {$module}", null, null, null, 422);
+        }
+
+        return $this->success([
+            'fields' => $fields
+        ]);
+    }
 }

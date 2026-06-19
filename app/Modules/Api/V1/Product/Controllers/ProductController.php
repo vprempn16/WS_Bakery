@@ -88,46 +88,58 @@ class ProductController extends Controller
 
     public function show($id)
     {
-        $product = Product::findOrFail($id);
-        $resource = new ProductResource($product);
-        
-        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Product');
-        $fieldList = array_map(function($field) {
-            return [
-                'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel'],
-                'fieldtype' => $field['fieldtype']
-            ];
-        }, $fields);
-        
-        return $this->success([
-            'fields' => $fieldList,
-            'values' => $resource->toArray(request())
-        ]);
+        try {
+            $product = Product::findOrFail($id);
+            $resource = new ProductResource($product);
+            
+            $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Product');
+            $fieldList = array_map(function($field) {
+                return [
+                    'fieldname' => $field['fieldname'],
+                    'fieldlabel' => $field['fieldlabel'],
+                    'fieldtype' => $field['fieldtype']
+                ];
+            }, $fields);
+            
+            return $this->success([
+                'fields' => $fieldList,
+                'values' => $resource->toArray(request())
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Product not found.', null, null, null, 404);
+        }
     }
 
     public function update(UpdateProductRequest $request, $id)
     {
-        $product = Product::findOrFail($id);
-        $values = $request->input('data.values');
+        try {
+            $product = Product::findOrFail($id);
+            $values = $request->input('data.values');
 
-        $product->update([
-            'organization_id' => $values['organizationId'],
-            'name' => $values['name'],
-            'description' => $values['description'] ?? null,
-            'price' => $values['price'] ?? null,
-            'unit' => $values['unit'] ?? 'pcs',
-            'shelf_life_days' => $values['shelfLifeDays'] ?? null,
-        ]);
+            $product->update([
+                'organization_id' => $values['organizationId'],
+                'name' => $values['name'],
+                'description' => $values['description'] ?? null,
+                'price' => $values['price'] ?? null,
+                'unit' => $values['unit'] ?? 'pcs',
+                'shelf_life_days' => $values['shelfLifeDays'] ?? null,
+            ]);
 
-        return $this->success(new ProductResource($product));
+            return $this->success(new ProductResource($product));
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Product not found.', null, null, null, 404);
+        }
     }
 
     public function destroy($id)
     {
-        $product = Product::findOrFail($id);
-        $product->delete();
+        try {
+            $product = Product::findOrFail($id);
+            $product->delete();
 
-        return $this->success(null, 'Product successfully deleted.');
+            return $this->success(null, 'Product successfully deleted.');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Product not found.', null, null, null, 404);
+        }
     }
 }
