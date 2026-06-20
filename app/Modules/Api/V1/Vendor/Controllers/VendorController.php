@@ -47,14 +47,7 @@ class VendorController extends Controller
 
         $vendors = $query->paginate($perPage);
 
-        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Vendor');
-        $fieldList = array_map(function($field) {
-            return [
-                'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel'],
-                'fieldtype' => $field['fieldtype']
-            ];
-        }, $fields);
+        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Vendor');
 
         return $this->paginated(VendorResource::collection($vendors)->resource, $fieldList);
     }
@@ -81,14 +74,7 @@ class VendorController extends Controller
             $vendor = Vendor::findOrFail($id);
             $resource = new VendorResource($vendor);
             
-            $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Vendor');
-            $fieldList = array_map(function($field) {
-                return [
-                    'fieldname' => $field['fieldname'],
-                    'fieldlabel' => $field['fieldlabel'],
-                    'fieldtype' => $field['fieldtype']
-                ];
-            }, $fields);
+            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Vendor');
             
             return $this->success([
                 'fields' => $fieldList,

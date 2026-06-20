@@ -14,79 +14,130 @@ class ModuleFieldConfig
      */
     private static array $moduleFields = [
         'organizations' => [
-            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
-            ['fieldname' => 'name', 'fieldlabel' => 'Name', 'fieldtype' => 'text'],
-            ['fieldname' => 'description', 'fieldlabel' => 'Description', 'fieldtype' => 'textarea'],
-            ['fieldname' => 'email', 'fieldlabel' => 'Email', 'fieldtype' => 'email'],
-            ['fieldname' => 'phone', 'fieldlabel' => 'Phone', 'fieldtype' => 'phone'],
-            ['fieldname' => 'address', 'fieldlabel' => 'Address', 'fieldtype' => 'textarea'],
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text', 'displaytype' => 2],
+            ['fieldname' => 'name', 'fieldlabel' => 'Name', 'fieldtype' => 'text', 'displaytype' => 1],
+            ['fieldname' => 'description', 'fieldlabel' => 'Description', 'fieldtype' => 'textarea', 'displaytype' => 1],
+            ['fieldname' => 'email', 'fieldlabel' => 'Email', 'fieldtype' => 'email', 'displaytype' => 1],
+            ['fieldname' => 'phone', 'fieldlabel' => 'Phone', 'fieldtype' => 'phone', 'displaytype' => 1],
+            ['fieldname' => 'address', 'fieldlabel' => 'Address', 'fieldtype' => 'textarea', 'displaytype' => 1],
         ],
         'users' => [
-            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
-            ['fieldname' => 'firstName', 'fieldlabel' => 'First Name', 'fieldtype' => 'text'],
-            ['fieldname' => 'lastName', 'fieldlabel' => 'Last Name', 'fieldtype' => 'text'],
-            ['fieldname' => 'email', 'fieldlabel' => 'Email', 'fieldtype' => 'email'],
-            ['fieldname' => 'phone', 'fieldlabel' => 'Phone', 'fieldtype' => 'phone'],
-            ['fieldname' => 'role', 'fieldlabel' => 'Role', 'fieldtype' => 'picklist'],
-            ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization ID', 'fieldtype' => 'relationPickList'],
-            ['fieldname' => 'branchId', 'fieldlabel' => 'Branch ID', 'fieldtype' => 'relationPickList'],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date'],
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text', 'displaytype' => 2],
+            ['fieldname' => 'firstName', 'fieldlabel' => 'First Name', 'fieldtype' => 'text', 'displaytype' => 1],
+            ['fieldname' => 'lastName', 'fieldlabel' => 'Last Name', 'fieldtype' => 'text', 'displaytype' => 1],
+            ['fieldname' => 'email', 'fieldlabel' => 'Email', 'fieldtype' => 'email', 'displaytype' => 1],
+            ['fieldname' => 'phone', 'fieldlabel' => 'Phone', 'fieldtype' => 'phone', 'displaytype' => 1],
+            [
+                'fieldname' => 'role',
+                'fieldlabel' => 'Role',
+                'fieldtype' => 'picklist',
+                'displaytype' => 1,
+                'options' => [
+                    ['value' => 'owner', 'label' => 'Owner'],
+                    ['value' => 'admin', 'label' => 'Admin'],
+                    ['value' => 'manager', 'label' => 'Manager'],
+                    ['value' => 'staff', 'label' => 'Staff']
+                ]
+            ],
+            ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization ID', 'fieldtype' => 'relationPickList', 'displaytype' => 2],
+            ['fieldname' => 'branchId', 'fieldlabel' => 'Branch ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2],
         ],
         'vendors' => [
-            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
-            ['fieldname' => 'name', 'fieldlabel' => 'Name', 'fieldtype' => 'text'],
-            ['fieldname' => 'contactPerson', 'fieldlabel' => 'Contact Person', 'fieldtype' => 'text'],
-            ['fieldname' => 'phone', 'fieldlabel' => 'Phone', 'fieldtype' => 'phone'],
-            ['fieldname' => 'email', 'fieldlabel' => 'Email', 'fieldtype' => 'email'],
-            ['fieldname' => 'address', 'fieldlabel' => 'Address', 'fieldtype' => 'textarea'],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date'],
-            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date'],
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text', 'displaytype' => 2],
+            ['fieldname' => 'name', 'fieldlabel' => 'Name', 'fieldtype' => 'text', 'displaytype' => 1],
+            ['fieldname' => 'contactPerson', 'fieldlabel' => 'Contact Person', 'fieldtype' => 'text', 'displaytype' => 1],
+            ['fieldname' => 'phone', 'fieldlabel' => 'Phone', 'fieldtype' => 'phone', 'displaytype' => 1],
+            ['fieldname' => 'email', 'fieldlabel' => 'Email', 'fieldtype' => 'email', 'displaytype' => 1],
+            ['fieldname' => 'address', 'fieldlabel' => 'Address', 'fieldtype' => 'textarea', 'displaytype' => 1],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2],
+            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2],
         ],
         'ingredients' => [
-            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
-            ['fieldname' => 'name', 'fieldlabel' => 'Name', 'fieldtype' => 'text'],
-            ['fieldname' => 'unit', 'fieldlabel' => 'Unit', 'fieldtype' => 'picklist'],
-            ['fieldname' => 'vendorId', 'fieldlabel' => 'Vendor ID', 'fieldtype' => 'relationPickList'],
-            ['fieldname' => 'minimumStockLevel', 'fieldlabel' => 'Minimum Stock Level', 'fieldtype' => 'decimal'],
-            ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock', 'fieldtype' => 'decimal'],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date'],
-            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date'],
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text', 'displaytype' => 2],
+            ['fieldname' => 'name', 'fieldlabel' => 'Name', 'fieldtype' => 'text', 'displaytype' => 1],
+            [
+                'fieldname' => 'unit',
+                'fieldlabel' => 'Unit',
+                'fieldtype' => 'picklist',
+                'displaytype' => 1,
+                'options' => [
+                    ['value' => 'g', 'label' => 'Grams (g)'],
+                    ['value' => 'kg', 'label' => 'Kilograms (kg)'],
+                    ['value' => 'ml', 'label' => 'Milliliters (ml)'],
+                    ['value' => 'l', 'label' => 'Liters (l)'],
+                    ['value' => 'pcs', 'label' => 'Pieces (pcs)']
+                ]
+            ],
+            ['fieldname' => 'vendorId', 'fieldlabel' => 'Vendor ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
+            ['fieldname' => 'minimumStockLevel', 'fieldlabel' => 'Minimum Stock Level', 'fieldtype' => 'decimal', 'displaytype' => 1],
+            ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock', 'fieldtype' => 'decimal', 'displaytype' => 1],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2],
+            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2],
         ],
         'inventory_transactions' => [
-            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
-            ['fieldname' => 'ingredientId', 'fieldlabel' => 'Ingredient ID', 'fieldtype' => 'relationPickList'],
-            ['fieldname' => 'type', 'fieldlabel' => 'Type', 'fieldtype' => 'picklist'],
-            ['fieldname' => 'quantity', 'fieldlabel' => 'Quantity', 'fieldtype' => 'decimal'],
-            ['fieldname' => 'referenceNote', 'fieldlabel' => 'Reference Note', 'fieldtype' => 'textarea'],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date'],
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text', 'displaytype' => 2],
+            ['fieldname' => 'ingredientId', 'fieldlabel' => 'Ingredient ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
+            [
+                'fieldname' => 'type',
+                'fieldlabel' => 'Type',
+                'fieldtype' => 'picklist',
+                'displaytype' => 1,
+                'options' => [
+                    ['value' => 'in', 'label' => 'Stock In'],
+                    ['value' => 'out', 'label' => 'Stock Out']
+                ]
+            ],
+            ['fieldname' => 'quantity', 'fieldlabel' => 'Quantity', 'fieldtype' => 'decimal', 'displaytype' => 1],
+            ['fieldname' => 'referenceNote', 'fieldlabel' => 'Reference Note', 'fieldtype' => 'textarea', 'displaytype' => 1],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2],
         ],
         'products' => [
-            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
-            ['fieldname' => 'productNumber', 'fieldlabel' => 'Product Number', 'fieldtype' => 'text'],
-            ['fieldname' => 'name', 'fieldlabel' => 'Name', 'fieldtype' => 'text'],
-            ['fieldname' => 'description', 'fieldlabel' => 'Description', 'fieldtype' => 'textarea'],
-            ['fieldname' => 'price', 'fieldlabel' => 'Price', 'fieldtype' => 'currency'],
-            ['fieldname' => 'unit', 'fieldlabel' => 'Unit', 'fieldtype' => 'picklist'],
-            ['fieldname' => 'shelfLifeDays', 'fieldlabel' => 'Shelf Life Days', 'fieldtype' => 'integer/number'],
-            ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock', 'fieldtype' => 'decimal'],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date'],
-            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date'],
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text', 'displaytype' => 2],
+            ['fieldname' => 'productNumber', 'fieldlabel' => 'Product Number', 'fieldtype' => 'text', 'displaytype' => 1],
+            ['fieldname' => 'name', 'fieldlabel' => 'Name', 'fieldtype' => 'text', 'displaytype' => 1],
+            ['fieldname' => 'description', 'fieldlabel' => 'Description', 'fieldtype' => 'textarea', 'displaytype' => 1],
+            ['fieldname' => 'price', 'fieldlabel' => 'Price', 'fieldtype' => 'currency', 'displaytype' => 1],
+            [
+                'fieldname' => 'unit',
+                'fieldlabel' => 'Unit',
+                'fieldtype' => 'picklist',
+                'displaytype' => 1,
+                'options' => [
+                    ['value' => 'pcs', 'label' => 'Pieces'],
+                    ['value' => 'dozen', 'label' => 'Dozen'],
+                    ['value' => 'box', 'label' => 'Box']
+                ]
+            ],
+            ['fieldname' => 'shelfLifeDays', 'fieldlabel' => 'Shelf Life Days', 'fieldtype' => 'integer/number', 'displaytype' => 1],
+            ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock', 'fieldtype' => 'decimal', 'displaytype' => 1],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2],
+            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2],
         ],
         'recipes' => [
-            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
-            ['fieldname' => 'productId', 'fieldlabel' => 'Product ID', 'fieldtype' => 'relationPickList'],
-            ['fieldname' => 'ingredientId', 'fieldlabel' => 'Ingredient ID', 'fieldtype' => 'relationPickList'],
-            ['fieldname' => 'quantityRequired', 'fieldlabel' => 'Quantity Required', 'fieldtype' => 'decimal'],
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text', 'displaytype' => 2],
+            ['fieldname' => 'productId', 'fieldlabel' => 'Product ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
+            ['fieldname' => 'ingredientId', 'fieldlabel' => 'Ingredient ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
+            ['fieldname' => 'quantityRequired', 'fieldlabel' => 'Quantity Required', 'fieldtype' => 'decimal', 'displaytype' => 1],
         ],
         'branches' => [
-            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text'],
-            ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization ID', 'fieldtype' => 'relationPickList'],
-            ['fieldname' => 'name', 'fieldlabel' => 'Name', 'fieldtype' => 'text'],
-            ['fieldname' => 'type', 'fieldlabel' => 'Type', 'fieldtype' => 'picklist'],
-            ['fieldname' => 'address', 'fieldlabel' => 'Address', 'fieldtype' => 'textarea'],
-            ['fieldname' => 'phone', 'fieldlabel' => 'Phone', 'fieldtype' => 'phone'],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date'],
-            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date'],
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text', 'displaytype' => 2],
+            ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
+            ['fieldname' => 'name', 'fieldlabel' => 'Name', 'fieldtype' => 'text', 'displaytype' => 1],
+            [
+                'fieldname' => 'type',
+                'fieldlabel' => 'Type',
+                'fieldtype' => 'picklist',
+                'displaytype' => 1,
+                'options' => [
+                    ['value' => 'warehouse', 'label' => 'Warehouse'],
+                    ['value' => 'retail', 'label' => 'Retail Store']
+                ]
+            ],
+            ['fieldname' => 'address', 'fieldlabel' => 'Address', 'fieldtype' => 'textarea', 'displaytype' => 1],
+            ['fieldname' => 'phone', 'fieldlabel' => 'Phone', 'fieldtype' => 'phone', 'displaytype' => 1],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2],
+            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2],
         ],
     ];
 
@@ -111,6 +162,30 @@ class ModuleFieldConfig
     {
         $normalizedModule = self::normalizeModule($module);
         return self::$moduleFields[$normalizedModule] ?? null;
+    }
+
+    /**
+     * Get the mapped field definitions for standard API responses (index/show).
+     * Includes fieldname, fieldlabel, fieldtype, and optionally options.
+     */
+    public static function getMappedFields(string $module): ?array
+    {
+        $fields = self::getFields($module);
+        if (!$fields)
+            return null;
+
+        return array_map(function ($field) {
+            $mapped = [
+                'fieldname' => $field['fieldname'],
+                'fieldlabel' => $field['fieldlabel'],
+                'fieldtype' => $field['fieldtype'],
+                'displaytype' => $field['displaytype']
+            ];
+            if (isset($field['options'])) {
+                $mapped['options'] = $field['options'];
+            }
+            return $mapped;
+        }, $fields);
     }
 
     /**

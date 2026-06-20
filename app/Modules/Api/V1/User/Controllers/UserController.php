@@ -51,14 +51,7 @@ class UserController extends Controller
 
         $users = $query->paginate($perPage);
 
-        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('User');
-        $fieldList = array_map(function($field) {
-            return [
-                'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel'],
-                'fieldtype' => $field['fieldtype']
-            ];
-        }, $fields);
+        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('User');
 
         return $this->paginated(UserResource::collection($users)->resource, $fieldList);
     }
@@ -89,14 +82,7 @@ class UserController extends Controller
             $user = User::findOrFail($id);
             $resource = new UserResource($user);
             
-            $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('User');
-            $fieldList = array_map(function($field) {
-                return [
-                    'fieldname' => $field['fieldname'],
-                    'fieldlabel' => $field['fieldlabel'],
-                    'fieldtype' => $field['fieldtype']
-                ];
-            }, $fields);
+            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('User');
             
             return $this->success([
                 'fields' => $fieldList,

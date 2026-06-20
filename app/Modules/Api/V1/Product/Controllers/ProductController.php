@@ -57,14 +57,7 @@ class ProductController extends Controller
 
         $products = $query->paginate($perPage);
 
-        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Product');
-        $fieldList = array_map(function($field) {
-            return [
-                'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel'],
-                'fieldtype' => $field['fieldtype']
-            ];
-        }, $fields);
+        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Product');
 
         return $this->paginated(ProductResource::collection($products)->resource, $fieldList);
     }
@@ -92,14 +85,7 @@ class ProductController extends Controller
             $product = Product::findOrFail($id);
             $resource = new ProductResource($product);
             
-            $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Product');
-            $fieldList = array_map(function($field) {
-                return [
-                    'fieldname' => $field['fieldname'],
-                    'fieldlabel' => $field['fieldlabel'],
-                    'fieldtype' => $field['fieldtype']
-                ];
-            }, $fields);
+            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Product');
             
             return $this->success([
                 'fields' => $fieldList,

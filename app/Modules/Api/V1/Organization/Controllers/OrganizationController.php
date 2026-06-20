@@ -56,14 +56,7 @@ class OrganizationController extends Controller
             $organization = Organization::findOrFail($id);
             $resource = new OrganizationResource($organization);
             
-            $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Organization');
-            $fieldList = array_map(function($field) {
-                return [
-                    'fieldname' => $field['fieldname'],
-                    'fieldlabel' => $field['fieldlabel'],
-                    'fieldtype' => $field['fieldtype']
-                ];
-            }, $fields);
+            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Organization');
             
             return $this->success([
                 'fields' => $fieldList,
@@ -115,14 +108,7 @@ class OrganizationController extends Controller
             ->orWhere('email', 'like', "%{$query}%")
             ->paginate($perPage);
 
-        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Organization');
-        $fieldList = array_map(function($field) {
-            return [
-                'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel'],
-                'fieldtype' => $field['fieldtype']
-            ];
-        }, $fields);
+        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Organization');
 
         return $this->paginated(OrganizationResource::collection($results)->resource, $fieldList);
     }

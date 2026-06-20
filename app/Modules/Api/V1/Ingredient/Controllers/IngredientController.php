@@ -54,14 +54,7 @@ class IngredientController extends Controller
 
         $ingredients = $query->paginate($perPage);
 
-        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Ingredient');
-        $fieldList = array_map(function($field) {
-            return [
-                'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel'],
-                'fieldtype' => $field['fieldtype']
-            ];
-        }, $fields);
+        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Ingredient');
 
         return $this->paginated(IngredientResource::collection($ingredients)->resource, $fieldList);
     }
@@ -90,14 +83,7 @@ class IngredientController extends Controller
             $ingredient = Ingredient::where('organization_id', $orgId)->findOrFail($id);
             $resource = new IngredientResource($ingredient);
             
-            $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Ingredient');
-            $fieldList = array_map(function($field) {
-                return [
-                    'fieldname' => $field['fieldname'],
-                    'fieldlabel' => $field['fieldlabel'],
-                    'fieldtype' => $field['fieldtype']
-                ];
-            }, $fields);
+            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Ingredient');
             
             return $this->success([
                 'fields' => $fieldList,
@@ -149,14 +135,7 @@ class IngredientController extends Controller
             ->whereColumn('current_stock', '<', 'minimum_stock_level')
             ->paginate($perPage);
 
-        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Ingredient');
-        $fieldList = array_map(function($field) {
-            return [
-                'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel'],
-                'fieldtype' => $field['fieldtype']
-            ];
-        }, $fields);
+        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Ingredient');
 
         return $this->paginated(IngredientResource::collection($ingredients)->resource, $fieldList);
     }

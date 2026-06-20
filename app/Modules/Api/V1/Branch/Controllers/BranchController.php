@@ -47,14 +47,7 @@ class BranchController extends Controller
         $perPage = $request->query('limit', $request->query('per_page', 20));
         $branches = $query->paginate($perPage);
 
-        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Branch');
-        $fieldList = array_map(function($field) {
-            return [
-                'fieldname' => $field['fieldname'],
-                'fieldlabel' => $field['fieldlabel'],
-                'fieldtype' => $field['fieldtype']
-            ];
-        }, $fields);
+        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Branch');
 
         return $this->paginated(BranchResource::collection($branches)->resource, $fieldList);
     }
@@ -83,14 +76,7 @@ class BranchController extends Controller
 
             $resource = new BranchResource($branch);
             
-            $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getFields('Branch');
-            $fieldList = array_map(function($field) {
-                return [
-                    'fieldname' => $field['fieldname'],
-                    'fieldlabel' => $field['fieldlabel'],
-                    'fieldtype' => $field['fieldtype']
-                ];
-            }, $fields);
+            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Branch');
             
             return $this->success([
                 'fields' => $fieldList,
