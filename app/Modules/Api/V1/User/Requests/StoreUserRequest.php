@@ -21,7 +21,6 @@ class StoreUserRequest extends FormRequest
             'data.values.phone' => ['nullable', 'string', 'max:50'],
             'data.values.password' => ['required', 'string', 'min:6'],
             'data.values.confirmPassword' => ['required', 'string', 'same:data.values.password'],
-            'data.values.organizationId' => ['required', 'uuid', 'exists:organizations,id'],
         ];
     }
 }

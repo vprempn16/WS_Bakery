@@ -59,9 +59,10 @@ class UserController extends Controller
     public function store(StoreUserRequest $request)
     {
         $values = $request->input('data.values');
+        $orgId = $request->user()->organization_id;
 
         $user = User::create([
-            'organization_id' => $values['organizationId'],
+            'organization_id' => $orgId,
             'first_name' => $values['firstName'],
             'last_name' => $values['lastName'],
             'email' => $values['email'],
@@ -96,11 +97,12 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, $id)
     {
         try {
-            $user = User::findOrFail($id);
+            $orgId = $request->user()->organization_id;
+            $user = User::where('organization_id', $orgId)->findOrFail($id);
             $values = $request->input('data.values');
 
             $data = [
-                'organization_id' => $values['organizationId'],
+                'organization_id' => $orgId,
                 'first_name' => $values['firstName'],
                 'last_name' => $values['lastName'],
                 'email' => $values['email'],

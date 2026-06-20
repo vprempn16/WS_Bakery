@@ -30,7 +30,6 @@ class UpdateUserRequest extends FormRequest
             'data.values.phone' => ['nullable', 'string', 'max:50'],
             'data.values.password' => ['nullable', 'string', 'min:6'],
             'data.values.confirmPassword' => ['nullable', 'required_with:data.values.password', 'string', 'same:data.values.password'],
-            'data.values.organizationId' => ['required', 'uuid', 'exists:organizations,id'],
         ];
     }
 }

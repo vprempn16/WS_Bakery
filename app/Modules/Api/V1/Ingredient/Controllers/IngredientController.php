@@ -82,9 +82,9 @@ class IngredientController extends Controller
             $orgId = $request->user()->organization_id;
             $ingredient = Ingredient::where('organization_id', $orgId)->findOrFail($id);
             $resource = new IngredientResource($ingredient);
-            
+
             $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Ingredient');
-            
+
             return $this->success([
                 'fields' => $fieldList,
                 'values' => $resource->toArray(request())

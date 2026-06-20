@@ -63,10 +63,13 @@ class InventoryTransactionController extends Controller
     public function store(StoreInventoryTransactionRequest $request)
     {
         $values = $request->input('data.values');
+        $orgId = $request->user()->organization_id;
 
-        $transaction = DB::transaction(function () use ($values) {
+        try {
+            DB::beginTransaction();
+
             $transaction = InventoryTransaction::create([
-                'organization_id' => $values['organizationId'],
+                'organization_id' => $orgId,
                 'ingredient_id' => $values['ingredientId'],
                 'type' => $values['type'],
                 'quantity' => $values['quantity'],
@@ -82,10 +85,12 @@ class InventoryTransactionController extends Controller
             }
             $ingredient->save();
 
-            return $transaction;
-        });
-
-        return $this->success(new InventoryTransactionResource($transaction), 'Transaction created successfully.', 201);
+            DB::commit();
+            return $this->success(new InventoryTransactionResource($transaction), 'Transaction created successfully.', 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error('Failed to create transaction: ' . $e->getMessage(), null, null, null, 500);
+        }
     }
 
     public function show($id)

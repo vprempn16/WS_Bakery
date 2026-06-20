@@ -87,6 +87,15 @@ Route::prefix('v1')->group(function () {
             Route::delete('{productId}/recipe/{ingredientId}', [\App\Modules\Api\V1\Recipe\Controllers\RecipeController::class, 'destroy']);
         });
 
+        // Production Batch endpoints
+        Route::prefix('ProductionBatch')->group(function () {
+            Route::get('', [\App\Modules\Api\V1\ProductionBatch\Controllers\ProductionBatchController::class, 'index']);
+            Route::post('new', [\App\Modules\Api\V1\ProductionBatch\Controllers\ProductionBatchController::class, 'store']);
+            Route::get('{id}', [\App\Modules\Api\V1\ProductionBatch\Controllers\ProductionBatchController::class, 'show']);
+            Route::post('{id}', [\App\Modules\Api\V1\ProductionBatch\Controllers\ProductionBatchController::class, 'update']);
+            Route::delete('{id}', [\App\Modules\Api\V1\ProductionBatch\Controllers\ProductionBatchController::class, 'destroy']);
+        });
+
         // User endpoints under settings
         Route::prefix('settings/User')->group(function () {
             Route::get('', [UserController::class, 'index']);

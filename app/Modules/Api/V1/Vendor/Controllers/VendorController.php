@@ -55,9 +55,10 @@ class VendorController extends Controller
     public function store(StoreVendorRequest $request)
     {
         $values = $request->input('data.values');
+        $orgId = $request->user()->organization_id;
 
         $vendor = Vendor::create([
-            'organization_id' => $values['organizationId'],
+            'organization_id' => $orgId,
             'name' => $values['name'],
             'contact_person' => $values['contactPerson'] ?? null,
             'email' => $values['email'] ?? null,
@@ -88,11 +89,12 @@ class VendorController extends Controller
     public function update(UpdateVendorRequest $request, $id)
     {
         try {
-            $vendor = Vendor::findOrFail($id);
+            $orgId = $request->user()->organization_id;
+            $vendor = Vendor::where('organization_id', $orgId)->findOrFail($id);
             $values = $request->input('data.values');
 
             $vendor->update([
-                'organization_id' => $values['organizationId'],
+                'organization_id' => $orgId,
                 'name' => $values['name'],
                 'contact_person' => $values['contactPerson'] ?? null,
                 'email' => $values['email'] ?? null,

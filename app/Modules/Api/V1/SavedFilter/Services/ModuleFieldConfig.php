@@ -139,6 +139,22 @@ class ModuleFieldConfig
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2],
             ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2],
         ],
+        'production_batches' => [
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text', 'displaytype' => 2],
+            ['fieldname' => 'batchNumber', 'fieldlabel' => 'Batch Number', 'fieldtype' => 'text', 'displaytype' => 2],
+            ['fieldname' => 'productId', 'fieldlabel' => 'Product ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
+            ['fieldname' => 'quantityProduced', 'fieldlabel' => 'Quantity Produced', 'fieldtype' => 'decimal', 'displaytype' => 1],
+            ['fieldname' => 'productionDate', 'fieldlabel' => 'Production Date', 'fieldtype' => 'date', 'displaytype' => 1],
+            ['fieldname' => 'expiryDate', 'fieldlabel' => 'Expiry Date', 'fieldtype' => 'date', 'displaytype' => 2],
+            [
+                'fieldname' => 'status',
+                'fieldlabel' => 'Status',
+                'fieldtype' => 'text',
+                'displaytype' => 2
+            ],
+            ['fieldname' => 'notes', 'fieldlabel' => 'Notes', 'fieldtype' => 'textarea', 'displaytype' => 1],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2],
+        ],
     ];
 
     /**
@@ -153,6 +169,7 @@ class ModuleFieldConfig
         'Product' => 'products',
         'Recipe' => 'recipes',
         'Branch' => 'branches',
+        'ProductionBatch' => 'production_batches',
     ];
 
     /**

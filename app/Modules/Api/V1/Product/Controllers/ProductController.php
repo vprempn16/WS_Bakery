@@ -65,9 +65,10 @@ class ProductController extends Controller
     public function store(StoreProductRequest $request)
     {
         $values = $request->input('data.values');
+        $orgId = $request->user()->organization_id;
 
         $product = Product::create([
-            'organization_id' => $values['organizationId'],
+            'organization_id' => $orgId,
             'name' => $values['name'],
             'description' => $values['description'] ?? null,
             'price' => $values['price'] ?? null,
@@ -99,11 +100,12 @@ class ProductController extends Controller
     public function update(UpdateProductRequest $request, $id)
     {
         try {
-            $product = Product::findOrFail($id);
+            $orgId = $request->user()->organization_id;
+            $product = Product::where('organization_id', $orgId)->findOrFail($id);
             $values = $request->input('data.values');
 
             $product->update([
-                'organization_id' => $values['organizationId'],
+                'organization_id' => $orgId,
                 'name' => $values['name'],
                 'description' => $values['description'] ?? null,
                 'price' => $values['price'] ?? null,

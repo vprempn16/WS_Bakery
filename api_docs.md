@@ -1703,3 +1703,143 @@ The Global Search API is used to populate relational picklists (dropdowns) acros
   }
   ```
 **Branch Delete ending**
+
+---
+
+## 13. Production Batch Management
+
+### 13.1 List Production Batches
+
+**List Production Batches starting**
+* **Endpoint**: `GET /api/v1/ProductionBatch`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "Success",
+    "data": {
+        "values": [
+            {
+                "id": "uuid",
+                "organizationId": "uuid",
+                "batchNumber": "BATCH-20260620-001",
+                "productId": "uuid",
+                "quantityProduced": 200.0,
+                "productionDate": "2026-06-20",
+                "expiryDate": "2026-06-25",
+                "status": "completed",
+                "notes": "Morning run",
+                "createdAt": "2026-06-20 10:00:00"
+            }
+        ]
+    }
+}
+```
+**List Production Batches ending**
+
+### 13.2 Create Production Batch
+
+**Create Production Batch starting**
+* **Endpoint**: `POST /api/v1/ProductionBatch/new`
+* **Headers**: `Authorization: Bearer {token}`
+* **Request Body**:
+```json
+{
+    "data": {
+        "values": {
+            "productId": "{{product_uuid}}",
+            "quantityProduced": 200,
+            "productionDate": "2026-06-20",
+            "notes": "Morning run"
+        }
+    }
+}
+```
+* **Response (201 Created)**:
+```json
+{
+    "status": true,
+    "message": "Production batch logged successfully.",
+    "data": {
+        "values": {
+            "id": "new_batch_uuid",
+            "organizationId": "{{org_uuid}}",
+            "batchNumber": "BATCH-20260620-001",
+            "productId": "{{product_uuid}}",
+            "quantityProduced": 200.0,
+            "productionDate": "2026-06-20",
+            "expiryDate": "2026-06-25",
+            "status": "completed",
+            "notes": "Morning run",
+            "createdAt": "2026-06-20 10:00:00"
+        }
+    }
+}
+```
+**Create Production Batch ending**
+
+### 13.3 Get Production Batch by ID
+
+**Get Production Batch by ID starting**
+* **Endpoint**: `GET /api/v1/ProductionBatch/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**: Returns the single batch object exactly as seen in the Create/List response, along with the `fields` array.
+**Get Production Batch by ID ending**
+
+### 13.4 Delete Production Batch
+
+**Delete Production Batch starting**
+* **Endpoint**: `DELETE /api/v1/ProductionBatch/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "Production Batch successfully deleted."
+}
+```
+* **Note**: Deleting a batch simply removes the record; it does *not* automatically reverse the ingredient consumption or finished goods additions in this phase.
+**Delete Production Batch ending**
+
+### 13.5 Update Production Batch
+
+**Update Production Batch starting**
+* **Endpoint**: `POST /api/v1/ProductionBatch/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Request Body**:
+```json
+{
+    "data": {
+        "values": {
+            "quantityProduced": 250,
+            "productionDate": "2026-06-20",
+            "status": "completed",
+            "notes": "Morning run - updated quantity"
+        }
+    }
+}
+```
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "Production batch updated successfully.",
+    "data": {
+        "values": {
+            "id": "batch_uuid",
+            "organizationId": "{{org_uuid}}",
+            "batchNumber": "BATCH-20260620-001",
+            "productId": "{{product_uuid}}",
+            "quantityProduced": 250.0,
+            "productionDate": "2026-06-20",
+            "expiryDate": "2026-06-25",
+            "status": "completed",
+            "notes": "Morning run - updated quantity",
+            "createdAt": "2026-06-20 10:00:00"
+        }
+    }
+}
+```
+* **Note**: Updating the `quantityProduced` will automatically calculate the difference and create the necessary `InventoryTransaction` to add/deduct the remaining ingredients and update the `Product`'s `current_stock`.
+**Update Production Batch ending**

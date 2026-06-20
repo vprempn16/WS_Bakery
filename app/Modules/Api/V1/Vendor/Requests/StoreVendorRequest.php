@@ -14,7 +14,6 @@ class StoreVendorRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'data.values.organizationId' => ['required', 'string', 'exists:organizations,id'],
             'data.values.name' => ['required', 'string', 'max:255'],
             'data.values.contactPerson' => ['nullable', 'string', 'max:255'],
             'data.values.phone' => ['nullable', 'string', 'max:50'],

@@ -52,4 +52,9 @@ class Product extends Model
     {
         return $this->hasMany(Recipe::class);
     }
+
+    public function productionBatches()
+    {
+        return $this->hasMany(\App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch::class);
+    }
 }

@@ -14,7 +14,6 @@ class StoreIngredientRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'data.values.organizationId' => ['required', 'string', 'exists:organizations,id'],
             'data.values.vendorId' => ['nullable', 'string', 'exists:vendors,id'],
             'data.values.name' => ['required', 'string', 'max:255'],
             'data.values.unit' => ['nullable', 'string', 'max:50'],
