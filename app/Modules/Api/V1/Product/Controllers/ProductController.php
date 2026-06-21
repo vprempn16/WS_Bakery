@@ -74,6 +74,8 @@ class ProductController extends Controller
             'price' => $values['price'] ?? null,
             'unit' => $values['unit'] ?? 'pcs',
             'shelf_life_days' => $values['shelfLifeDays'] ?? null,
+            'shelf_life_hours' => $values['shelfLifeHours'] ?? null,
+            'tier' => $values['tier'] ?? null,
             'current_stock' => 0,
         ]);
 
@@ -111,6 +113,8 @@ class ProductController extends Controller
                 'price' => $values['price'] ?? null,
                 'unit' => $values['unit'] ?? 'pcs',
                 'shelf_life_days' => $values['shelfLifeDays'] ?? null,
+                'shelf_life_hours' => $values['shelfLifeHours'] ?? null,
+                'tier' => $values['tier'] ?? null,
             ]);
 
             return $this->success(new ProductResource($product));

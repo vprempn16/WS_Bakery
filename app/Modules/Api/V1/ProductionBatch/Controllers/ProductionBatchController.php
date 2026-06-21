@@ -67,13 +67,15 @@ class ProductionBatchController extends Controller
             $quantityProduced = (float) $values['quantityProduced'];
             $productionDate = Carbon::parse($values['productionDate']);
             
-            // Calculate Expiry Date
-            $expiryDate = null;
-            if ($product->shelf_life_days > 0) {
-                $expiryDate = $productionDate->copy()->addDays($product->shelf_life_days);
+            // Calculate Expiry Timestamp
+            $expiryTimestamp = null;
+            if ($product->shelf_life_hours > 0) {
+                $expiryTimestamp = $productionDate->copy()->addHours($product->shelf_life_hours);
+            } elseif ($product->shelf_life_days > 0) {
+                $expiryTimestamp = $productionDate->copy()->addDays($product->shelf_life_days);
             } else {
-                // Tier 1 (same day validity if 0 or null)
-                $expiryDate = $productionDate->copy();
+                // Default: 12 hours validity if not specified
+                $expiryTimestamp = $productionDate->copy()->addHours(12);
             }
 
             // Create the Production Batch record first to get the batch number for reference notes
@@ -82,7 +84,7 @@ class ProductionBatchController extends Controller
                 'product_id' => $product->id,
                 'quantity_produced' => $quantityProduced,
                 'production_date' => $productionDate,
-                'expiry_date' => $expiryDate,
+                'expiry_timestamp' => $expiryTimestamp,
                 'status' => 'completed',
                 'notes' => $values['notes'] ?? null,
                 'created_by' => $userId,
@@ -170,10 +172,12 @@ class ProductionBatchController extends Controller
                 $batch->production_date = Carbon::parse($values['productionDate']);
                 // Recalculate expiry
                 $product = $batch->product;
-                if ($product->shelf_life_days > 0) {
-                    $batch->expiry_date = $batch->production_date->copy()->addDays($product->shelf_life_days);
+                if ($product->shelf_life_hours > 0) {
+                    $batch->expiry_timestamp = $batch->production_date->copy()->addHours($product->shelf_life_hours);
+                } elseif ($product->shelf_life_days > 0) {
+                    $batch->expiry_timestamp = $batch->production_date->copy()->addDays($product->shelf_life_days);
                 } else {
-                    $batch->expiry_date = $batch->production_date->copy();
+                    $batch->expiry_timestamp = $batch->production_date->copy()->addHours(12);
                 }
             }
 

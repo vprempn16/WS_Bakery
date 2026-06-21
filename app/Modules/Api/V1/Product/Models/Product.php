@@ -20,6 +20,8 @@ class Product extends Model
         'price',
         'unit',
         'shelf_life_days',
+        'shelf_life_hours',
+        'tier',
         'current_stock',
     ];
 
@@ -56,5 +58,15 @@ class Product extends Model
     public function productionBatches()
     {
         return $this->hasMany(\App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch::class);
+    }
+
+    public function branchStocks()
+    {
+        return $this->hasMany(\App\Modules\Api\V1\BranchTransfer\Models\BranchStock::class);
+    }
+
+    public function branchTransfers()
+    {
+        return $this->hasMany(\App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer::class);
     }
 }

@@ -1843,3 +1843,136 @@ The Global Search API is used to populate relational picklists (dropdowns) acros
 ```
 * **Note**: Updating the `quantityProduced` will automatically calculate the difference and create the necessary `InventoryTransaction` to add/deduct the remaining ingredients and update the `Product`'s `current_stock`.
 **Update Production Batch ending**
+
+## 14. Branch Stock Module
+
+### 14.1 List Branch Stocks
+
+**List Branch Stocks starting**
+* **Endpoint**: `GET /api/v1/BranchStock`
+* **Headers**: `Authorization: Bearer {token}`
+* **Query Parameters (Optional)**: `?branchId={{branch_uuid}}`, `?productId={{product_uuid}}`
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "Success",
+    "data": {
+        "fields": [...],
+        "values": [
+            {
+                "id": "branch_stock_uuid",
+                "organizationId": "{{org_uuid}}",
+                "branchId": "{{branch_uuid}}",
+                "branchId_label": "Branch 1",
+                "productId": "{{product_uuid}}",
+                "productId_label": "Egg Puff",
+                "currentStock": 50.0,
+                "updatedAt": "2026-06-21 10:00:00"
+            }
+        ]
+    }
+}
+```
+**List Branch Stocks ending**
+
+## 15. Branch Transfer Module
+
+### 15.1 Create Branch Transfer (Dispatch)
+
+**Create Branch Transfer starting**
+* **Endpoint**: `POST /api/v1/BranchTransfer/new`
+* **Headers**: `Authorization: Bearer {token}`
+* **Request Body**:
+```json
+{
+    "data": {
+        "values": {
+            "branchId": "{{branch_uuid}}",
+            "productId": "{{product_uuid}}",
+            "quantity": 50,
+            "transferDate": "2026-06-21",
+            "notes": "Morning dispatch"
+        }
+    }
+}
+```
+* **Response (201 Created)**:
+```json
+{
+    "status": true,
+    "message": "Transfer logged successfully.",
+    "data": {
+        "values": {
+            "id": "transfer_uuid",
+            "organizationId": "{{org_uuid}}",
+            "branchId": "{{branch_uuid}}",
+            "branchId_label": "Branch 1",
+            "productId": "{{product_uuid}}",
+            "productId_label": "Egg Puff",
+            "transferNumber": "TRN-20260621-001",
+            "quantity": 50.0,
+            "transferDate": "2026-06-21",
+            "status": "completed",
+            "notes": "Morning dispatch",
+            "createdAt": "2026-06-21 10:00:00"
+        }
+    }
+}
+```
+**Create Branch Transfer ending**
+
+### 15.2 Update Branch Transfer
+
+**Update Branch Transfer starting**
+* **Endpoint**: `POST /api/v1/BranchTransfer/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Request Body**:
+```json
+{
+    "data": {
+        "values": {
+            "transferDate": "2026-06-21",
+            "notes": "Updated note"
+        }
+    }
+}
+```
+* **Note**: Only non-inventory impacting fields like date and notes can be updated.
+**Update Branch Transfer ending**
+
+## 16. Reports Module
+
+### 16.1 Expiring Batches Report
+
+**Expiring Batches starting**
+* **Endpoint**: `GET /api/v1/Reports/ExpiringBatches`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "Expiry report fetched successfully.",
+    "data": {
+        "summary": {
+            "expiredCount": 1,
+            "expiringSoonCount": 2,
+            "healthyCount": 5
+        },
+        "expired": [
+            {
+                "id": "batch_uuid_1",
+                "batchNumber": "BATCH-20260620-001",
+                "productName": "Egg Puff",
+                "tier": "tier_1",
+                "quantityProduced": 200,
+                "productionDate": "2026-06-20",
+                "expiryTimestamp": "2026-06-20 22:00:00"
+            }
+        ],
+        "expiringSoon": [...],
+        "healthy": [...]
+    }
+}
+```
+**Expiring Batches ending**

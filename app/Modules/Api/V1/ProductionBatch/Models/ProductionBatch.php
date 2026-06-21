@@ -19,7 +19,7 @@ class ProductionBatch extends Model
         'product_id',
         'quantity_produced',
         'production_date',
-        'expiry_date',
+        'expiry_timestamp',
         'status',
         'notes',
         'created_by',
@@ -28,7 +28,7 @@ class ProductionBatch extends Model
     protected $casts = [
         'quantity_produced' => 'decimal:2',
         'production_date' => 'date',
-        'expiry_date' => 'date',
+        'expiry_timestamp' => 'datetime',
     ];
 
     /**

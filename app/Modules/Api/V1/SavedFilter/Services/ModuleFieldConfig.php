@@ -110,6 +110,18 @@ class ModuleFieldConfig
                 ]
             ],
             ['fieldname' => 'shelfLifeDays', 'fieldlabel' => 'Shelf Life Days', 'fieldtype' => 'integer/number', 'displaytype' => 1],
+            ['fieldname' => 'shelfLifeHours', 'fieldlabel' => 'Shelf Life Hours', 'fieldtype' => 'integer/number', 'displaytype' => 1],
+            [
+                'fieldname' => 'tier',
+                'fieldlabel' => 'Tier',
+                'fieldtype' => 'picklist',
+                'displaytype' => 1,
+                'options' => [
+                    ['value' => 'tier_1', 'label' => 'Tier 1 (Hours)'],
+                    ['value' => 'tier_2', 'label' => 'Tier 2 (Days)'],
+                    ['value' => 'tier_3', 'label' => 'Tier 3 (Custom)']
+                ]
+            ],
             ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock', 'fieldtype' => 'decimal', 'displaytype' => 1],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2],
             ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2],
@@ -145,13 +157,31 @@ class ModuleFieldConfig
             ['fieldname' => 'productId', 'fieldlabel' => 'Product ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
             ['fieldname' => 'quantityProduced', 'fieldlabel' => 'Quantity Produced', 'fieldtype' => 'decimal', 'displaytype' => 1],
             ['fieldname' => 'productionDate', 'fieldlabel' => 'Production Date', 'fieldtype' => 'date', 'displaytype' => 1],
-            ['fieldname' => 'expiryDate', 'fieldlabel' => 'Expiry Date', 'fieldtype' => 'date', 'displaytype' => 2],
+            ['fieldname' => 'expiryTimestamp', 'fieldlabel' => 'Expiry Timestamp', 'fieldtype' => 'date', 'displaytype' => 2],
             [
                 'fieldname' => 'status',
                 'fieldlabel' => 'Status',
                 'fieldtype' => 'text',
                 'displaytype' => 2
             ],
+            ['fieldname' => 'notes', 'fieldlabel' => 'Notes', 'fieldtype' => 'textarea', 'displaytype' => 1],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2],
+        ],
+        'branch_stocks' => [
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'uuid', 'displaytype' => 1],
+            ['fieldname' => 'branchId', 'fieldlabel' => 'Branch ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
+            ['fieldname' => 'productId', 'fieldlabel' => 'Product ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
+            ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock', 'fieldtype' => 'number', 'displaytype' => 1],
+            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2],
+        ],
+        'branch_transfers' => [
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'uuid', 'displaytype' => 1],
+            ['fieldname' => 'branchId', 'fieldlabel' => 'Branch ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
+            ['fieldname' => 'productId', 'fieldlabel' => 'Product ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
+            ['fieldname' => 'transferNumber', 'fieldlabel' => 'Transfer Number', 'fieldtype' => 'text', 'displaytype' => 2],
+            ['fieldname' => 'quantity', 'fieldlabel' => 'Quantity', 'fieldtype' => 'number', 'displaytype' => 1],
+            ['fieldname' => 'transferDate', 'fieldlabel' => 'Transfer Date', 'fieldtype' => 'date', 'displaytype' => 1],
+            ['fieldname' => 'status', 'fieldlabel' => 'Status', 'fieldtype' => 'text', 'displaytype' => 2],
             ['fieldname' => 'notes', 'fieldlabel' => 'Notes', 'fieldtype' => 'textarea', 'displaytype' => 1],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2],
         ],
@@ -170,6 +200,8 @@ class ModuleFieldConfig
         'Recipe' => 'recipes',
         'Branch' => 'branches',
         'ProductionBatch' => 'production_batches',
+        'BranchStock' => 'branch_stocks',
+        'BranchTransfer' => 'branch_transfers',
     ];
 
     /**

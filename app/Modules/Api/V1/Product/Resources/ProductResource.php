@@ -19,6 +19,8 @@ class ProductResource extends JsonResource
             'price' => (float) $this->price,
             'unit' => $this->unit,
             'shelfLifeDays' => $this->shelf_life_days,
+            'shelfLifeHours' => $this->shelf_life_hours,
+            'tier' => $this->tier,
             'currentStock' => (float) $this->current_stock,
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,

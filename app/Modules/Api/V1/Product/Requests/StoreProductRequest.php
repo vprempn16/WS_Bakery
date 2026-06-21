@@ -17,8 +17,10 @@ class StoreProductRequest extends FormRequest
             'data.values.name' => ['required', 'string', 'max:255'],
             'data.values.description' => ['nullable', 'string'],
             'data.values.price' => ['nullable', 'numeric', 'min:0'],
-            'data.values.unit' => ['nullable', 'string', 'in:pcs,kg,g,l,ml,pkt'],
-            'data.values.shelfLifeDays' => ['nullable', 'integer', 'min:1'],
+            'data.values.unit' => ['required', 'string', 'in:pcs,kg,g,l,ml,pkt'],
+            'data.values.shelfLifeDays' => ['nullable', 'integer', 'min:0'],
+            'data.values.shelfLifeHours' => ['nullable', 'integer', 'min:0'],
+            'data.values.tier' => ['nullable', 'string', 'in:tier_1,tier_2,tier_3'],
         ];
     }
 }

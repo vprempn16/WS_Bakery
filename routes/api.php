@@ -34,6 +34,23 @@ Route::prefix('v1')->group(function () {
             Route::delete('{id}', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'destroy']);
         });
 
+        // Branch Transfer endpoints
+        Route::prefix('BranchTransfer')->group(function () {
+            Route::get('', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'index']);
+            Route::post('new', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'store']);
+            Route::get('{id}', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'show']);
+            Route::post('{id}', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'update']);
+            Route::delete('{id}', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'destroy']);
+        });
+
+        // Branch Stock endpoint
+        Route::get('BranchStock', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchStockController::class, 'index']);
+
+        // Reports endpoints
+        Route::prefix('Reports')->group(function () {
+            Route::get('ExpiringBatches', [\App\Modules\Api\V1\Reports\Controllers\ExpiryReportController::class, 'expiringBatches']);
+        });
+
         // Saved Filter endpoints
         Route::prefix('filters')->group(function () {
             Route::get('', [\App\Modules\Api\V1\SavedFilter\Controllers\SavedFilterController::class, 'index']);

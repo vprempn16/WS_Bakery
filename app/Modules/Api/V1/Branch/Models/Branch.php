@@ -27,6 +27,16 @@ class Branch extends Model
 
     public function users()
     {
-        return $this->hasMany(User::class);
+        return $this->hasMany(\App\Modules\Api\V1\User\Models\User::class);
+    }
+
+    public function stocks()
+    {
+        return $this->hasMany(\App\Modules\Api\V1\BranchTransfer\Models\BranchStock::class);
+    }
+
+    public function transfers()
+    {
+        return $this->hasMany(\App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer::class);
     }
 }

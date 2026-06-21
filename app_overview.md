@@ -114,6 +114,35 @@ All API routes are prefixed with `/api/v1/` and defined in `routes/api.php`.
 - Dynamically filter resources on-the-fly for any list endpoint (e.g. `GET /api/v1/products?savedFilterId=...` or using raw inline `rules`)
 - Match, query, and return module field configuration configurations and header mappings via `/api/v1/headers` and `/api/v1/headers/{filterId}`
 
+### 4.9 Branch Module
+**Purpose:** Manages the different physical locations (branches) of the bakery organization.
+
+- Create, view, update, delete branches
+- List branches (filter by organization)
+- Defines branch types: `warehouse` and `retail`
+
+### 4.10 Production Batch Module
+**Purpose:** Logs the production of finished bakery products. Acts as the bridge between raw ingredients and finished goods inventory.
+
+- Create, view, update, delete production batches
+- Automatically deducts required ingredient quantities from inventory based on product recipes
+- Automatically logs `out` inventory transactions for consumed ingredients
+- Automatically adds the produced quantity to the product's `current_stock`
+- Automatically calculates the batch expiry date based on the product's shelf life
+
+### 4.11 Branch Transfer & Stock Module
+**Purpose:** Manages the transfer of finished goods from the central warehouse to individual retail branches and tracks their local inventory.
+
+- Log dispatches from warehouse to branch
+- Automatically deducts from warehouse `Product` stock
+- Automatically increments local `BranchStock`
+- Lists branch-specific current stock
+
+### 4.12 Reports Module
+**Purpose:** Generates analytical and operational reports for the bakery.
+
+- **Expiring Batches Report:** Tracks `ProductionBatch` expiry timestamps and groups them into `expired`, `expiringSoon` (within 24 hours), and `healthy` categories to facilitate FIFO (First-In, First-Out) shelf management.
+
 ---
 
 ## 5. Database Tables & Schema
@@ -242,6 +271,38 @@ All API routes are prefixed with `/api/v1/` and defined in `routes/api.php`.
 
 ---
 
+### 5.9 `branches`
+| Column          | Type      | Constraints                                  |
+|-----------------|-----------|----------------------------------------------|
+| id              | UUID      | Primary Key                                  |
+| organization_id | UUID      | Foreign Key → organizations (cascade delete) |
+| name            | string    | Required                                     |
+| type            | string    | Required (warehouse / retail)                |
+| address         | text      | Nullable                                     |
+| phone           | string    | Nullable                                     |
+| created_at      | timestamp |                                              |
+| updated_at      | timestamp |                                              |
+
+---
+
+### 5.10 `production_batches`
+| Column            | Type          | Constraints                                  |
+|-------------------|---------------|----------------------------------------------|
+| id                | UUID          | Primary Key                                  |
+| organization_id   | UUID          | Foreign Key → organizations (cascade delete) |
+| product_id        | UUID          | Foreign Key → products (cascade delete)      |
+| batch_number      | string        | Unique, Auto-generated (e.g., BATCH-2026...) |
+| quantity_produced | decimal(10,2) | Required                                     |
+| production_date   | date          | Required                                     |
+| expiry_date       | date          | Nullable                                     |
+| status            | string        | Default: 'completed'                         |
+| notes             | text          | Nullable                                     |
+| created_by        | UUID          | Nullable, Foreign Key → users                |
+| created_at        | timestamp     |                                              |
+| updated_at        | timestamp     |                                              |
+
+---
+
 ## 6. Table Relationships (ER Diagram)
 
 ```mermaid
@@ -251,6 +312,8 @@ erDiagram
     ORGANIZATIONS ||--o{ INGREDIENTS : "has many"
     ORGANIZATIONS ||--o{ PRODUCTS : "has many"
     ORGANIZATIONS ||--o{ INVENTORY_TRANSACTIONS : "has many"
+    ORGANIZATIONS ||--o{ BRANCHES : "has many"
+    ORGANIZATIONS ||--o{ PRODUCTION_BATCHES : "has many"
 
     VENDORS ||--o{ INGREDIENTS : "supplies"
 
@@ -258,6 +321,7 @@ erDiagram
     INGREDIENTS ||--o{ RECIPES : "used in"
 
     PRODUCTS ||--o{ RECIPES : "composed of"
+    PRODUCTS ||--o{ PRODUCTION_BATCHES : "produced in"
 
     ORGANIZATIONS ||--o{ "SAVED-FILTERS" : "has many"
     USERS ||--o{ "SAVED-FILTERS" : "owns"
@@ -332,6 +396,26 @@ erDiagram
         boolean is_public
         boolean is_default
         json header_details
+    }
+
+    BRANCHES {
+        uuid id PK
+        uuid organization_id FK
+        string name
+        string type
+        text address
+        string phone
+    }
+
+    PRODUCTION_BATCHES {
+        uuid id PK
+        uuid organization_id FK
+        uuid product_id FK
+        string batch_number
+        decimal quantity_produced
+        date production_date
+        date expiry_date
+        string status
     }
 ```
 
