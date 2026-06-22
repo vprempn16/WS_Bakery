@@ -185,6 +185,15 @@ class ModuleFieldConfig
             ['fieldname' => 'notes', 'fieldlabel' => 'Notes', 'fieldtype' => 'textarea', 'displaytype' => 1],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2],
         ],
+        'branch_daily_reports' => [
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'uuid', 'displaytype' => 1],
+            ['fieldname' => 'branchId', 'fieldlabel' => 'Branch ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
+            ['fieldname' => 'reportDate', 'fieldlabel' => 'Report Date', 'fieldtype' => 'date', 'displaytype' => 1],
+            ['fieldname' => 'totalRevenue', 'fieldlabel' => 'Total Revenue', 'fieldtype' => 'number', 'displaytype' => 1],
+            ['fieldname' => 'totalWasteAmount', 'fieldlabel' => 'Total Waste Amount', 'fieldtype' => 'number', 'displaytype' => 1],
+            ['fieldname' => 'status', 'fieldlabel' => 'Status', 'fieldtype' => 'text', 'displaytype' => 2],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2],
+        ],
     ];
 
     /**
@@ -202,6 +211,7 @@ class ModuleFieldConfig
         'ProductionBatch' => 'production_batches',
         'BranchStock' => 'branch_stocks',
         'BranchTransfer' => 'branch_transfers',
+        'BranchDailyReport' => 'branch_daily_reports',
     ];
 
     /**

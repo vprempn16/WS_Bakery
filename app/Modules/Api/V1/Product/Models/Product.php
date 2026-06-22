@@ -69,4 +69,9 @@ class Product extends Model
     {
         return $this->hasMany(\App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer::class);
     }
+
+    public function dailyReportItems()
+    {
+        return $this->hasMany(\App\Modules\Api\V1\BranchSales\Models\BranchDailyReportItem::class);
+    }
 }

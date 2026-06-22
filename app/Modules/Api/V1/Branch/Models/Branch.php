@@ -39,4 +39,9 @@ class Branch extends Model
     {
         return $this->hasMany(\App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer::class);
     }
+
+    public function dailyReports()
+    {
+        return $this->hasMany(\App\Modules\Api\V1\BranchSales\Models\BranchDailyReport::class);
+    }
 }

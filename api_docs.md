@@ -1976,3 +1976,111 @@ The Global Search API is used to populate relational picklists (dropdowns) acros
 }
 ```
 **Expiring Batches ending**
+
+## 17. Branch Sales & Returns Module
+
+### 17.1 Create Branch Daily Report
+
+**Create Branch Daily Report starting**
+* **Endpoint**: `POST /api/v1/BranchDailyReport/new`
+* **Headers**: `Authorization: Bearer {token}`
+* **Request Body**:
+```json
+{
+    "data": {
+        "values": {
+            "branchId": "{{branch_uuid}}",
+            "reportDate": "2026-06-21",
+            "notes": "End of day report",
+            "items": [
+                {
+                    "productId": "{{product_uuid}}",
+                    "quantitySold": 40,
+                    "quantityReturned": 10
+                }
+            ]
+        }
+    }
+}
+```
+* **Response (201 Created)**:
+```json
+{
+    "status": true,
+    "message": "Branch Daily Report submitted successfully.",
+    "data": {
+        "values": {
+            "id": "report_uuid",
+            "organizationId": "{{org_uuid}}",
+            "branchId": "{{branch_uuid}}",
+            "branchId_label": "Branch 1",
+            "reportDate": "2026-06-21",
+            "totalRevenue": 400.0,
+            "totalWasteAmount": 100.0,
+            "status": "submitted",
+            "notes": "End of day report",
+            "createdAt": "2026-06-21 18:00:00",
+            "items": [
+                {
+                    "id": "item_uuid",
+                    "productId": "{{product_uuid}}",
+                    "productId_label": "Egg Puff",
+                    "quantitySold": 40.0,
+                    "quantityReturned": 10.0,
+                    "unitPrice": 10.0,
+                    "subtotalRevenue": 400.0,
+                    "subtotalWaste": 100.0
+                }
+            ]
+        }
+    }
+}
+```
+**Create Branch Daily Report ending**
+
+### 17.2 List Branch Daily Reports
+
+**List Branch Daily Reports starting**
+* **Endpoint**: `GET /api/v1/BranchDailyReport`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**: Standard paginated list response with fields and values.
+**List Branch Daily Reports ending**
+
+## 18. Dashboard Module
+
+### 18.1 Dashboard Summary
+
+**Dashboard Summary starting**
+* **Endpoint**: `GET /api/v1/Dashboard/Summary`
+* **Headers**: `Authorization: Bearer {token}`
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "Dashboard summary fetched successfully.",
+    "data": {
+        "kpis": {
+            "salesToday": 400.0,
+            "wasteToday": 100.0,
+            "productionBatchesToday": 2
+        },
+        "salesTrend7Days": [
+            {
+                "date": "2026-06-15",
+                "revenue": 0
+            },
+            {
+                "date": "2026-06-21",
+                "revenue": 400.0
+            }
+        ],
+        "topProducts30Days": [
+            {
+                "name": "Egg Puff",
+                "totalSold": 40.0
+            }
+        ]
+    }
+}
+```
+**Dashboard Summary ending**

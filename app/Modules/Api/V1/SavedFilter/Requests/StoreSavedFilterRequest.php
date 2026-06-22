@@ -15,7 +15,7 @@ class StoreSavedFilterRequest extends FormRequest
     {
         return [
             'data.values.name' => ['required', 'string', 'max:255'],
-            'data.values.module' => ['required', 'string', 'in:products,ingredients,vendors,users,inventory_transactions,User,Vendor,Ingredient,InventoryTransaction,Product'],
+            'data.values.module' => ['required', 'string', 'in:products,ingredients,vendors,users,inventory_transactions,recipes,branches,production_batches,branch_stocks,branch_transfers,branch_daily_reports,User,Vendor,Ingredient,InventoryTransaction,Product,Recipe,Branch,ProductionBatch,BranchStock,BranchTransfer,BranchDailyReport'],
             'data.values.isPublic' => ['nullable', 'boolean'],
             'data.values.rules' => ['required', 'array'],
             'data.values.rules.logical_operator' => ['nullable', 'string', 'in:AND,OR,and,or'],

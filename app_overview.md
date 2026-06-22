@@ -142,6 +142,14 @@ All API routes are prefixed with `/api/v1/` and defined in `routes/api.php`.
 **Purpose:** Generates analytical and operational reports for the bakery.
 
 - **Expiring Batches Report:** Tracks `ProductionBatch` expiry timestamps and groups them into `expired`, `expiringSoon` (within 24 hours), and `healthy` categories to facilitate FIFO (First-In, First-Out) shelf management.
+- **Dashboard Summary:** Generates daily KPIs (Sales, Waste, Production), a 7-day sales trend graph data array, and top 5 best-selling products list for executive dashboards.
+
+### 4.13 Branch Sales Module
+**Purpose:** Allows retail branches to log their end-of-day sales and returns, updating the financial and stock records automatically.
+
+- Submit End-of-Day report with quantities sold and quantities returned (wasted/unsold) per product.
+- Automatically calculates `subtotal_revenue` and `subtotal_waste` based on current product prices.
+- Automatically deducts the sum of sold and returned items from the physical `BranchStock` levels.
 
 ---
 

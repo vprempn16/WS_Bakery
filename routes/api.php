@@ -51,6 +51,16 @@ Route::prefix('v1')->group(function () {
             Route::get('ExpiringBatches', [\App\Modules\Api\V1\Reports\Controllers\ExpiryReportController::class, 'expiringBatches']);
         });
 
+        // Dashboard endpoint
+        Route::get('Dashboard/Summary', [\App\Modules\Api\V1\Reports\Controllers\DashboardController::class, 'summary']);
+
+        // Branch Daily Report (Sales & Returns)
+        Route::prefix('BranchDailyReport')->group(function () {
+            Route::get('', [\App\Modules\Api\V1\BranchSales\Controllers\BranchDailyReportController::class, 'index']);
+            Route::post('new', [\App\Modules\Api\V1\BranchSales\Controllers\BranchDailyReportController::class, 'store']);
+            Route::get('{id}', [\App\Modules\Api\V1\BranchSales\Controllers\BranchDailyReportController::class, 'show']);
+        });
+
         // Saved Filter endpoints
         Route::prefix('filters')->group(function () {
             Route::get('', [\App\Modules\Api\V1\SavedFilter\Controllers\SavedFilterController::class, 'index']);
