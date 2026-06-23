@@ -17,6 +17,11 @@ Route::prefix('v1')->group(function () {
         // Global Search endpoint
         Route::get('search/{fieldname}', [\App\Modules\Api\V1\GlobalSearch\Controllers\GlobalSearchController::class, 'searchByField']);
 
+        // Header endpoints (filter field definitions)
+        Route::get('{module}/new', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'getCreateFields']);
+        Route::get('{module}/headers', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
+        Route::get('{module}/headers/{filterId}', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
+
         // Organization endpoints
         Route::prefix('Organization')->group(function () {
             Route::get('search', [OrganizationController::class, 'search']);
@@ -68,10 +73,6 @@ Route::prefix('v1')->group(function () {
             Route::delete('{id}', [\App\Modules\Api\V1\SavedFilter\Controllers\SavedFilterController::class, 'destroy']);
         });
 
-        // Header endpoints (filter field definitions)
-        Route::get('{module}/new', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'getCreateFields']);
-        Route::get('{module}/headers', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
-        Route::get('{module}/headers/{filterId}', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
 
         // Vendor endpoints
         Route::prefix('Vendor')->group(function () {
