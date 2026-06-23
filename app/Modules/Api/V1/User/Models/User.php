@@ -11,6 +11,7 @@ use App\Modules\Api\V1\Organization\Models\Organization;
 
 class User extends Authenticatable
 {
+    use \App\Traits\Auditable;
     use HasApiTokens, HasFactory, Notifiable, HasUuids;
 
     protected $fillable = [

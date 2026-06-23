@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class InventoryTransaction extends Model
 {
+    use \App\Traits\Auditable;
     use HasFactory, HasUuids;
 
     protected $fillable = [

@@ -9,6 +9,7 @@ use App\Modules\Api\V1\Product\Models\Product;
 
 class BranchStock extends Model
 {
+    use \App\Traits\Auditable;
     use HasUuids;
 
     protected $fillable = [

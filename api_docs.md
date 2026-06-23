@@ -2084,3 +2084,72 @@ The Global Search API is used to populate relational picklists (dropdowns) acros
 }
 ```
 **Dashboard Summary ending**
+
+## 19. Global Endpoints
+
+### 19.1 Inline Edit
+
+**Inline Edit starting**
+* **Endpoint**: `PATCH /api/v1/{module}/{id}/inline-edit`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Allows quick updating of a single field on a given record. `{module}` can be any valid module name (e.g., `User`, `Product`, `Vendor`, `Branch`). The `field` must be passed in camelCase (e.g., `lastName`) and it will automatically be mapped to the database column (`last_name`). For security, only fillable fields are allowed.
+* **Request Body**:
+```json
+{
+    "field": "lastName",
+    "value": "Im suresh"
+}
+```
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "Successfully updated 'lastName'.",
+    "data": {
+        "id": "uuid-of-record",
+        "field": "lastName",
+        "value": "Im suresh"
+    }
+}
+```
+**Inline Edit ending**
+
+### 19.2 Audit Log
+
+**Audit Log starting**
+* **Endpoint**: `GET /api/v1/{module}/{id}/audit-log`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Fetches the chronological history of all changes (create, update, delete) made to a specific record. `{module}` can be any valid module name (e.g., `User`, `Product`, `Branch`). 
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "Audit logs fetched successfully.",
+    "data": [
+        {
+            "id": "audit_log_uuid",
+            "event": "updated",
+            "action_by": "John Doe",
+            "old_values": {
+                "price": 100.00
+            },
+            "new_values": {
+                "price": 150.50
+            },
+            "timestamp": "2026-06-23 15:30:00"
+        },
+        {
+            "id": "audit_log_uuid_2",
+            "event": "created",
+            "action_by": "System",
+            "old_values": null,
+            "new_values": {
+                "name": "Egg Puff",
+                "price": 100.00
+            },
+            "timestamp": "2026-06-21 09:00:00"
+        }
+    ]
+}
+```
+**Audit Log ending**

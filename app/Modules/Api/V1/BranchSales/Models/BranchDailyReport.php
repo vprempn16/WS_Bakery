@@ -8,6 +8,7 @@ use App\Modules\Api\V1\Branch\Models\Branch;
 
 class BranchDailyReport extends Model
 {
+    use \App\Traits\Auditable;
     use HasUuids;
 
     protected $fillable = [

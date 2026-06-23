@@ -22,6 +22,12 @@ Route::prefix('v1')->group(function () {
         Route::get('{module}/headers', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
         Route::get('{module}/headers/{filterId}', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
 
+        // Global Inline Edit endpoint
+        Route::patch('{module}/{id}/inline-edit', [\App\Http\Controllers\GlobalInlineEditController::class, 'update']);
+
+        // Global Audit Log endpoint
+        Route::get('{module}/{id}/audit-log', [\App\Http\Controllers\GlobalAuditLogController::class, 'index']);
+
         // Organization endpoints
         Route::prefix('Organization')->group(function () {
             Route::get('search', [OrganizationController::class, 'search']);

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Vendor extends Model
 {
+    use \App\Traits\Auditable;
     use HasFactory, HasUuids;
 
     protected $fillable = [

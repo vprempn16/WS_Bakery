@@ -11,6 +11,7 @@ use App\Modules\Api\V1\User\Models\User;
 
 class ProductionBatch extends Model
 {
+    use \App\Traits\Auditable;
     use HasFactory, HasUuids;
 
     protected $fillable = [

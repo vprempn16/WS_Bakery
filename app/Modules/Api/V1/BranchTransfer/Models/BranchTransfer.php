@@ -10,6 +10,7 @@ use Carbon\Carbon;
 
 class BranchTransfer extends Model
 {
+    use \App\Traits\Auditable;
     use HasUuids;
 
     protected $fillable = [
