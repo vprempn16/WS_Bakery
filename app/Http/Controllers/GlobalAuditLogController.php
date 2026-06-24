@@ -42,10 +42,16 @@ class GlobalAuditLogController extends Controller
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($log) {
+                $userName = $log->user ? trim($log->user->first_name . ' ' . $log->user->last_name) : 'System';
                 return [
                     'id' => $log->id,
                     'event' => $log->event,
-                    'action_by' => $log->user ? trim($log->user->first_name . ' ' . $log->user->last_name) : 'System',
+                    'label' => 'Record ' . $log->event,
+                    'action_by' => [
+                        'id' => $log->user ? $log->user->id : null,
+                        'name' => $userName,
+                        'label' => $userName
+                    ],
                     'old_values' => $log->old_values,
                     'new_values' => $log->new_values,
                     'timestamp' => $log->created_at->format('Y-m-d H:i:s'),

@@ -2129,7 +2129,12 @@ The Global Search API is used to populate relational picklists (dropdowns) acros
         {
             "id": "audit_log_uuid",
             "event": "updated",
-            "action_by": "John Doe",
+            "label": "Record updated",
+            "action_by": {
+                "id": "de341d3f-230a-4f6f-b670-20d8bf6777c9",
+                "name": "Cool Suresh",
+                "label": "Cool Suresh"
+            },
             "old_values": {
                 "price": 100.00
             },
@@ -2141,7 +2146,12 @@ The Global Search API is used to populate relational picklists (dropdowns) acros
         {
             "id": "audit_log_uuid_2",
             "event": "created",
-            "action_by": "System",
+            "label": "Record created",
+            "action_by": {
+                "id": null,
+                "name": "System",
+                "label": "System"
+            },
             "old_values": null,
             "new_values": {
                 "name": "Egg Puff",
