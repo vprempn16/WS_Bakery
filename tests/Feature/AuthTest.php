@@ -31,8 +31,9 @@ class AuthTest extends TestCase
             ]
         ]);
 
-        $response->assertStatus(201)
-            ->assertJsonStructure([
+        $response->assertStatus(201);
+        dump($response->json());
+        $response->assertJsonStructure([
                 'status',
                 'message',
                 'data' => [
@@ -190,8 +191,9 @@ class AuthTest extends TestCase
 
         $response = $this->getJson('/api/v1/Organization/search?query=Bakery');
 
-        $response->assertStatus(200)
-            ->assertJsonCount(1, 'data');
+        $response->assertStatus(200);
+        dump($response->json());
+        $response->assertJsonCount(1, 'data');
     }
 
     public function test_can_create_user_and_receive_token()

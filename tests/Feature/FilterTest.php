@@ -433,6 +433,7 @@ class FilterTest extends TestCase
 
         $res = $this->getJson('/api/v1/Product?savedFilterId=' . $filter->id);
         $res->assertStatus(200);
+        dump($res->json());
         $this->assertCount(1, $res->json('data'));
         $this->assertEquals($prod1->id, $res->json('data.0.values.id'));
     }
