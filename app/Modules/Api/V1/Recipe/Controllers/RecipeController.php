@@ -3,6 +3,7 @@
 namespace App\Modules\Api\V1\Recipe\Controllers;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
 use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\Recipe\Models\Recipe;
 use App\Modules\Api\V1\Recipe\Requests\StoreRecipeRequest;

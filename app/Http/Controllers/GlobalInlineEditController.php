@@ -19,6 +19,7 @@ class GlobalInlineEditController extends Controller
         'BranchStock' => \App\Modules\Api\V1\BranchTransfer\Models\BranchStock::class,
         'BranchTransfer' => \App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer::class,
         'BranchDailyReport' => \App\Modules\Api\V1\BranchSales\Models\BranchDailyReport::class,
+        'Billing' => \App\Modules\Api\V1\Billing\Models\Billing::class,
     ];
 
     public function update(Request $request, string $module, string $id)

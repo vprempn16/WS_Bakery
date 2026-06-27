@@ -65,6 +65,16 @@ Route::prefix('v1')->group(function () {
         // Dashboard endpoint
         Route::get('Dashboard/Summary', [\App\Modules\Api\V1\Reports\Controllers\DashboardController::class, 'summary']);
 
+        // Billing
+        Route::prefix('Billing')->group(function () {
+            Route::get('new', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'createForm']);
+            Route::get('headers', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'headerfields']);
+            Route::get('{id}', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'show']);
+            Route::get('/', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'index']);
+            Route::post('new', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'store']);
+            Route::post('{id}', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'update']);
+        });
+
         // Branch Daily Report (Sales & Returns)
         Route::prefix('BranchDailyReport')->group(function () {
             Route::get('', [\App\Modules\Api\V1\BranchSales\Controllers\BranchDailyReportController::class, 'index']);
@@ -113,7 +123,7 @@ Route::prefix('v1')->group(function () {
             Route::get('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'show']);
             Route::post('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'update']);
             Route::delete('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'destroy']);
-            
+
             // Recipe endpoints (nested under product)
             Route::get('{productId}/recipe', [\App\Modules\Api\V1\Recipe\Controllers\RecipeController::class, 'index']);
             Route::post('{productId}/recipe/new', [\App\Modules\Api\V1\Recipe\Controllers\RecipeController::class, 'store']);

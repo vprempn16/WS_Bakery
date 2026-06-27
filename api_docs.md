@@ -833,7 +833,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 * **Endpoint**: `POST /api/v1/Product/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
-*(Note: `productNumber` is auto-generated on creation as `PROD1`, `PROD2`, etc. `unit` must be one of: `pcs`, `kg`, `g`, `l`, `ml`, `pkt`. Defaults to `pcs` if not provided)*
+*(Note: `productNumber` is auto-generated on creation as `PROD1`, `PROD2`, etc. `unit` must be one of: `Piece`, `Kg`, `Box`, `Packet`, `Gram`, `Dozen`, `Liter`. Defaults to `Piece` if not provided)*
 ```json
 {
     "data": {
@@ -842,7 +842,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
             "name": "Sweet Bread",
             "description": "Delicious baked sweet bread",
             "price": 50,
-            "unit": "pcs",
+            "unit": "Piece",
             "shelfLifeDays": 3
         }
     }
@@ -859,7 +859,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
             "name": "Sweet Bread",
             "description": "Delicious baked sweet bread",
             "price": 50,
-            "unit": "pcs",
+            "unit": "Piece",
             "shelfLifeDays": 3,
             "currentStock": 0,
             "createdAt": "2026-06-11T21:31:35.000000Z",
@@ -896,7 +896,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
             "name": "Sweet Bread Updated",
             "description": "Super soft sweet bread",
             "price": 55,
-            "unit": "pcs",
+            "unit": "Piece",
             "shelfLifeDays": 4
         }
     }
@@ -913,7 +913,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
             "name": "Sweet Bread Updated",
             "description": "Super soft sweet bread",
             "price": 55,
-            "unit": "pcs",
+            "unit": "Piece",
             "shelfLifeDays": 4,
             "currentStock": 0,
             "createdAt": "2026-06-11T21:31:35.000000Z",
@@ -2163,3 +2163,137 @@ The Global Search API is used to populate relational picklists (dropdowns) acros
 }
 ```
 **Audit Log ending**
+
+---
+
+## 20. Billing Module
+
+### 20.1 Create Form Fields
+* **Endpoint**: `GET /api/v1/Billing/new`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Returns the form fields configuration for creating a new bill.
+
+### 20.2 Get List Headers
+* **Endpoint**: `GET /api/v1/Billing/headers`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Returns the table headers for the billing list view.
+
+### 20.3 List Bills (Billing History)
+* **Endpoint**: `GET /api/v1/Billing`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Fetches a paginated list of all past bills (Billing History).
+
+### 20.4 View Specific Bill
+* **Endpoint**: `GET /api/v1/Billing/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Fetches the details of a specific bill, including its line items.
+
+### 20.5 Create New Bill (Postman Example)
+* **Endpoint**: `POST /api/v1/Billing/new`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Processes a new transaction and creates a bill.
+* **Body**:
+```json
+{
+    "data": {
+        "values": {
+            "branchId": "019ec048-8bcc-7039-848a-a58261ad3cbe",
+            "customerName": "John Doe",
+            "customerPhone": "1234567890",
+            "customerEmail": "john@example.com",
+            "discountAmount": 5.00,
+            "taxAmount": 2.50,
+            "paymentMethod": "Cash",
+            "paymentStatus": "Paid"
+        },
+        "relatedRecords": {
+            "items": [
+                {
+                    "productId": "019eb5c4-8bcc-7039-848a-a58261ad3cbe",
+                    "quantity": 2,
+                    "unitPrice": 50.00
+                },
+                {
+                    "productId": "019eb5c4-8bcc-7039-848a-a58261ad3cbe",
+                    "quantity": 1,
+                    "unitPrice": 100.00
+                }
+            ]
+        }
+    }
+}
+```
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "Bill created successfully",
+    "data": {
+        "id": "uuid",
+        "branchId": "019ec048-8bcc-7039-848a-a58261ad3cbe",
+        "branchId_label": "Main Branch",
+        "billNumber": "BILL-20260626-ABCD",
+        "customerName": "John Doe",
+        "customerPhone": "1234567890",
+        "customerEmail": "john@example.com",
+        "subTotal": 200.00,
+        "discountAmount": 5.00,
+        "taxAmount": 2.50,
+        "grandTotal": 197.50,
+        "paymentMethod": "Cash",
+        "paymentStatus": "Paid",
+        "billingDate": "2026-06-26 12:00:00",
+        "items": [
+            {
+                "id": "uuid",
+                "productId": "019eb5c4-8bcc-7039-848a-a58261ad3cbe",
+                "productId_label": "Product A",
+                "quantity": 2.00,
+                "unitPrice": 50.00,
+                "totalPrice": 100.00
+            },
+            {
+                "id": "uuid",
+                "productId": "019eb5c4-8bcc-7039-848a-a58261ad3cbe",
+                "productId_label": "Product B",
+                "quantity": 1.00,
+                "unitPrice": 100.00,
+                "totalPrice": 100.00
+            }
+        ],
+        "createdAt": "2026-06-26 12:00:00"
+    }
+}
+```
+
+### 20.6 Update Bill
+* **Endpoint**: `PUT /api/v1/Billing/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Updates an existing bill. This is useful for changing the `paymentStatus` (e.g. from Pending to Paid) or modifying the `items` array to add/remove products.
+* **Body**:
+```json
+{
+    "data": {
+        "values": {
+            "paymentStatus": "Paid"
+        },
+        "relatedRecords": {
+            "items": [
+                {
+                    "id": "existing-billing-item-uuid",
+                    "productId": "019eb5c4-8bcc-7039-848a-a58261ad3cbe",
+                    "quantity": 2,
+                    "unitPrice": 50.00
+                },
+                {
+                    "productId": "new-product-uuid",
+                    "quantity": 1,
+                    "unitPrice": 100.00
+                }
+            ]
+        }
+    }
+}
+```
+* **Note**: If `relatedRecords.items` is provided, the backend will sync the items (add new ones without `id`, update existing ones with `id`, and delete any old items not included in the array). The `grandTotal` will automatically recalculate.
+* **Response (200 OK)**: Returns the updated Bill object (same structure as `POST /api/v1/Billing/new`).

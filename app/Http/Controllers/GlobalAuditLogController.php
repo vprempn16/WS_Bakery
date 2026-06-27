@@ -19,6 +19,7 @@ class GlobalAuditLogController extends Controller
         'BranchStock' => 'BranchStock',
         'BranchTransfer' => 'BranchTransfer',
         'BranchDailyReport' => 'BranchDailyReport',
+        'Billing' => 'Billing',
     ];
 
     public function index(Request $request, string $module, string $id)
