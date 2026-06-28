@@ -20,6 +20,7 @@ Route::prefix('v1')->group(function () {
         // Header endpoints (filter field definitions)
         Route::get('{module}/new', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'getCreateFields']);
         Route::get('{module}/headers', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
+	Route::get('{module}/headers/default', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
         Route::get('{module}/headers/{filterId}', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
 
         // Global Inline Edit endpoint
