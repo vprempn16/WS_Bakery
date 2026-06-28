@@ -105,12 +105,26 @@ class ModuleFieldConfig
                 'displaytype' => 1,
                 'options' => [
                     ['value' => 'Piece', 'label' => 'Piece'],
-                    ['value' => 'Kg', 'label' => 'Kg'],
+                    // ['value' => 'Kg', 'label' => 'Kg'],
                     ['value' => 'Box', 'label' => 'Box'],
                     ['value' => 'Packet', 'label' => 'Packet'],
                     ['value' => 'Gram', 'label' => 'Gram'],
                     ['value' => 'Dozen', 'label' => 'Dozen'],
                     ['value' => 'Liter', 'label' => 'Liter']
+                ]
+            ],
+            [
+                'fieldname' => 'category',
+                'fieldlabel' => 'Category',
+                'fieldtype' => 'picklist',
+                'displaytype' => 1,
+                'options' => [
+                    ['value' => 'Bread', 'label' => 'Bread'],
+                    ['value' => 'Sweet', 'label' => 'Sweet'],
+                    ['value' => 'Cake', 'label' => 'Cake'],
+                    ['value' => 'Snack', 'label' => 'Snack'],
+                    ['value' => 'Beverage', 'label' => 'Beverage'],
+                    ['value' => 'Other', 'label' => 'Other']
                 ]
             ],
             ['fieldname' => 'shelfLifeDays', 'fieldlabel' => 'Shelf Life Days', 'fieldtype' => 'integer/number', 'displaytype' => 1],

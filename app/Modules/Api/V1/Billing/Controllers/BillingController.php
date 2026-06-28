@@ -182,4 +182,58 @@ class BillingController extends Controller
             return $this->error('Failed to update bill: ' . $e->getMessage(), null, null, null, 500);
         }
     }
+
+    public function getPosProducts(Request $request)
+    {
+        $orgId = $request->user()->organization_id;
+        $perPage = $request->query('per_page', 20);
+        $category = $request->query('category', 'All');
+
+        $query = \App\Modules\Api\V1\Product\Models\Product::where('organization_id', $orgId)
+                        ->select('id', 'name', 'price', 'unit', 'category')
+                        ->orderBy('name');
+
+        if ($category && $category !== 'All') {
+            $query->where('category', $category);
+        }
+
+        $paginator = $query->paginate($perPage);
+
+        $formatted = collect($paginator->items())->map(function($item) {
+            return [
+                'id' => $item->id,
+                'name' => $item->name,
+                'price' => (float) $item->price,
+                'unit' => $item->unit,
+                'category' => $item->category,
+            ];
+        });
+
+        $fields = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('products');
+
+        $data = [
+            'fields' => $fields,
+            'list' => $formatted,
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+            'links' => [
+                'first' => $paginator->url(1),
+                'last' => $paginator->url($paginator->lastPage()),
+                'prev' => $paginator->previousPageUrl(),
+                'next' => $paginator->nextPageUrl(),
+            ],
+        ];
+
+        return $this->success($data, 'POS Products retrieved successfully');
+    }
+
+    public function getPosCategories(Request $request)
+    {
+        $categories = ['All', 'Bread', 'Sweet', 'Cake', 'Snack', 'Beverage', 'Other'];
+        return $this->success($categories, 'POS Categories retrieved successfully');
+    }
 }

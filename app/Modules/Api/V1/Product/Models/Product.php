@@ -20,6 +20,7 @@ class Product extends Model
         'description',
         'price',
         'unit',
+        'category',
         'shelf_life_days',
         'shelf_life_hours',
         'tier',

@@ -67,6 +67,8 @@ Route::prefix('v1')->group(function () {
 
         // Billing
         Route::prefix('Billing')->group(function () {
+            Route::get('pos-products/category', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'getPosCategories']);
+            Route::get('pos-products', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'getPosProducts']);
             Route::get('new', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'createForm']);
             Route::get('headers', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'headerfields']);
             Route::get('{id}', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'show']);

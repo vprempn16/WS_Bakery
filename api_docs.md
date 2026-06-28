@@ -833,7 +833,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 * **Endpoint**: `POST /api/v1/Product/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
-*(Note: `productNumber` is auto-generated on creation as `PROD1`, `PROD2`, etc. `unit` must be one of: `Piece`, `Kg`, `Box`, `Packet`, `Gram`, `Dozen`, `Liter`. Defaults to `Piece` if not provided)*
+*(Note: `productNumber` is auto-generated on creation as `PROD1`, `PROD2`, etc. `unit` must be one of: `Piece`, `Box`, `Packet`, `Gram`, `Dozen`, `Liter`. Defaults to `Piece` if not provided)*
 ```json
 {
     "data": {
@@ -2168,27 +2168,106 @@ The Global Search API is used to populate relational picklists (dropdowns) acros
 
 ## 20. Billing Module
 
-### 20.1 Create Form Fields
+### 20.1 Get POS Categories
+* **Endpoint**: `GET /api/v1/Billing/pos-products/category`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Returns the list of available product categories for POS tabs, with "All" always at the beginning.
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "POS Categories retrieved successfully",
+    "data": [
+        "All",
+        "Bread",
+        "Sweet",
+        "Cake",
+        "Snack",
+        "Beverage",
+        "Other"
+    ]
+}
+```
+
+### 20.2 Get POS Products
+* **Endpoint**: `GET /api/v1/Billing/pos-products?category=All`
+* **Headers**: `Authorization: Bearer {token}`
+* **Query Parameters**:
+  * `category` (optional, string) - Filter by category name. Pass "All" or omit it to get all products.
+  * `per_page` (optional, integer) - Pagination limit, default 20.
+* **Description**: Returns a paginated list of active products for the POS screen, filtered by the provided category tab.
+* **Response (200 OK)**:
+```json
+{
+    "status": true,
+    "message": "POS Products retrieved successfully",
+    "data": {
+        "fields": [
+            {
+                "fieldname": "id",
+                "fieldlabel": "ID",
+                "fieldtype": "text",
+                "displaytype": 2
+            },
+            {
+                "fieldname": "name",
+                "fieldlabel": "Name",
+                "fieldtype": "text",
+                "displaytype": 1
+            },
+            {
+                "fieldname": "price",
+                "fieldlabel": "Price",
+                "fieldtype": "currency",
+                "displaytype": 1
+            }
+        ],
+        "list": [
+            {
+                "id": "uuid-2",
+                "name": "Halwa",
+                "price": 200,
+                "unit": "Gram",
+                "category": "Sweet"
+            }
+        ],
+        "meta": {
+            "current_page": 1,
+            "last_page": 1,
+            "per_page": 20,
+            "total": 1
+        },
+        "links": {
+            "first": "http://localhost/api/v1/Billing/pos-products?page=1",
+            "last": "http://localhost/api/v1/Billing/pos-products?page=1",
+            "prev": null,
+            "next": null
+        }
+    }
+}
+```
+
+### 20.3 Create Form Fields
 * **Endpoint**: `GET /api/v1/Billing/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Description**: Returns the form fields configuration for creating a new bill.
 
-### 20.2 Get List Headers
+### 20.4 Get List Headers
 * **Endpoint**: `GET /api/v1/Billing/headers`
 * **Headers**: `Authorization: Bearer {token}`
 * **Description**: Returns the table headers for the billing list view.
 
-### 20.3 List Bills (Billing History)
+### 20.5 List Bills (Billing History)
 * **Endpoint**: `GET /api/v1/Billing`
 * **Headers**: `Authorization: Bearer {token}`
 * **Description**: Fetches a paginated list of all past bills (Billing History).
 
-### 20.4 View Specific Bill
+### 20.6 View Specific Bill
 * **Endpoint**: `GET /api/v1/Billing/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Description**: Fetches the details of a specific bill, including its line items.
 
-### 20.5 Create New Bill (Postman Example)
+### 20.7 Create New Bill (Postman Example)
 * **Endpoint**: `POST /api/v1/Billing/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Description**: Processes a new transaction and creates a bill.
@@ -2266,7 +2345,7 @@ The Global Search API is used to populate relational picklists (dropdowns) acros
 }
 ```
 
-### 20.6 Update Bill
+### 20.8 Update Bill
 * **Endpoint**: `PUT /api/v1/Billing/{id}`
 * **Headers**: `Authorization: Bearer {token}`
 * **Description**: Updates an existing bill. This is useful for changing the `paymentStatus` (e.g. from Pending to Paid) or modifying the `items` array to add/remove products.
