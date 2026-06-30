@@ -106,10 +106,10 @@ class ModuleFieldConfig
                 'options' => [
                     ['value' => 'Piece', 'label' => 'Piece'],
                     // ['value' => 'Kg', 'label' => 'Kg'],
-                    ['value' => 'Box', 'label' => 'Box'],
+                   // ['value' => 'Box', 'label' => 'Box'],
                     ['value' => 'Packet', 'label' => 'Packet'],
                     ['value' => 'Gram', 'label' => 'Gram'],
-                    ['value' => 'Dozen', 'label' => 'Dozen'],
+                   // ['value' => 'Dozen', 'label' => 'Dozen'],
                     ['value' => 'Liter', 'label' => 'Liter']
                 ]
             ],

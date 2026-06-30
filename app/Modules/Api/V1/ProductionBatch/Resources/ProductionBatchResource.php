@@ -14,8 +14,10 @@ class ProductionBatchResource extends JsonResource
         return [
             'id' => $this->id,
             'organizationId' => $this->organization_id,
+            'organizationId_label' => $this->organization ? $this->organization->name : null,
             'batchNumber' => $this->batch_number,
             'productId' => $this->product_id,
+            'productId_label' => $this->product ? $this->product->name : null,
             'quantityProduced' => (float) $this->quantity_produced,
             'productionDate' => $this->production_date ? $this->production_date->format('Y-m-d') : null,
             'expiryTimestamp' => $this->expiry_timestamp ? $this->expiry_timestamp->format('Y-m-d H:i:s') : null,
