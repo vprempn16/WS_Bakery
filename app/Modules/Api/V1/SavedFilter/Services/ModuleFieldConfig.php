@@ -110,9 +110,9 @@ class ModuleFieldConfig
                     ['value' => 'Packet', 'label' => 'Packet'],
                     ['value' => 'Gram', 'label' => 'Gram'],
                     // ['value' => 'Dozen', 'label' => 'Dozen'],
-                    ['value' => 'Liter', 'label' => 'Liter'],
+                    //['value' => 'Liter', 'label' => 'Liter'],
                     ['value' => 'ml', 'label' => 'Milliliters (ml)'],
-                    ['value' => 'l', 'label' => 'Liters (l)']
+                    //['value' => 'l', 'label' => 'Liters (l)']
                 ]
             ],
             [
