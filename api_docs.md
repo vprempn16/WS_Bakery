@@ -833,7 +833,7 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 * **Endpoint**: `POST /api/v1/Product/new`
 * **Headers**: `Authorization: Bearer {token}`
 * **Request Body**:
-*(Note: `productNumber` is auto-generated on creation as `PROD1`, `PROD2`, etc. `unit` must be one of: `Piece`, `Box`, `Packet`, `Gram`, `Dozen`, `Liter`. Defaults to `Piece` if not provided)*
+*(Note: `productNumber` can be provided manually, or it will be auto-generated as `PROD1`, `PROD2`, etc. `unit` must be one of: `Piece`, `Box`, `Packet`, `Gram`, `Dozen`, `Liter`, `ml`, `l`. Defaults to `Piece` if not provided)*
 ```json
 {
     "data": {

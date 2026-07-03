@@ -14,10 +14,11 @@ class StoreProductRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'data.values.productNumber' => ['nullable', 'string', 'max:255'],
             'data.values.name' => ['required', 'string', 'max:255'],
             'data.values.description' => ['nullable', 'string'],
             'data.values.price' => ['nullable', 'numeric', 'min:0'],
-            'data.values.unit' => ['required', 'string', 'in:Piece,Box,Packet,Gram,Dozen,Liter'],
+            'data.values.unit' => ['required', 'string', 'in:Piece,Box,Packet,Gram,Dozen,ml,l'],
             'data.values.category' => ['nullable', 'string', 'in:Bread,Sweet,Cake,Snack,Beverage,Other'],
             'data.values.shelfLifeDays' => ['nullable', 'integer', 'min:0'],
             'data.values.shelfLifeHours' => ['nullable', 'integer', 'min:0'],

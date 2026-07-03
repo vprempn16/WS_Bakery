@@ -63,9 +63,9 @@ class ModuleFieldConfig
                 'displaytype' => 1,
                 'options' => [
                     ['value' => 'g', 'label' => 'Grams (g)'],
-                    ['value' => 'kg', 'label' => 'Kilograms (kg)'],
+                    //['value' => 'kg', 'label' => 'Kilograms (kg)'],
                     ['value' => 'ml', 'label' => 'Milliliters (ml)'],
-                    ['value' => 'l', 'label' => 'Liters (l)'],
+                    //['value' => 'l', 'label' => 'Liters (l)'],
                     ['value' => 'pcs', 'label' => 'Pieces (pcs)']
                 ]
             ],
@@ -106,11 +106,13 @@ class ModuleFieldConfig
                 'options' => [
                     ['value' => 'Piece', 'label' => 'Piece'],
                     // ['value' => 'Kg', 'label' => 'Kg'],
-                   // ['value' => 'Box', 'label' => 'Box'],
+                    // ['value' => 'Box', 'label' => 'Box'],
                     ['value' => 'Packet', 'label' => 'Packet'],
                     ['value' => 'Gram', 'label' => 'Gram'],
-                   // ['value' => 'Dozen', 'label' => 'Dozen'],
-                    ['value' => 'Liter', 'label' => 'Liter']
+                    // ['value' => 'Dozen', 'label' => 'Dozen'],
+                    ['value' => 'Liter', 'label' => 'Liter'],
+                    ['value' => 'ml', 'label' => 'Milliliters (ml)'],
+                    ['value' => 'l', 'label' => 'Liters (l)']
                 ]
             ],
             [

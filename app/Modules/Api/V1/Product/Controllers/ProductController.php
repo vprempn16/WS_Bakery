@@ -69,10 +69,12 @@ class ProductController extends Controller
 
         $product = Product::create([
             'organization_id' => $orgId,
+            'product_number' => $values['productNumber'] ?? null,
             'name' => $values['name'],
             'description' => $values['description'] ?? null,
             'price' => $values['price'] ?? null,
-            'unit' => $values['unit'] ?? 'pcs',
+            'unit' => $values['unit'] ?? 'Piece',
+            'category' => $values['category'] ?? 'Other',
             'shelf_life_days' => $values['shelfLifeDays'] ?? null,
             'shelf_life_hours' => $values['shelfLifeHours'] ?? null,
             'tier' => $values['tier'] ?? null,
@@ -108,10 +110,12 @@ class ProductController extends Controller
 
             $product->update([
                 'organization_id' => $orgId,
+                'product_number' => $values['productNumber'] ?? $product->product_number,
                 'name' => $values['name'],
                 'description' => $values['description'] ?? null,
                 'price' => $values['price'] ?? null,
-                'unit' => $values['unit'] ?? 'pcs',
+                'unit' => $values['unit'] ?? 'Piece',
+                'category' => $values['category'] ?? $product->category,
                 'shelf_life_days' => $values['shelfLifeDays'] ?? null,
                 'shelf_life_hours' => $values['shelfLifeHours'] ?? null,
                 'tier' => $values['tier'] ?? null,
