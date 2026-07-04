@@ -101,6 +101,11 @@ class ProductionBatchController extends Controller
                     ->first();
 
                 if ($ingredient) {
+                    if ($ingredient->current_stock < $totalIngredientNeeded) {
+                        DB::rollBack();
+                        return $this->error("Insufficient stock for ingredient: {$ingredient->name}. Needed: {$totalIngredientNeeded}, Available: {$ingredient->current_stock}", null, null, null, 400);
+                    }
+
                     $ingredient->current_stock -= $totalIngredientNeeded;
                     $ingredient->save();
 
