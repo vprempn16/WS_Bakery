@@ -16,6 +16,8 @@ class BillingItem extends Model
         'quantity',
         'unit_price',
         'total_price',
+        'unit',
+        'category',
     ];
 
     protected $casts = [

@@ -14,9 +14,9 @@ class BillingResource extends JsonResource
             'branchId' => $this->branch_id,
             'branchId_label' => $this->branch ? $this->branch->name : null,
             'billNumber' => $this->bill_number,
-            'customerName' => $this->customer_name,
-            'customerPhone' => $this->customer_phone,
-            'customerEmail' => $this->customer_email,
+            // 'customerName' => $this->customer_name,
+            // 'customerPhone' => $this->customer_phone,
+            // 'customerEmail' => $this->customer_email,
             'subTotal' => (float) $this->sub_total,
             'discountAmount' => (float) $this->discount_amount,
             'taxAmount' => (float) $this->tax_amount,
@@ -33,6 +33,8 @@ class BillingResource extends JsonResource
                         'quantity' => (float) $item->quantity,
                         'unitPrice' => (float) $item->unit_price,
                         'totalPrice' => (float) $item->total_price,
+                        'unit' => $item->unit,
+                        'category' => $item->category,
                     ];
                 });
             }),

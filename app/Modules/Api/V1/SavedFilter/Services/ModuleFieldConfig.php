@@ -62,7 +62,7 @@ class ModuleFieldConfig
                 'fieldtype' => 'picklist',
                 'displaytype' => 1,
                 'options' => [
-                    ['value' => 'g', 'label' => 'Grams (g)'],
+                    ['value' => 'gm', 'label' => 'Gram (gm)'],
                     //['value' => 'kg', 'label' => 'Kilograms (kg)'],
                     ['value' => 'ml', 'label' => 'Milliliters (ml)'],
                     //['value' => 'l', 'label' => 'Liters (l)'],
@@ -104,7 +104,7 @@ class ModuleFieldConfig
                 'fieldtype' => 'picklist',
                 'displaytype' => 1,
                 'options' => [
-                    ['value' => 'g', 'label' => 'Grams (g)'],
+                    ['value' => 'gm', 'label' => 'Gram (gm)'],
                     // ['value' => 'Kg', 'label' => 'Kg'],
                     // ['value' => 'Box', 'label' => 'Box'],
                     ['value' => 'pcs', 'label' => 'Pieces (pcs)'],
@@ -120,12 +120,12 @@ class ModuleFieldConfig
                 'fieldtype' => 'picklist',
                 'displaytype' => 1,
                 'options' => [
-                    ['value' => 'Bread', 'label' => 'Bread'],
-                    ['value' => 'Sweet', 'label' => 'Sweet'],
-                    ['value' => 'Cake', 'label' => 'Cake'],
-                    ['value' => 'Snack', 'label' => 'Snack'],
-                    ['value' => 'Beverage', 'label' => 'Beverage'],
-                    ['value' => 'Other', 'label' => 'Other']
+                    ['value' => 'bread', 'label' => 'Bread'],
+                    ['value' => 'sweet', 'label' => 'Sweet'],
+                    ['value' => 'cake', 'label' => 'Cake'],
+                    ['value' => 'snack', 'label' => 'Snack'],
+                    ['value' => 'beverage', 'label' => 'Beverage'],
+                    ['value' => 'other', 'label' => 'Other']
                 ]
             ],
             ['fieldname' => 'shelfLifeDays', 'fieldlabel' => 'Shelf Life Days', 'fieldtype' => 'integer/number', 'displaytype' => 1],
@@ -217,17 +217,27 @@ class ModuleFieldConfig
             ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'uuid', 'displaytype' => 1],
             ['fieldname' => 'branchId', 'fieldlabel' => 'Branch ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
             ['fieldname' => 'billNumber', 'fieldlabel' => 'Bill Number', 'fieldtype' => 'text', 'displaytype' => 1],
-            ['fieldname' => 'customerName', 'fieldlabel' => 'Customer Name', 'fieldtype' => 'text', 'displaytype' => 1],
-            ['fieldname' => 'customerPhone', 'fieldlabel' => 'Customer Phone', 'fieldtype' => 'text', 'displaytype' => 1],
-            ['fieldname' => 'customerEmail', 'fieldlabel' => 'Customer Email', 'fieldtype' => 'email', 'displaytype' => 1],
+            // ['fieldname' => 'customerName', 'fieldlabel' => 'Customer Name', 'fieldtype' => 'text', 'displaytype' => 1],
+            // ['fieldname' => 'customerPhone', 'fieldlabel' => 'Customer Phone', 'fieldtype' => 'text', 'displaytype' => 1],
+            // ['fieldname' => 'customerEmail', 'fieldlabel' => 'Customer Email', 'fieldtype' => 'email', 'displaytype' => 1],
             ['fieldname' => 'subTotal', 'fieldlabel' => 'Sub Total', 'fieldtype' => 'number', 'displaytype' => 1],
             ['fieldname' => 'discountAmount', 'fieldlabel' => 'Discount', 'fieldtype' => 'number', 'displaytype' => 1],
             ['fieldname' => 'taxAmount', 'fieldlabel' => 'Tax', 'fieldtype' => 'number', 'displaytype' => 1],
             ['fieldname' => 'grandTotal', 'fieldlabel' => 'Grand Total', 'fieldtype' => 'number', 'displaytype' => 1],
-            ['fieldname' => 'paymentMethod', 'fieldlabel' => 'Payment Method', 'fieldtype' => 'picklist', 'displaytype' => 1, 'options' => ['Cash', 'Card', 'UPI']],
-            ['fieldname' => 'paymentStatus', 'fieldlabel' => 'Payment Status', 'fieldtype' => 'picklist', 'displaytype' => 1, 'options' => ['Paid', 'Pending', 'Cancelled']],
+            ['fieldname' => 'paymentMethod', 'fieldlabel' => 'Payment Method', 'fieldtype' => 'picklist', 'displaytype' => 1, 'options' => [['value' => 'cash', 'label' => 'Cash'], ['value' => 'card', 'label' => 'Card'], ['value' => 'upi', 'label' => 'UPI']]],
+            ['fieldname' => 'paymentStatus', 'fieldlabel' => 'Payment Status', 'fieldtype' => 'picklist', 'displaytype' => 1, 'options' => [['value' => 'paid', 'label' => 'Paid'], ['value' => 'pending', 'label' => 'Pending'], ['value' => 'cancelled', 'label' => 'Cancelled']]],
             ['fieldname' => 'billingDate', 'fieldlabel' => 'Billing Date', 'fieldtype' => 'date', 'displaytype' => 1],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2],
+        ],
+        'billing_items' => [
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'uuid', 'displaytype' => 1],
+            ['fieldname' => 'billingId', 'fieldlabel' => 'Billing ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
+            ['fieldname' => 'productId', 'fieldlabel' => 'Product ID', 'fieldtype' => 'relationPickList', 'displaytype' => 1],
+            ['fieldname' => 'quantity', 'fieldlabel' => 'Quantity', 'fieldtype' => 'number', 'displaytype' => 1],
+            ['fieldname' => 'unitPrice', 'fieldlabel' => 'Unit Price', 'fieldtype' => 'number', 'displaytype' => 1],
+            ['fieldname' => 'totalPrice', 'fieldlabel' => 'Total Price', 'fieldtype' => 'number', 'displaytype' => 1],
+            ['fieldname' => 'unit', 'fieldlabel' => 'Unit', 'fieldtype' => 'text', 'displaytype' => 1],
+            ['fieldname' => 'category', 'fieldlabel' => 'Category', 'fieldtype' => 'text', 'displaytype' => 1],
         ],
     ];
 
@@ -248,6 +258,7 @@ class ModuleFieldConfig
         'BranchTransfer' => 'branch_transfers',
         'BranchDailyReport' => 'branch_daily_reports',
         'Billing' => 'billings',
+        'BillingItem' => 'billing_items',
     ];
 
     /**

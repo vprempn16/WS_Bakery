@@ -71,13 +71,13 @@ class BillingController extends Controller
             $billing->organization_id = $orgId;
             $billing->branch_id = $data['branchId'];
             $billing->bill_number = $billNumber;
-            $billing->customer_name = $data['customerName'] ?? null;
-            $billing->customer_phone = $data['customerPhone'] ?? null;
-            $billing->customer_email = $data['customerEmail'] ?? null;
+            // $billing->customer_name = $data['customerName'] ?? null;
+            // $billing->customer_phone = $data['customerPhone'] ?? null;
+            // $billing->customer_email = $data['customerEmail'] ?? null;
             $billing->discount_amount = $data['discountAmount'] ?? 0;
             $billing->tax_amount = $data['taxAmount'] ?? 0;
-            $billing->payment_method = $data['paymentMethod'] ?? 'Cash';
-            $billing->payment_status = $data['paymentStatus'] ?? 'Paid';
+            $billing->payment_method = $data['paymentMethod'] ?? 'cash';
+            $billing->payment_status = $data['paymentStatus'] ?? 'paid';
             $billing->billing_date = now();
 
             $subTotal = 0;
@@ -94,6 +94,8 @@ class BillingController extends Controller
                 $item->quantity = $itemData['quantity'];
                 $item->unit_price = $itemData['unitPrice'];
                 $item->total_price = $totalPrice;
+                $item->unit = $itemData['unit'] ?? null;
+                $item->category = $itemData['category'] ?? null;
                 $item->save();
             }
 
@@ -120,9 +122,9 @@ class BillingController extends Controller
             $itemsData = $request->input('data.relatedRecords.items');
 
             if (isset($data['branchId'])) $billing->branch_id = $data['branchId'];
-            if (isset($data['customerName'])) $billing->customer_name = $data['customerName'];
-            if (isset($data['customerPhone'])) $billing->customer_phone = $data['customerPhone'];
-            if (isset($data['customerEmail'])) $billing->customer_email = $data['customerEmail'];
+            // if (isset($data['customerName'])) $billing->customer_name = $data['customerName'];
+            // if (isset($data['customerPhone'])) $billing->customer_phone = $data['customerPhone'];
+            // if (isset($data['customerEmail'])) $billing->customer_email = $data['customerEmail'];
             if (isset($data['discountAmount'])) $billing->discount_amount = $data['discountAmount'];
             if (isset($data['taxAmount'])) $billing->tax_amount = $data['taxAmount'];
             if (isset($data['paymentMethod'])) $billing->payment_method = $data['paymentMethod'];
@@ -145,6 +147,8 @@ class BillingController extends Controller
                         $item->quantity = $itemData['quantity'];
                         $item->unit_price = $itemData['unitPrice'];
                         $item->total_price = $totalPrice;
+                        if (isset($itemData['unit'])) $item->unit = $itemData['unit'];
+                        if (isset($itemData['category'])) $item->category = $itemData['category'];
                         $item->save();
                         $newItemIds[] = $item->id;
                     } else {
@@ -154,6 +158,8 @@ class BillingController extends Controller
                         $item->quantity = $itemData['quantity'];
                         $item->unit_price = $itemData['unitPrice'];
                         $item->total_price = $totalPrice;
+                        $item->unit = $itemData['unit'] ?? null;
+                        $item->category = $itemData['category'] ?? null;
                         $item->save();
                         $newItemIds[] = $item->id;
                     }
@@ -187,13 +193,13 @@ class BillingController extends Controller
     {
         $orgId = $request->user()->organization_id;
         $perPage = $request->query('per_page', 20);
-        $category = $request->query('category', 'All');
+        $category = $request->query('category', 'all');
 
         $query = \App\Modules\Api\V1\Product\Models\Product::where('organization_id', $orgId)
                         ->select('id', 'name', 'price', 'unit', 'category')
                         ->orderBy('name');
 
-        if ($category && $category !== 'All') {
+        if ($category && $category !== 'all') {
             $query->where('category', $category);
         }
 
@@ -233,7 +239,15 @@ class BillingController extends Controller
 
     public function getPosCategories(Request $request)
     {
-        $categories = ['All', 'Bread', 'Sweet', 'Cake', 'Snack', 'Beverage', 'Other'];
+        $categories = [
+            ['value' => 'all', 'label' => 'All'],
+            ['value' => 'bread', 'label' => 'Bread'],
+            ['value' => 'sweet', 'label' => 'Sweet'],
+            ['value' => 'cake', 'label' => 'Cake'],
+            ['value' => 'snack', 'label' => 'Snack'],
+            ['value' => 'beverage', 'label' => 'Beverage'],
+            ['value' => 'other', 'label' => 'Other']
+        ];
         return $this->success($categories, 'POS Categories retrieved successfully');
     }
 }
