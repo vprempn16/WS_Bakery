@@ -104,11 +104,10 @@ class ModuleFieldConfig
                 'fieldtype' => 'picklist',
                 'displaytype' => 1,
                 'options' => [
-                    ['value' => 'Piece', 'label' => 'Piece'],
+                    ['value' => 'g', 'label' => 'Grams (g)'],
                     // ['value' => 'Kg', 'label' => 'Kg'],
                     // ['value' => 'Box', 'label' => 'Box'],
-                    ['value' => 'Packet', 'label' => 'Packet'],
-                    ['value' => 'Gram', 'label' => 'Gram'],
+                    ['value' => 'pcs', 'label' => 'Pieces (pcs)'],
                     // ['value' => 'Dozen', 'label' => 'Dozen'],
                     //['value' => 'Liter', 'label' => 'Liter'],
                     ['value' => 'ml', 'label' => 'Milliliters (ml)'],
