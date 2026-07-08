@@ -31,18 +31,18 @@ class Product extends Model
     {
         static::creating(function ($product) {
             if (empty($product->product_number)) {
-                $latestProduct = static::where('product_number', 'LIKE', 'PROD%')
-                    ->orderBy('created_at', 'desc')
-                    ->first();
+                $maxNumber = \Illuminate\Support\Facades\DB::table('products')
+                    ->whereRaw('product_number REGEXP "^[0-9]+$"')
+                    ->selectRaw('MAX(CAST(product_number AS UNSIGNED)) as max_num')
+                    ->value('max_num');
 
-                $nextNum = 1;
-                if ($latestProduct) {
-                    if (preg_match('/PROD(\d+)$/', $latestProduct->product_number, $matches)) {
-                        $nextNum = (int)$matches[1] + 1;
-                    }
+                $nextNum = $maxNumber ? (int)$maxNumber + 1 : 1;
+                
+                while (\Illuminate\Support\Facades\DB::table('products')->where('product_number', (string)$nextNum)->exists()) {
+                    $nextNum++;
                 }
 
-                $product->product_number = 'PROD' . $nextNum;
+                $product->product_number = (string)$nextNum;
             }
         });
     }
