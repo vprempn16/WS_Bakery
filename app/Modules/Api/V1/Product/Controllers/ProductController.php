@@ -57,29 +57,25 @@ class ProductController extends Controller
 
         $products = $query->paginate($perPage);
 
-        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Product');
+        $fieldManager = \App\Models\FieldModelManager::make('Product', 'DetailView', false);
+        $fieldList = $fieldManager->getApiFormFields();
 
         return $this->paginated(ProductResource::collection($products)->resource, $fieldList);
     }
 
-    public function store(StoreProductRequest $request)
+    public function store(Request $request)
     {
         $values = $request->input('data.values');
         $orgId = $request->user()->organization_id;
 
-        $product = Product::create([
-            'organization_id' => $orgId,
-            'product_number' => $values['productNumber'] ?? null,
-            'name' => $values['name'],
-            'description' => $values['description'] ?? null,
-            'price' => $values['price'] ?? null,
-            'unit' => $values['unit'] ?? 'Piece',
-            'category' => $values['category'] ?? 'Other',
-            'shelf_life_days' => $values['shelfLifeDays'] ?? null,
-            'shelf_life_hours' => $values['shelfLifeHours'] ?? null,
-            'tier' => $values['tier'] ?? null,
-            'current_stock' => 0,
-        ]);
+        $product = new Product();
+        $product->organization_id = $orgId;
+        // set default values for numeric fields to prevent null error if DB doesn't have defaults, wait, the DB might have defaults, but let BaseModel fill them.
+        if (empty($values['currentStock'])) {
+            $product->current_stock = 0;
+        }
+        $product->fill($values);
+        $product->save();
 
         return $this->success(new ProductResource($product), 'Product created successfully.', 201);
     }
@@ -90,7 +86,8 @@ class ProductController extends Controller
             $product = Product::findOrFail($id);
             $resource = new ProductResource($product);
             
-            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Product');
+            $fieldManager = \App\Models\FieldModelManager::make('Product', 'DetailView', false);
+            $fieldList = $fieldManager->getApiFormFields();
             
             return $this->success([
                 'fields' => $fieldList,
@@ -101,25 +98,15 @@ class ProductController extends Controller
         }
     }
 
-    public function update(UpdateProductRequest $request, $id)
+    public function update(Request $request, $id)
     {
         try {
             $orgId = $request->user()->organization_id;
             $product = Product::where('organization_id', $orgId)->findOrFail($id);
             $values = $request->input('data.values');
 
-            $product->update([
-                'organization_id' => $orgId,
-                'product_number' => $values['productNumber'] ?? $product->product_number,
-                'name' => $values['name'],
-                'description' => $values['description'] ?? null,
-                'price' => $values['price'] ?? null,
-                'unit' => $values['unit'] ?? 'Piece',
-                'category' => $values['category'] ?? $product->category,
-                'shelf_life_days' => $values['shelfLifeDays'] ?? null,
-                'shelf_life_hours' => $values['shelfLifeHours'] ?? null,
-                'tier' => $values['tier'] ?? null,
-            ]);
+            $product->fill($values);
+            $product->save();
 
             return $this->success(new ProductResource($product));
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {

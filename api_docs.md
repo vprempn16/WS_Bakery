@@ -2376,3 +2376,126 @@ The Global Search API is used to populate relational picklists (dropdowns) acros
 ```
 * **Note**: If `relatedRecords.items` is provided, the backend will sync the items (add new ones without `id`, update existing ones with `id`, and delete any old items not included in the array). The `grandTotal` will automatically recalculate.
 * **Response (200 OK)**: Returns the updated Bill object (same structure as `POST /api/v1/Billing/new`).
+
+---
+
+## 21. Settings: Dynamic Field Management
+
+### 21.1 List Fields
+* **Endpoint**: `GET /api/v1/settings/fields?module={module}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Lists all standard and custom fields for a specific module (e.g., `Product`, `Ingredient`, `Billing`).
+* **Response (200 OK)**:
+```json
+{
+    "success": true,
+    "data": [
+        {
+            "id": "field_uuid",
+            "fieldname": "productNumber",
+            "fieldlabel": "Product Number",
+            "mandatory": false,
+            "fieldtype": "text",
+            "displaytype": 1,
+            "is_custom_field": false
+        }
+    ]
+}
+```
+
+### 21.2 Create Custom Field
+* **Endpoint**: `POST /api/v1/settings/fields/new`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Creates a new custom field dynamically and prepares the database table if needed. Note: Valid field types include `text`, `textarea`, `number`, `email`, `date`, `datetime`, `picklist`, `multiselect`, `checkbox`.
+* **Request Body**:
+```json
+{
+    "data": {
+        "fieldlabel": "Expiry Alert Days",
+        "fieldtype": "number",
+        "modulename": "Product",
+        "mandatory": 0,
+        "options": []
+    }
+}
+```
+* **Response (200 OK)**:
+```json
+{
+    "success": true,
+    "data": {
+        "id": "new_field_uuid",
+        "modulename": "Product",
+        "fieldname": "expiry_alert_days",
+        "fieldlabel": "Expiry Alert Days",
+        "fieldtype": "number",
+        "tablename": "lproduct_custom_values",
+        "mandatory": 0,
+        "apifieldname": "expiryAlertDays",
+        "displaytype": 1,
+        "is_custom_field": 1
+    }
+}
+```
+
+### 21.3 Get Field Details
+* **Endpoint**: `GET /api/v1/settings/fields/{module}/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Retrieve details about a specific field, including its picklist options if applicable.
+* **Response (200 OK)**:
+```json
+{
+    "success": true,
+    "data": {
+        "id": "field_uuid",
+        "fieldlabel": "Category",
+        "fieldtype": "picklist",
+        "modulename": "Product",
+        "mandatory": 0,
+        "options": [
+            { "label": "Bread", "value": "bread" },
+            { "label": "Cake", "value": "cake" }
+        ]
+    }
+}
+```
+
+### 21.4 Update Field Label
+* **Endpoint**: `POST /api/v1/settings/fields/update-label`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Updates the display label or mandatory status of a standard or custom field.
+* **Request Body**:
+```json
+{
+    "data": {
+        "id": "field_uuid",
+        "fieldlabel": "Updated Label",
+        "mandatory": 1
+    }
+}
+```
+* **Response (200 OK)**:
+```json
+{
+    "success": true,
+    "data": {
+        "message": "Field label updated successfully",
+        "field_id": "field_uuid"
+    }
+}
+```
+
+### 21.5 Delete Custom Field
+* **Endpoint**: `DELETE /api/v1/settings/fields/{id}`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Soft-deletes a custom field and cleans up related values. Note: Only custom fields (`is_custom_field` = 1) can be deleted.
+* **Response (200 OK)**:
+```json
+{
+    "success": true,
+    "data": {
+        "message": "Custom field deleted successfully",
+        "field_id": "field_uuid"
+    }
+}
+```

@@ -23,7 +23,7 @@ class BillingController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
 
-        $fieldList = ModuleFieldConfig::getMappedFields('Billing');
+        $fieldList = \App\Models\FieldModelManager::make('Billing', 'DetailView', false)->getApiFormFields();
 
         return $this->paginated(BillingResource::collection($billings)->resource, $fieldList);
     }
@@ -34,7 +34,7 @@ class BillingController extends Controller
             ->where('organization_id', $request->user()->organization_id)
             ->findOrFail($id);
 
-        $fieldList = ModuleFieldConfig::getMappedFields('Billing');
+        $fieldList = \App\Models\FieldModelManager::make('Billing', 'DetailView', false)->getApiFormFields();
 
         return $this->success([
             'fields' => $fieldList,
@@ -44,23 +44,23 @@ class BillingController extends Controller
 
     public function createForm()
     {
-        $fields = ModuleFieldConfig::getMappedFields('Billing');
+        $fields = \App\Models\FieldModelManager::make('Billing', 'CreateView', false)->getApiFormFields();
         return $this->success(['fields' => $fields]);
     }
 
     public function headerfields()
     {
-        $fields = ModuleFieldConfig::getMappedFields('Billing');
+        $fields = \App\Models\FieldModelManager::make('Billing', 'DetailView', false)->getApiFormFields();
         return $this->success(['fields' => $fields]);
     }
 
-    public function store(StoreBillingRequest $request)
+    public function store(Request $request)
     {
         try {
             DB::beginTransaction();
 
-            $data = $request->input('data.values');
-            $itemsData = $request->input('data.relatedRecords.items');
+            $data = $request->input('data.values') ?? [];
+            $itemsData = $request->input('data.relatedRecords.items') ?? [];
 
             $orgId = $request->user()->organization_id;
 
@@ -69,15 +69,12 @@ class BillingController extends Controller
 
             $billing = new Billing();
             $billing->organization_id = $orgId;
-            $billing->branch_id = $data['branchId'];
+            $billing->fill($data);
             $billing->bill_number = $billNumber;
-            // $billing->customer_name = $data['customerName'] ?? null;
-            // $billing->customer_phone = $data['customerPhone'] ?? null;
-            // $billing->customer_email = $data['customerEmail'] ?? null;
-            $billing->discount_amount = $data['discountAmount'] ?? 0;
-            $billing->tax_amount = $data['taxAmount'] ?? 0;
-            $billing->payment_method = $data['paymentMethod'] ?? 'cash';
-            $billing->payment_status = $data['paymentStatus'] ?? 'paid';
+            if (empty($billing->discount_amount)) $billing->discount_amount = 0;
+            if (empty($billing->tax_amount)) $billing->tax_amount = 0;
+            if (empty($billing->payment_method)) $billing->payment_method = 'cash';
+            if (empty($billing->payment_status)) $billing->payment_status = 'paid';
             $billing->billing_date = now();
 
             $subTotal = 0;
@@ -112,7 +109,7 @@ class BillingController extends Controller
         }
     }
 
-    public function update(\App\Modules\Api\V1\Billing\Requests\UpdateBillingRequest $request, $id)
+    public function update(Request $request, $id)
     {
         try {
             DB::beginTransaction();
@@ -121,14 +118,7 @@ class BillingController extends Controller
             $data = $request->input('data.values', []);
             $itemsData = $request->input('data.relatedRecords.items');
 
-            if (isset($data['branchId'])) $billing->branch_id = $data['branchId'];
-            // if (isset($data['customerName'])) $billing->customer_name = $data['customerName'];
-            // if (isset($data['customerPhone'])) $billing->customer_phone = $data['customerPhone'];
-            // if (isset($data['customerEmail'])) $billing->customer_email = $data['customerEmail'];
-            if (isset($data['discountAmount'])) $billing->discount_amount = $data['discountAmount'];
-            if (isset($data['taxAmount'])) $billing->tax_amount = $data['taxAmount'];
-            if (isset($data['paymentMethod'])) $billing->payment_method = $data['paymentMethod'];
-            if (isset($data['paymentStatus'])) $billing->payment_status = $data['paymentStatus'];
+            $billing->fill($data);
 
             $subTotal = 0;
 

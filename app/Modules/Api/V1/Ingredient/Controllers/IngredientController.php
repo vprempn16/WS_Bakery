@@ -54,24 +54,24 @@ class IngredientController extends Controller
 
         $ingredients = $query->paginate($perPage);
 
-        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Ingredient');
+        $fieldManager = \App\Models\FieldModelManager::make('Ingredient', 'DetailView', false);
+        $fieldList = $fieldManager->getApiFormFields();
 
         return $this->paginated(IngredientResource::collection($ingredients)->resource, $fieldList);
     }
 
-    public function store(StoreIngredientRequest $request)
+    public function store(Request $request)
     {
         $values = $request->input('data.values');
         $orgId = $request->user()->organization_id;
 
-        $ingredient = Ingredient::create([
-            'organization_id' => $orgId,
-            'vendor_id' => $values['vendorId'] ?? null,
-            'name' => $values['name'],
-            'unit' => $values['unit'] ?? 'g',
-            'minimum_stock_level' => $values['minimumStockLevel'] ?? 0,
-            'current_stock' => $values['currentStock'] ?? 0,
-        ]);
+        $ingredient = new Ingredient();
+        $ingredient->organization_id = $orgId;
+        if (empty($values['currentStock'])) {
+            $ingredient->current_stock = 0;
+        }
+        $ingredient->fill($values);
+        $ingredient->save();
 
         return $this->success(new IngredientResource($ingredient), 'Ingredient created successfully.', 201);
     }
@@ -83,7 +83,8 @@ class IngredientController extends Controller
             $ingredient = Ingredient::where('organization_id', $orgId)->findOrFail($id);
             $resource = new IngredientResource($ingredient);
 
-            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Ingredient');
+            $fieldManager = \App\Models\FieldModelManager::make('Ingredient', 'DetailView', false);
+            $fieldList = $fieldManager->getApiFormFields();
 
             return $this->success([
                 'fields' => $fieldList,
@@ -94,19 +95,15 @@ class IngredientController extends Controller
         }
     }
 
-    public function update(UpdateIngredientRequest $request, $id)
+    public function update(Request $request, $id)
     {
         try {
             $orgId = $request->user()->organization_id;
             $ingredient = Ingredient::where('organization_id', $orgId)->findOrFail($id);
             $values = $request->input('data.values');
 
-            $ingredient->update([
-                'vendor_id' => $values['vendorId'] ?? null,
-                'name' => $values['name'],
-                'unit' => $values['unit'] ?? 'g',
-                'minimum_stock_level' => $values['minimumStockLevel'] ?? 0,
-            ]);
+            $ingredient->fill($values);
+            $ingredient->save();
 
             return $this->success(new IngredientResource($ingredient));
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -135,7 +132,8 @@ class IngredientController extends Controller
             ->whereColumn('current_stock', '<', 'minimum_stock_level')
             ->paginate($perPage);
 
-        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Ingredient');
+        $fieldManager = \App\Models\FieldModelManager::make('Ingredient', 'DetailView', false);
+        $fieldList = $fieldManager->getApiFormFields();
 
         return $this->paginated(IngredientResource::collection($ingredients)->resource, $fieldList);
     }

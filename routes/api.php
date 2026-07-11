@@ -151,6 +151,15 @@ Route::prefix('v1')->group(function () {
             Route::post('{id}', [UserController::class, 'update']);
             Route::delete('{id}', [UserController::class, 'destroy']);
         });
+
+        // Fields endpoints under settings
+        Route::prefix('settings/fields')->group(function () {
+            Route::get('', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'list']);
+            Route::post('new', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'create']);
+            Route::get('{module}/{id}', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'show']);
+            Route::post('update-label', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'updateFieldLabel']);
+            Route::delete('{id}', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'delete']);
+        });
     });
 });
 

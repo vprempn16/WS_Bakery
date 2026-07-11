@@ -8,19 +8,12 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Ingredient extends Model
+class Ingredient extends \App\Models\BaseModel
 {
     use \App\Traits\Auditable;
     use HasFactory, HasUuids;
 
-    protected $fillable = [
-        'organization_id',
-        'vendor_id',
-        'name',
-        'unit',
-        'minimum_stock_level',
-        'current_stock',
-    ];
+    protected $guarded = [];
 
     public function organization()
     {

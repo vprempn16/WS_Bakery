@@ -8,24 +8,12 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Product extends Model
+class Product extends \App\Models\BaseModel
 {
     use \App\Traits\Auditable;
     use HasFactory, HasUuids;
 
-    protected $fillable = [
-        'organization_id',
-        'product_number',
-        'name',
-        'description',
-        'price',
-        'unit',
-        'category',
-        'shelf_life_days',
-        'shelf_life_hours',
-        'tier',
-        'current_stock',
-    ];
+    protected $guarded = [];
 
     protected static function booted()
     {
