@@ -16,6 +16,47 @@ use App\Models\ModuleRelationFields;
 
 class CustomFieldController extends Controller
 {
+    public function createViewFields(Request $request)
+    {
+        $fieldTypes = [
+            ['value'=>'text','label'=>'Text'],
+            ['value'=>'textarea','label'=>'Textarea'],
+            ['value'=>'number','label'=>'Number'],
+            ['value'=>'email','label'=>'Email'],
+            ['value'=>'date','label'=>'Date'],
+            ['value'=>'datetime','label'=>'Datetime'],
+            ['value'=>'picklist','label'=>'Picklist'],
+            ['value'=>'multiselect','label'=>'Multi Select'],
+            ['value'=>'checkbox','label'=>'Checkbox'],
+        ];
+
+        $fields = [
+            ['name'=>'modulename','label'=>'Module','type'=>'text','required'=>true],
+            ['name'=>'fieldlabel','label'=>'Field Label','type'=>'text','required'=>true],
+            [
+                'name'=>'fieldtype',
+                'label'=>'Field Type',
+                'type'=>'picklist',
+                'required'=>true,
+                'options'=>$fieldTypes,
+            ],
+            ['name'=>'mandatory','label'=>'Mandatory','type'=>'checkbox'],
+            [
+                'name'=>'options',
+                'label'=>'Options',
+                'type'=>'array',
+                'showIf'=>['fieldtype'=>['picklist','multiselect']],
+            ],
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'fields' => $fields,
+            ]
+        ]);
+    }
+
     public function list(Request $request)
     {
         $module = $request->query('module');

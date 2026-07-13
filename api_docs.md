@@ -2381,6 +2381,26 @@ The Global Search API is used to populate relational picklists (dropdowns) acros
 
 ## 21. Settings: Dynamic Field Management
 
+### 21.0 Get Form Fields for Custom Field Creation
+* **Endpoint**: `GET /api/v1/settings/fields/view-fields`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Retrieves the form structure required by the frontend to render the "Create Custom Field" form.
+* **Response (200 OK)**:
+```json
+{
+    "success": true,
+    "data": {
+        "fields": [
+            { "name": "modulename", "label": "Module", "type": "text", "required": true },
+            { "name": "fieldlabel", "label": "Field Label", "type": "text", "required": true },
+            { "name": "fieldtype", "label": "Field Type", "type": "picklist", "required": true, "options": [ { "value": "text", "label": "Text" } ] },
+            { "name": "mandatory", "label": "Mandatory", "type": "checkbox" },
+            { "name": "options", "label": "Options", "type": "array", "showIf": { "fieldtype": [ "picklist", "multiselect" ] } }
+        ]
+    }
+}
+```
+
 ### 21.1 List Fields
 * **Endpoint**: `GET /api/v1/settings/fields?module={module}`
 * **Headers**: `Authorization: Bearer {token}`

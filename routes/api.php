@@ -154,6 +154,7 @@ Route::prefix('v1')->group(function () {
 
         // Fields endpoints under settings
         Route::prefix('settings/fields')->group(function () {
+            Route::get('view-fields', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'createViewFields']);
             Route::get('', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'list']);
             Route::post('new', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'create']);
             Route::get('{module}/{id}', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'show']);
