@@ -46,7 +46,7 @@ class BranchStockController extends Controller
 
         $stocks = $query->paginate($perPage);
 
-        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('BranchStock');
+        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getApiFieldsForView('BranchStock', 'DetailView');
 
         return $this->paginated(BranchStockResource::collection($stocks)->resource, $fieldList);
     }

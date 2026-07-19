@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use App\Modules\Api\V1\Branch\Models\Branch;
 
-class Billing extends \App\Models\BaseModel
+class Billing extends \App\Models\BKModel
 {
     use HasUuids, \App\Traits\Auditable;
 

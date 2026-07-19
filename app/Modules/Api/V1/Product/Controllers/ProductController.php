@@ -3,17 +3,21 @@
 namespace App\Modules\Api\V1\Product\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\FieldModelManager;
 use App\Modules\Api\V1\Product\Models\Product;
-use App\Modules\Api\V1\Product\Requests\StoreProductRequest;
-use App\Modules\Api\V1\Product\Requests\UpdateProductRequest;
 use App\Modules\Api\V1\Product\Resources\ProductResource;
+use App\Modules\Api\V1\SavedFilter\Models\SavedFilter;
+use App\Modules\Api\V1\SavedFilter\Services\QueryFilterService;
+use App\Services\AuthUser;
+use App\Services\CRM\RecordObject;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $orgId = $request->user()->organization_id;
+        $orgId = AuthUser::organizationId();
         $perPage = $request->query('per_page', 20);
 
         $query = Product::where('organization_id', $orgId);
@@ -21,7 +25,7 @@ class ProductController extends Controller
         $query->when($request->query('search'), function ($q, $search) {
             $q->where(function ($inner) use ($search) {
                 $inner->where('name', 'like', "%{$search}%")
-                      ->orWhere('product_number', 'like', "%{$search}%");
+                    ->orWhere('product_number', 'like', "%{$search}%");
             });
         });
 
@@ -37,92 +41,97 @@ class ProductController extends Controller
             }
         });
 
-        // Apply saved filter if provided
         if ($request->has('savedFilterId')) {
-            $savedFilter = \App\Modules\Api\V1\SavedFilter\Models\SavedFilter::where('organization_id', $orgId)
+            $savedFilter = SavedFilter::where('organization_id', $orgId)
                 ->findOrFail($request->query('savedFilterId'));
-            \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'products', $savedFilter->rules);
+            QueryFilterService::apply($query, 'products', $savedFilter->rules);
         }
 
-        // Apply dynamic query rules if provided
         if ($request->has('rules')) {
             $rules = $request->input('rules');
             if (is_string($rules)) {
                 $rules = json_decode($rules, true);
             }
             if (is_array($rules)) {
-                \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'products', $rules);
+                QueryFilterService::apply($query, 'products', $rules);
             }
         }
 
         $products = $query->paginate($perPage);
-
-        $fieldManager = \App\Models\FieldModelManager::make('Product', 'DetailView', false);
-        $fieldList = $fieldManager->getApiFormFields();
+        $fieldList = FieldModelManager::make('Product', 'DetailView', false)->getApiFormFields();
 
         return $this->paginated(ProductResource::collection($products)->resource, $fieldList);
     }
 
     public function store(Request $request)
     {
-        $values = $request->input('data.values');
-        $orgId = $request->user()->organization_id;
-
-        $product = new Product();
-        $product->organization_id = $orgId;
-        // set default values for numeric fields to prevent null error if DB doesn't have defaults, wait, the DB might have defaults, but let BaseModel fill them.
+        $values = $request->input('data.values') ?? [];
         if (empty($values['currentStock'])) {
-            $product->current_stock = 0;
+            $values['currentStock'] = 0;
         }
-        $product->fill($values);
-        $product->save();
 
-        return $this->success(new ProductResource($product), 'Product created successfully.', 201);
+        try {
+            /** @var Product $product */
+            $product = RecordObject::make('Product', null, $values, 'CreateView');
+            $product->organization_id = AuthUser::organizationId();
+            if (empty($product->current_stock)) {
+                $product->current_stock = 0;
+            }
+            $product->save();
+
+            return $this->success(new ProductResource($product), 'Product created successfully.', 201);
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), null, null, null, 400);
+        }
     }
 
     public function show($id)
     {
         try {
-            $product = Product::findOrFail($id);
+            /** @var Product $product */
+            $product = RecordObject::make('Product', $id, [], 'DetailView');
             $resource = new ProductResource($product);
-            
-            $fieldManager = \App\Models\FieldModelManager::make('Product', 'DetailView', false);
-            $fieldList = $fieldManager->getApiFormFields();
-            
+            $fieldList = FieldModelManager::make('Product', 'DetailView', false)->getApiFormFields();
+
             return $this->success([
                 'fields' => $fieldList,
-                'values' => $resource->toArray(request())
+                'values' => $resource->toArray(request()),
             ]);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             return $this->error('Product not found.', null, null, null, 404);
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
         }
     }
 
     public function update(Request $request, $id)
     {
         try {
-            $orgId = $request->user()->organization_id;
-            $product = Product::where('organization_id', $orgId)->findOrFail($id);
-            $values = $request->input('data.values');
-
-            $product->fill($values);
+            $values = $request->input('data.values') ?? [];
+            /** @var Product $product */
+            $product = RecordObject::make('Product', $id, $values, 'EditView');
             $product->save();
 
             return $this->success(new ProductResource($product));
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             return $this->error('Product not found.', null, null, null, 404);
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), null, null, null, 400);
         }
     }
 
     public function destroy($id)
     {
         try {
-            $product = Product::findOrFail($id);
-            $product->delete();
+            /** @var Product $product */
+            $product = RecordObject::make('Product', $id, [], 'EditView');
+            $product->deleteRecord();
 
             return $this->success(null, 'Product successfully deleted.');
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             return $this->error('Product not found.', null, null, null, 404);
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), null, null, null, 400);
         }
     }
 }

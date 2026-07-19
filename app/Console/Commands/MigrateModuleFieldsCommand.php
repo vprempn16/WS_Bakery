@@ -2,74 +2,72 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use Illuminate\Support\Str;
 use App\Models\CrmField;
 use App\Models\PicklistValue;
 use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
+use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 
 class MigrateModuleFieldsCommand extends Command
 {
-    protected $signature = 'migrate:module-fields';
-    protected $description = 'Migrate standard fields from ModuleFieldConfig to DB';
+    protected $signature = 'migrate:module-fields {module?}';
+    protected $description = 'Sync ModuleFieldConfig (displaytype, mandatory, labels) into crm_fields';
 
     public function handle()
     {
         $this->info('Migrating module fields...');
 
-        $aliases = [
-            'Organization' => 'organizations',
-            'User' => 'users',
-            'Vendor' => 'vendors',
-            'Ingredient' => 'ingredients',
-            'InventoryTransaction' => 'inventory_transactions',
-            'Product' => 'products',
-            'Recipe' => 'recipes',
-            'Branch' => 'branches',
-            'ProductionBatch' => 'production_batches',
-            'BranchStock' => 'branch_stocks',
-            'BranchTransfer' => 'branch_transfers',
-            'BranchDailyReport' => 'branch_daily_reports',
-            'Billing' => 'billings',
-            'BillingItem' => 'billing_items',
-        ];
+        $aliases = ModuleFieldConfig::getModuleAliases();
+        $only = $this->argument('module');
 
         foreach ($aliases as $moduleName => $configKey) {
+            if ($only && strcasecmp($only, $moduleName) !== 0 && strcasecmp($only, $configKey) !== 0) {
+                continue;
+            }
+
             $fields = ModuleFieldConfig::getFields($configKey);
-            if (!$fields) continue;
+            if (!$fields) {
+                continue;
+            }
 
             $this->info("Processing {$moduleName}...");
             $seq = 1;
-            
+            $tableName = Str::snake(Str::pluralStudly($moduleName));
+
             foreach ($fields as $fieldDef) {
                 $apiFieldName = $fieldDef['fieldname'];
                 $dbFieldName = Str::snake($apiFieldName);
-                
+                $mandatory = (int) ($fieldDef['mandatory'] ?? 0);
+                $displaytype = (int) ($fieldDef['displaytype'] ?? 1);
+
                 $crmField = CrmField::where('modulename', $moduleName)
-                                    ->where('fieldname', $dbFieldName)
-                                    ->first();
+                    ->where(function ($q) use ($dbFieldName, $apiFieldName) {
+                        $q->where('fieldname', $dbFieldName)
+                            ->orWhere('apifieldname', $apiFieldName);
+                    })
+                    ->first();
+
+                $payload = [
+                    'modulename' => $moduleName,
+                    'fieldname' => $dbFieldName,
+                    'fieldlabel' => $fieldDef['fieldlabel'],
+                    'fieldtype' => $fieldDef['fieldtype'],
+                    'tablename' => $tableName,
+                    'mandatory' => $mandatory,
+                    'apifieldname' => $apiFieldName,
+                    'displaytype' => $displaytype,
+                    'is_custom_field' => 0,
+                    'seq' => $seq++,
+                    'deleted' => 0,
+                    'organization_id' => 'default',
+                ];
 
                 if (!$crmField) {
-                    $crmField = CrmField::create([
+                    $crmField = CrmField::create(array_merge($payload, [
                         'id' => (string) Str::uuid(),
-                        'modulename' => $moduleName,
-                        'fieldname' => $dbFieldName,
-                        'fieldlabel' => $fieldDef['fieldlabel'],
-                        'fieldtype' => $fieldDef['fieldtype'],
-                        'tablename' => Str::snake(Str::plural($moduleName)),
-                        'mandatory' => in_array($dbFieldName, ['id', 'name']) ? 1 : 0, 
-                        'apifieldname' => $apiFieldName,
-                        'displaytype' => $fieldDef['displaytype'] ?? 1,
-                        'is_custom_field' => 0,
-                        'seq' => $seq++,
-                    ]);
+                    ]));
                 } else {
-                    $crmField->update([
-                        'fieldlabel' => $fieldDef['fieldlabel'],
-                        'fieldtype' => $fieldDef['fieldtype'],
-                        'apifieldname' => $apiFieldName,
-                        'displaytype' => $fieldDef['displaytype'] ?? 1,
-                    ]);
+                    $crmField->update($payload);
                 }
 
                 if (isset($fieldDef['options']) && is_array($fieldDef['options'])) {
@@ -78,7 +76,7 @@ class MigrateModuleFieldsCommand extends Command
                         $picklistValue = PicklistValue::where('field_id', $crmField->id)
                             ->where('value', $option['value'])
                             ->first();
-                            
+
                         if (!$picklistValue) {
                             PicklistValue::create([
                                 'id' => (string) Str::uuid(),
@@ -86,7 +84,7 @@ class MigrateModuleFieldsCommand extends Command
                                 'value' => $option['value'],
                                 'label' => $option['label'],
                                 'sort_order' => $sortOrder++,
-                                'status' => 1
+                                'status' => 1,
                             ]);
                         } else {
                             $picklistValue->update([
@@ -98,7 +96,9 @@ class MigrateModuleFieldsCommand extends Command
                 }
             }
         }
-        
+
         $this->info('Migration complete!');
+
+        return self::SUCCESS;
     }
 }

@@ -17,7 +17,7 @@ class RecipeController extends Controller
         $product = Product::findOrFail($productId);
         $recipes = $product->recipes()->with('ingredient')->paginate($perPage);
 
-        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Recipe');
+        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getApiFieldsForView('Recipe', 'DetailView');
 
         return $this->paginated(RecipeResource::collection($recipes)->resource, $fieldList);
     }
@@ -47,7 +47,7 @@ class RecipeController extends Controller
             
             $resource = new RecipeResource($recipe);
             
-            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Recipe');
+            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getApiFieldsForView('Recipe', 'DetailView');
             
             return $this->success([
                 'fields' => $fieldList,

@@ -3,18 +3,31 @@
 namespace App\Modules\Api\V1\User\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Modules\Api\V1\User\Models\User;
 use App\Modules\Api\V1\User\Requests\StoreUserRequest;
 use App\Modules\Api\V1\User\Requests\UpdateUserRequest;
 use App\Modules\Api\V1\User\Resources\UserResource;
+use App\Services\AuthUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
+    /**
+     * GET settings/User/new — create-view fields.
+     */
+    public function createForm()
+    {
+        return $this->success([
+            'fields' => ModuleFieldConfig::getApiFieldsForView('User', 'CreateView'),
+            'values' => [],
+        ]);
+    }
+
     public function index(Request $request)
     {
-        $orgId = $request->user()->organization_id;
+        $orgId = AuthUser::organizationId();
         $perPage = $request->query('per_page', 20);
 
         $query = User::where('organization_id', $orgId);
@@ -51,18 +64,19 @@ class UserController extends Controller
 
         $users = $query->paginate($perPage);
 
-        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('User');
+        $fieldList = ModuleFieldConfig::getApiFieldsForView('User', 'DetailView');
 
         return $this->paginated(UserResource::collection($users)->resource, $fieldList);
     }
 
     public function store(StoreUserRequest $request)
     {
-        $values = $request->input('data.values');
-        $orgId = $request->user()->organization_id;
+        $values = $this->normalizeUserValues($request->input('data.values', []));
+        $orgId = AuthUser::organizationId();
 
         $user = User::create([
             'organization_id' => $orgId,
+            'branch_id' => $values['branchId'] ?? null,
             'first_name' => $values['firstName'],
             'last_name' => $values['lastName'],
             'email' => $values['email'],
@@ -71,7 +85,6 @@ class UserController extends Controller
             'password' => Hash::make($values['password']),
         ]);
 
-        // Generate token upon creation
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return $this->success(new UserResource($user, $token), 'User created successfully.', 201);
@@ -80,14 +93,14 @@ class UserController extends Controller
     public function show($id)
     {
         try {
-            $user = User::findOrFail($id);
+            $orgId = AuthUser::organizationId();
+            $user = User::where('organization_id', $orgId)->findOrFail($id);
             $resource = new UserResource($user);
-            
-            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('User');
-            
+            $fieldList = ModuleFieldConfig::getApiFieldsForView('User', 'DetailView');
+
             return $this->success([
                 'fields' => $fieldList,
-                'values' => $resource->toArray(request())
+                'values' => $resource->toArray(request()),
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error('User not found.', null, null, null, 404);
@@ -97,17 +110,17 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, $id)
     {
         try {
-            $orgId = $request->user()->organization_id;
+            $orgId = AuthUser::organizationId();
             $user = User::where('organization_id', $orgId)->findOrFail($id);
-            $values = $request->input('data.values');
+            $values = $this->normalizeUserValues($request->input('data.values', []));
 
             $data = [
-                'organization_id' => $orgId,
                 'first_name' => $values['firstName'],
                 'last_name' => $values['lastName'],
                 'email' => $values['email'],
                 'phone' => $values['phone'] ?? null,
                 'role' => $values['role'],
+                'branch_id' => array_key_exists('branchId', $values) ? ($values['branchId'] ?: null) : $user->branch_id,
             ];
 
             if (!empty($values['password'])) {
@@ -116,7 +129,7 @@ class UserController extends Controller
 
             $user->update($data);
 
-            return $this->success(new UserResource($user));
+            return $this->success(new UserResource($user), 'User updated successfully.');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error('User not found.', null, null, null, 404);
         }
@@ -125,12 +138,35 @@ class UserController extends Controller
     public function destroy($id)
     {
         try {
-            $user = User::findOrFail($id);
+            $orgId = AuthUser::organizationId();
+            $user = User::where('organization_id', $orgId)->findOrFail($id);
             $user->delete();
 
             return $this->success(null, 'User successfully deleted.');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error('User not found.', null, null, null, 404);
         }
+    }
+
+    /**
+     * Accept both bakery field names and settings UI aliases.
+     */
+    private function normalizeUserValues(array $values): array
+    {
+        $role = $values['role'] ?? null;
+        if ($role === null && isset($values['roleId'])) {
+            $role = is_array($values['roleId']) ? ($values['roleId'][0] ?? null) : $values['roleId'];
+        }
+
+        return [
+            'firstName' => $values['firstName'] ?? '',
+            'lastName' => $values['lastName'] ?? '',
+            'email' => $values['email'] ?? '',
+            'phone' => $values['phone'] ?? $values['phoneNumber'] ?? null,
+            'role' => $role !== null ? (string) $role : '',
+            'password' => $values['password'] ?? null,
+            'confirmPassword' => $values['confirmPassword'] ?? null,
+            'branchId' => $values['branchId'] ?? $values['branch_id'] ?? null,
+        ];
     }
 }

@@ -13,19 +13,20 @@ class BillingResource extends JsonResource
         $data['branchId_label'] = $this->branch ? $this->branch->name : null;
         
         $data['items'] = $this->whenLoaded('items', function () {
-                return $this->items->map(function ($item) {
-                    return [
-                        'id' => $item->id,
-                        'productId' => $item->product_id,
-                        'productId_label' => $item->product ? $item->product->name : null,
-                        'quantity' => (float) $item->quantity,
-                        'unitPrice' => (float) $item->unit_price,
-                        'totalPrice' => (float) $item->total_price,
-                        'unit' => $item->unit,
-                        'category' => $item->category,
-                    ];
-                });
-            }),
+            return $this->items->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'productId' => $item->product_id,
+                    'productId_label' => $item->product ? $item->product->name : null,
+                    'quantity' => (float) $item->quantity,
+                    'unitPrice' => (float) $item->unit_price,
+                    'totalPrice' => (float) $item->total_price,
+                    'unit' => $item->unit,
+                    'category' => $item->category,
+                ];
+            });
+        });
+
         return $data;
     }
 }

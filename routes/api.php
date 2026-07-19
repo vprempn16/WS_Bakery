@@ -5,8 +5,9 @@ use App\Modules\Api\V1\User\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
-    // 1. Publicly accessible routes
+    // 1. Publicly accessible routes (PascalCase + lowercase alias for clients)
     Route::post('Organization/new', [OrganizationController::class, 'store']);
+    Route::post('organization/new', [OrganizationController::class, 'store']);
     Route::post('auth/login', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'login']);
 
     // 2. Protected routes requiring authentication AND organization context checking
@@ -14,13 +15,16 @@ Route::prefix('v1')->group(function () {
         // Logout endpoint
         Route::post('auth/logout', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'logout']);
 
+        // Allowed modules endpoint
+        Route::get('allowed_modules', [\App\Modules\Api\V1\Settings\Controllers\ModuleController::class, 'allowedModules']);
+
         // Global Search endpoint
         Route::get('search/{fieldname}', [\App\Modules\Api\V1\GlobalSearch\Controllers\GlobalSearchController::class, 'searchByField']);
 
         // Header endpoints (filter field definitions)
         Route::get('{module}/new', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'getCreateFields']);
         Route::get('{module}/headers', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
-	Route::get('{module}/headers/default', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
+	    Route::get('{module}/headers/default', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
         Route::get('{module}/headers/{filterId}', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
 
         // Global Inline Edit endpoint
@@ -143,23 +147,60 @@ Route::prefix('v1')->group(function () {
             Route::delete('{id}', [\App\Modules\Api\V1\ProductionBatch\Controllers\ProductionBatchController::class, 'destroy']);
         });
 
-        // User endpoints under settings
-        Route::prefix('settings/User')->group(function () {
-            Route::get('', [UserController::class, 'index']);
-            Route::post('new', [UserController::class, 'store']);
-            Route::get('{id}', [UserController::class, 'show']);
-            Route::post('{id}', [UserController::class, 'update']);
-            Route::delete('{id}', [UserController::class, 'destroy']);
-        });
+        /*
+         |--------------------------------------------------------------------------
+         | Settings island (ALWAYS separate from bakery {Module} CRUD)
+         | Shared pattern for User / Profile / Role:
+         |   GET    settings/{Module}        → list
+         |   GET    settings/{Module}/new    → create fields / empty form
+         |   POST   settings/{Module}/new    → create
+         |   GET    settings/{Module}/{id}   → show
+         |   POST   settings/{Module}/{id}   → update
+         |   DELETE settings/{Module}/{id}   → delete
+         | Profile extras: modules, info?module=, repair
+         |--------------------------------------------------------------------------
+         */
+        Route::prefix('settings')->group(function () {
+            Route::prefix('User')->group(function () {
+                Route::get('', [UserController::class, 'index']);
+                Route::get('new', [UserController::class, 'createForm']);
+                Route::post('new', [UserController::class, 'store']);
+                Route::get('{id}', [UserController::class, 'show']);
+                Route::post('{id}', [UserController::class, 'update']);
+                Route::delete('{id}', [UserController::class, 'destroy']);
+            });
 
-        // Fields endpoints under settings
-        Route::prefix('settings/fields')->group(function () {
-            Route::get('view-fields', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'createViewFields']);
-            Route::get('', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'list']);
-            Route::post('new', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'create']);
-            Route::get('{module}/{id}', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'show']);
-            Route::post('update-label', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'updateFieldLabel']);
-            Route::delete('{id}', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'delete']);
+            Route::prefix('Profile')->group(function () {
+                Route::get('', [\App\Modules\Api\V1\Profile\Controllers\ProfileController::class, 'index']);
+                // Extras BEFORE {id}
+                Route::get('modules', [\App\Modules\Api\V1\Profile\Controllers\ProfileController::class, 'portalModules']);
+                Route::get('info', [\App\Modules\Api\V1\Profile\Controllers\ProfileController::class, 'profileModuleFields']);
+                Route::post('repair', [\App\Modules\Api\V1\Profile\Controllers\ProfileController::class, 'repair']);
+                Route::get('new', [\App\Modules\Api\V1\Profile\Controllers\ProfileController::class, 'createForm']);
+                Route::post('new', [\App\Modules\Api\V1\Profile\Controllers\ProfileController::class, 'saveAll']);
+                Route::get('{id}', [\App\Modules\Api\V1\Profile\Controllers\ProfileController::class, 'details']);
+                Route::post('{id}', [\App\Modules\Api\V1\Profile\Controllers\ProfileController::class, 'saveAll']);
+                Route::delete('{id}', [\App\Modules\Api\V1\Profile\Controllers\ProfileController::class, 'delete']);
+            });
+
+            Route::prefix('Role')->group(function () {
+                Route::get('', [\App\Modules\Api\V1\Role\Controllers\RoleController::class, 'index']);
+                Route::get('new', [\App\Modules\Api\V1\Role\Controllers\RoleController::class, 'createForm']);
+                Route::post('new', [\App\Modules\Api\V1\Role\Controllers\RoleController::class, 'store']);
+                Route::get('{id}', [\App\Modules\Api\V1\Role\Controllers\RoleController::class, 'show']);
+                Route::post('{id}', [\App\Modules\Api\V1\Role\Controllers\RoleController::class, 'update']);
+                Route::delete('{id}', [\App\Modules\Api\V1\Role\Controllers\RoleController::class, 'delete']);
+            });
+
+            // Module fields manager (settings only)
+            Route::prefix('fields')->group(function () {
+                Route::get('view-fields', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'createViewFields']);
+                Route::get('', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'list']);
+                Route::post('new', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'create']);
+                Route::get('{module}/{id}', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'show']);
+                Route::post('update-label', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'updateFieldLabel']);
+                Route::delete('{id}', [\App\Modules\Api\V1\Settings\Controllers\CustomFieldController::class, 'delete']);
+            });
         });
     });
 });

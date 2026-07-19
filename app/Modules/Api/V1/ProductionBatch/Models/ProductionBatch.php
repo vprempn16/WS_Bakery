@@ -2,29 +2,19 @@
 
 namespace App\Modules\Api\V1\ProductionBatch\Models;
 
+use App\Models\BKModel;
+use App\Modules\Api\V1\Organization\Models\Organization;
+use App\Modules\Api\V1\Product\Models\Product;
+use App\Modules\Api\V1\User\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use App\Modules\Api\V1\Product\Models\Product;
-use App\Modules\Api\V1\Organization\Models\Organization;
-use App\Modules\Api\V1\User\Models\User;
 
-class ProductionBatch extends Model
+class ProductionBatch extends BKModel
 {
     use \App\Traits\Auditable;
     use HasFactory, HasUuids;
 
-    protected $fillable = [
-        'organization_id',
-        'batch_number',
-        'product_id',
-        'quantity_produced',
-        'production_date',
-        'expiry_timestamp',
-        'status',
-        'notes',
-        'created_by',
-    ];
+    protected $guarded = [];
 
     protected $casts = [
         'quantity_produced' => 'decimal:2',
@@ -32,17 +22,13 @@ class ProductionBatch extends Model
         'expiry_timestamp' => 'datetime',
     ];
 
-    /**
-     * Boot function to assign batch number automatically.
-     */
-    protected static function boot()
+    protected static function booted()
     {
-        parent::boot();
+        parent::booted();
 
         static::creating(function ($model) {
             if (empty($model->batch_number)) {
                 $datePrefix = date('Ymd');
-                // Get the last batch number for today to auto-increment
                 $lastBatch = self::where('batch_number', 'like', "BATCH-{$datePrefix}-%")
                     ->orderBy('batch_number', 'desc')
                     ->first();

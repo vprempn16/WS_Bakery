@@ -2,36 +2,26 @@
 
 namespace App\Modules\Api\V1\BranchTransfer\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use App\Models\BKModel;
 use App\Modules\Api\V1\Branch\Models\Branch;
 use App\Modules\Api\V1\Product\Models\Product;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
-class BranchTransfer extends Model
+class BranchTransfer extends BKModel
 {
     use \App\Traits\Auditable;
     use HasUuids;
 
-    protected $fillable = [
-        'organization_id',
-        'branch_id',
-        'product_id',
-        'transfer_number',
-        'quantity',
-        'transfer_date',
-        'status',
-        'notes',
-        'created_by',
-    ];
+    protected $guarded = [];
 
     protected $casts = [
         'transfer_date' => 'date',
     ];
 
-    protected static function boot()
+    protected static function booted()
     {
-        parent::boot();
+        parent::booted();
 
         static::creating(function ($model) {
             if (empty($model->transfer_number)) {

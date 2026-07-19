@@ -43,11 +43,38 @@ class OrganizationController extends Controller
             return [
                 'organization' => $organization,
                 'user' => $user,
-                'token' => $token
+                'token' => $token,
+                'org_id' => $organization->id,
+                'branches' => [], // new org has no branches yet; owner creates them
+                'refresh_token' => null,
             ];
         });
 
-        return $this->success($result, 'Organization created successfully.', 201);
+        $user = $result['user'];
+
+        return $this->success([
+            'token' => $result['token'],
+            'refresh_token' => null,
+            'org_id' => $result['org_id'],
+            'branches' => [],
+            'user' => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
+                'email' => $user->email,
+                'phone_number' => $user->phone,
+                'role' => 'owner',
+                'org_id' => $result['org_id'],
+                'branch_id' => null,
+                'organization' => [
+                    'id' => $result['organization']->id,
+                    'name' => $result['organization']->name,
+                ],
+                'allowed_modules' => $user->getAllowedModules(),
+            ],
+            'organization' => $result['organization'],
+        ], 'Organization created successfully.', 201);
     }
 
     public function show($id)
@@ -56,7 +83,7 @@ class OrganizationController extends Controller
             $organization = Organization::findOrFail($id);
             $resource = new OrganizationResource($organization);
             
-            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Organization');
+            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getApiFieldsForView('Organization', 'DetailView');
             
             return $this->success([
                 'fields' => $fieldList,
@@ -108,7 +135,7 @@ class OrganizationController extends Controller
             ->orWhere('email', 'like', "%{$query}%")
             ->paginate($perPage);
 
-        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('Organization');
+        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getApiFieldsForView('Organization', 'DetailView');
 
         return $this->paginated(OrganizationResource::collection($results)->resource, $fieldList);
     }

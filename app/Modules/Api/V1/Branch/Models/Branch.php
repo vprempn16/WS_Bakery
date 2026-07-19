@@ -2,24 +2,17 @@
 
 namespace App\Modules\Api\V1\Branch\Models;
 
+use App\Models\BKModel;
 use App\Modules\Api\V1\Organization\Models\Organization;
-use App\Modules\Api\V1\User\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 
-class Branch extends Model
+class Branch extends BKModel
 {
     use \App\Traits\Auditable;
     use HasFactory, HasUuids;
 
-    protected $fillable = [
-        'organization_id',
-        'name',
-        'type',
-        'address',
-        'phone',
-    ];
+    protected $guarded = [];
 
     public function organization()
     {
