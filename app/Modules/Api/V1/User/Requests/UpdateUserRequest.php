@@ -32,20 +32,10 @@ class UpdateUserRequest extends FormRequest
             'data.values.roleId' => ['nullable'],
             'data.values.password' => ['nullable', 'string', 'min:6'],
             'data.values.confirmPassword' => ['nullable', 'required_with:data.values.password', 'string', 'same:data.values.password'],
+            'data.values.is_active' => ['nullable'],
+            'data.values.status' => ['nullable', 'string', 'in:Active,Inactive'],
+            'data.values.branchId' => ['nullable'],
+            'data.values.branch_id' => ['nullable'],
         ];
-    }
-
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator) {
-            $values = $this->input('data.values', []);
-            $role = $values['role'] ?? null;
-            if ($role === null && isset($values['roleId'])) {
-                $role = is_array($values['roleId']) ? ($values['roleId'][0] ?? null) : $values['roleId'];
-            }
-            if ($role === null || $role === '') {
-                $validator->errors()->add('data.values.role', 'The role field is required.');
-            }
-        });
     }
 }

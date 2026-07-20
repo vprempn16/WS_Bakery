@@ -14,39 +14,50 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Seed Organization
-        $organization = Organization::create([
-            'name' => 'Grand Bakery WMS',
-            'email' => 'contact@grandbakery.com',
-            'phone' => '+919876543210',
-            'address' => '123 Main Bazaar Road, Bangalore, Karnataka',
-        ]);
+        // Prefer setup.sh for superadmin — this seeder is optional demo data.
+        $organization = Organization::firstOrCreate(
+            ['email' => 'contact@grandbakery.com'],
+            [
+                'name' => 'Grand Bakery WMS',
+                'phone' => '+919876543210',
+                'address' => '123 Main Bazaar Road, Bangalore, Karnataka',
+            ]
+        );
 
-        // 2. Seed Owner User
-        User::create([
-            'organization_id' => $organization->id,
-            'name' => 'Bakery Owner',
-            'email' => 'owner@bakerywms.com',
-            'password' => Hash::make('password'),
-            'role' => 'owner',
-        ]);
+        User::updateOrCreate(
+            ['email' => 'admin@bakerywms.com'],
+            [
+                'organization_id' => $organization->id,
+                'first_name' => 'Bakery',
+                'last_name' => 'Admin',
+                'password' => Hash::make('password'),
+                'role' => 'admin',
+                'is_active' => 1,
+            ]
+        );
 
-        // 3. Seed Warehouse Manager User
-        User::create([
-            'organization_id' => $organization->id,
-            'name' => 'Warehouse Manager',
-            'email' => 'manager@bakerywms.com',
-            'password' => Hash::make('password'),
-            'role' => 'warehouse_manager',
-        ]);
+        User::updateOrCreate(
+            ['email' => 'manager@bakerywms.com'],
+            [
+                'organization_id' => $organization->id,
+                'first_name' => 'Warehouse',
+                'last_name' => 'Manager',
+                'password' => Hash::make('password'),
+                'role' => 'staff',
+                'is_active' => 1,
+            ]
+        );
 
-        // 4. Seed Branch Staff User
-        User::create([
-            'organization_id' => $organization->id,
-            'name' => 'Branch Staff',
-            'email' => 'staff@bakerywms.com',
-            'password' => Hash::make('password'),
-            'role' => 'branch_staff',
-        ]);
+        User::updateOrCreate(
+            ['email' => 'staff@bakerywms.com'],
+            [
+                'organization_id' => $organization->id,
+                'first_name' => 'Branch',
+                'last_name' => 'Staff',
+                'password' => Hash::make('password'),
+                'role' => 'staff',
+                'is_active' => 1,
+            ]
+        );
     }
 }

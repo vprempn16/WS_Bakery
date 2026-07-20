@@ -41,7 +41,11 @@ class PermissionService
             ->where('role_user_rel.user_id', $this->user->id)
             ->where('role_user_rel.organization_id', $orgId)
             ->where('roles.deleted', 0)
-            ->where('roles.status', 'Active')
+            ->where(function ($q) {
+                $q->where('roles.status', 1)
+                    ->orWhere('roles.status', '1')
+                    ->orWhere('roles.status', 'Active');
+            })
             ->pluck('roles.id')
             ->unique()
             ->filter();

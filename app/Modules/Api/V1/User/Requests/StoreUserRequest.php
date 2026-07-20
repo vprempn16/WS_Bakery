@@ -23,6 +23,10 @@ class StoreUserRequest extends FormRequest
             'data.values.roleId' => ['nullable'],
             'data.values.password' => ['required', 'string', 'min:6'],
             'data.values.confirmPassword' => ['required', 'string', 'same:data.values.password'],
+            'data.values.is_active' => ['nullable'],
+            'data.values.status' => ['nullable', 'string', 'in:Active,Inactive'],
+            'data.values.branchId' => ['nullable'],
+            'data.values.branch_id' => ['nullable'],
         ];
     }
 
@@ -30,12 +34,16 @@ class StoreUserRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             $values = $this->input('data.values', []);
-            $role = $values['role'] ?? null;
-            if ($role === null && isset($values['roleId'])) {
-                $role = is_array($values['roleId']) ? ($values['roleId'][0] ?? null) : $values['roleId'];
+            $roleId = $values['roleId'] ?? null;
+            if (is_array($roleId)) {
+                $roleId = $roleId[0] ?? null;
             }
-            if ($role === null || $role === '') {
-                $validator->errors()->add('data.values.role', 'The role field is required.');
+            $role = $values['role'] ?? null;
+            $hasRoleId = $roleId !== null && $roleId !== '';
+            $roleLooksLikeId = is_numeric($role) || (is_string($role) && ctype_digit((string) $role));
+
+            if (! $hasRoleId && ! $roleLooksLikeId) {
+                $validator->errors()->add('data.values.roleId', 'A Settings Role is required.');
             }
         });
     }

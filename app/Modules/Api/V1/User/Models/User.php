@@ -22,6 +22,7 @@ class User extends Authenticatable
         'email',
         'phone',
         'role',
+        'is_active',
         'password',
     ];
 
@@ -35,6 +36,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -67,8 +69,8 @@ class User extends Authenticatable
 
         $role = strtolower((string) ($this->role ?? ''));
 
-        // Org owner / admin: every module + all branch data
-        if (in_array($role, ['owner', 'admin', 'superadmin'], true)) {
+        // Org admin / platform superadmin: every module + all branch data
+        if (in_array($role, ['admin', 'superadmin'], true)) {
             return $allModules;
         }
 
@@ -91,8 +93,30 @@ class User extends Authenticatable
         }));
     }
 
+    /**
+     * Unrestricted roles: org admin (client) or platform superadmin (developer).
+     * Legacy "owner" is treated as admin until data is migrated.
+     */
+    public function isFullAdmin(): bool
+    {
+        $role = strtolower((string) ($this->role ?? ''));
+
+        return in_array($role, ['admin', 'superadmin', 'owner'], true);
+    }
+
+    /** @deprecated Use isFullAdmin() — kept for older call sites */
     public function isOwner(): bool
     {
-        return in_array(strtolower((string) ($this->role ?? '')), ['owner', 'admin', 'superadmin'], true);
+        return $this->isFullAdmin();
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return strtolower((string) ($this->role ?? '')) === 'superadmin';
+    }
+
+    public function adminRoleLabel(): string
+    {
+        return $this->isSuperAdmin() ? 'Super Admin' : 'Admin';
     }
 }

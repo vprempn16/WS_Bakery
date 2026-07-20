@@ -22,13 +22,10 @@ class RoleController extends Controller
                 ['fieldname' => 'description', 'fieldtype' => 'textarea', 'mandatory' => false, 'fieldlabel' => 'Description'],
                 [
                     'fieldname' => 'status',
-                    'fieldtype' => 'picklist',
-                    'mandatory' => true,
                     'fieldlabel' => 'Status',
-                    'options' => [
-                        ['label' => 'Active', 'value' => 'Active'],
-                        ['label' => 'Inactive', 'value' => 'Inactive'],
-                    ],
+                    'fieldtype' => 'checkbox',
+                    'mandatory' => false,
+                    'displaytype' => 1,
                 ],
                 [
                     'fieldname' => 'profile_ids',
@@ -41,7 +38,7 @@ class RoleController extends Controller
             'values' => [
                 'name' => '',
                 'description' => '',
-                'status' => 'Active',
+                'status' => 1,
                 'profile_ids' => [],
             ],
         ]);
@@ -111,7 +108,7 @@ class RoleController extends Controller
                 'id'          => $role->id,
                 'name'        => $role->name,
                 'description' => $role->description,
-                'status'      => $role->status,
+                'status'      => $this->roleStatusToCheckbox($role->status),
                 'profile_ids' => $profileMap[$role->id] ?? [],
                 'created_at'  => $role->created_at,
                 'updated_at'  => $role->updated_at,
@@ -173,9 +170,11 @@ class RoleController extends Controller
                 $roleId = null;
             }
 
-            if (empty($data['name']) || empty($data['status'])) {
+            if (empty($data['name']) || ! array_key_exists('status', $data)) {
                 return $this->error('Role name and status are required');
             }
+
+            $statusValue = $this->normalizeRoleStatus($data['status']);
 
             if (isset($data['profile_ids']) && !empty($data['profile_ids'])) {
                 $profileIds = array_unique(array_map('intval', (array) $data['profile_ids']));
@@ -207,7 +206,7 @@ class RoleController extends Controller
                     ->update([
                         'name' => $data['name'],
                         'description' => $data['description'] ?? null,
-                        'status' => $data['status'],
+                        'status' => $statusValue,
                         'updated_at' => now(),
                     ]);
 
@@ -230,7 +229,7 @@ class RoleController extends Controller
             $newRoleId = DB::table('roles')->insertGetId([
                 'name' => $data['name'],
                 'description' => $data['description'] ?? null,
-                'status' => $data['status'],
+                'status' => $statusValue,
                 'organization_id' => $orgId,
                 'created_by' => $user->id,
                 'created_at' => now(),
@@ -289,7 +288,7 @@ class RoleController extends Controller
                 'id'          => $role->id,
                 'name'        => $role->name,
                 'description' => $role->description,
-                'status'      => $role->status,
+                'status'      => $this->roleStatusToCheckbox($role->status),
                 'profile_ids' => $profiles,
                 'created_at'  => $role->created_at,
                 'updated_at'  => $role->updated_at,
@@ -303,6 +302,28 @@ class RoleController extends Controller
 
             return $this->error('Failed to fetch role');
         }
+    }
+
+    /**
+     * Checkbox / bool / Active|Inactive / 0|1 → DB value 1 or 0.
+     */
+    private function normalizeRoleStatus(mixed $status): int
+    {
+        if (is_bool($status) || is_numeric($status) || $status === '1' || $status === '0') {
+            return ((int) $status === 1) ? 1 : 0;
+        }
+
+        return strcasecmp((string) $status, 'Active') === 0 ? 1 : 0;
+    }
+
+    /** DB / legacy Active|Inactive → checkbox 1|0 */
+    private function roleStatusToCheckbox(mixed $status): int
+    {
+        if (is_bool($status) || is_numeric($status) || $status === '1' || $status === '0') {
+            return ((int) $status === 1) ? 1 : 0;
+        }
+
+        return strcasecmp((string) $status, 'Active') === 0 ? 1 : 0;
     }
 
     /* =====================================================

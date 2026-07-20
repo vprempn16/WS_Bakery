@@ -31,19 +31,16 @@ class ModuleFieldConfig
             ['fieldname' => 'lastName', 'fieldlabel' => 'Last Name', 'fieldtype' => 'text', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'email', 'fieldlabel' => 'Email', 'fieldtype' => 'email', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'phone', 'fieldlabel' => 'Phone', 'fieldtype' => 'phone', 'displaytype' => 1, 'mandatory' => 0],
+            // Options filled by FE from Role API list — keep options empty (clears DB picklist on migrate).
             [
                 'fieldname' => 'role',
                 'fieldlabel' => 'Role',
                 'fieldtype' => 'picklist',
                 'displaytype' => 1,
                 'mandatory' => 1,
-                'options' => [
-                    ['value' => 'owner', 'label' => 'Owner'],
-                    ['value' => 'admin', 'label' => 'Admin'],
-                    ['value' => 'manager', 'label' => 'Manager'],
-                    ['value' => 'staff', 'label' => 'Staff'],
-                ],
+                'options' => [],
             ],
+            // is_admin is derived from users.role (admin/superadmin) — not a separate Status field.
             ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization', 'fieldtype' => 'relationPickList', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'branchId', 'fieldlabel' => 'Branch', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],

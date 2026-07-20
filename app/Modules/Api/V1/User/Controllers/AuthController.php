@@ -23,12 +23,15 @@ class AuthController extends Controller
             return $this->error('Invalid email or password.', null, null, null, 401);
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
-        $role = strtolower((string) $user->role);
-        $isOwner = in_array($role, ['owner', 'admin', 'superadmin'], true);
+        if ((int) ($user->is_active ?? 1) !== 1) {
+            return $this->error('Your account is inactive. Contact your organization admin.', null, null, null, 403);
+        }
 
-        // Owner: all org branches (can switch). Others: only assigned branch.
-        if ($isOwner) {
+        $token = $user->createToken('auth_token')->plainTextToken;
+        $isFullAdmin = $user->isFullAdmin();
+
+        // Admin / superadmin: all org branches (can switch). Others: only assigned branch.
+        if ($isFullAdmin) {
             $branchModels = Branch::where('organization_id', $user->organization_id)
                 ->orderBy('name')
                 ->get();
@@ -49,6 +52,8 @@ class AuthController extends Controller
             'type' => $b->type,
         ])->values()->all();
 
+        $isActive = (int) ($user->is_active ?? 1) === 1 ? 1 : 0;
+
         return $this->success([
             'token' => $token,
             'refresh_token' => null,
@@ -62,6 +67,9 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'phone_number' => $user->phone,
                 'role' => $user->role,
+                // is_admin = org admin / superadmin (not account status). is_active = can login.
+                'is_admin' => $isFullAdmin,
+                'is_active' => $isActive,
                 'org_id' => $user->organization_id,
                 'branch_id' => $user->branch_id,
                 'organization' => $user->organization ? [

@@ -333,6 +333,118 @@ PHP
   log_success "Portal modules ready"
 }
 
+seed_superadmin() {
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "🛠  Developer superadmin (not for clients)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  cd "$LARAVEL_ROOT"
+  php <<'PHP'
+<?php
+require __DIR__ . '/vendor/autoload.php';
+$app = require __DIR__ . '/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+
+if (! Schema::hasTable('users') || ! Schema::hasTable('organizations') || ! Schema::hasTable('branches')) {
+    echo "   ↪ tables missing — skip\n";
+    exit(0);
+}
+
+DB::table('users')->where('role', 'owner')->update(['role' => 'admin']);
+
+$orgId = DB::table('organizations')->where('email', 'system@bkportal.local')->value('id');
+if (! $orgId) {
+    $orgId = (string) Str::uuid();
+    DB::table('organizations')->insert([
+        'id' => $orgId,
+        'name' => 'BkPortal System',
+        'description' => 'Internal developer org — not a client bakery',
+        'email' => 'system@bkportal.local',
+        'phone' => null,
+        'address' => null,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+}
+
+$branchId = DB::table('branches')->where('organization_id', $orgId)->where('name', 'Main')->value('id');
+if (! $branchId) {
+    $branchId = (string) Str::uuid();
+    DB::table('branches')->insert([
+        'id' => $branchId,
+        'organization_id' => $orgId,
+        'name' => 'Main',
+        'type' => 'warehouse',
+        'address' => null,
+        'phone' => null,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+}
+
+$existing = DB::table('users')->where('email', 'superadmin@example.com')->first();
+$payload = [
+    'organization_id' => $orgId,
+    'branch_id' => $branchId,
+    'first_name' => 'Super',
+    'last_name' => 'Admin',
+    'email' => 'superadmin@example.com',
+    'phone' => null,
+    'role' => 'superadmin',
+    'is_active' => 1,
+    'password' => Hash::make('Admin@123'),
+    'updated_at' => now(),
+];
+
+if ($existing) {
+    DB::table('users')->where('id', $existing->id)->update($payload);
+    echo "   ✅ Updated superadmin@example.com (role=superadmin)\n";
+} else {
+    $payload['id'] = (string) Str::uuid();
+    $payload['created_at'] = now();
+    DB::table('users')->insert($payload);
+    echo "   ✅ Created superadmin@example.com / Admin@123\n";
+}
+PHP
+  log_success "Superadmin ready (developer only)"
+  echo "   Email:    superadmin@example.com"
+  echo "   Password: Admin@123"
+  echo "   Role:     superadmin (no restrictions)"
+}
+
+seed_default_staff_profiles() {
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "👥  Default staff profiles (Warehouse + Sales)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  cd "$LARAVEL_ROOT"
+  php <<'PHP'
+<?php
+require __DIR__ . '/vendor/autoload.php';
+$app = require __DIR__ . '/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+use App\Services\DefaultStaffProfilesService;
+use Illuminate\Support\Facades\Schema;
+
+if (! Schema::hasTable('profiles') || ! Schema::hasTable('organizations')) {
+    echo "   ↪ profiles/organizations missing — skip\n";
+    exit(0);
+}
+
+$totals = app(DefaultStaffProfilesService::class)->ensureForAllOrganizations();
+echo "   ✅ Orgs: {$totals['orgs']} | Profiles upserted: {$totals['profiles']} | Roles upserted: {$totals['roles']}\n";
+echo "   Profiles: Warehouse Staff, Sales Staff\n";
+echo "   Roles:    Warehouse → Warehouse Staff, Sales → Sales Staff\n";
+PHP
+  log_success "Default Warehouse + Sales profiles ready"
+}
+
 main() {
   verify_installer_password
   cd "$LARAVEL_ROOT"
@@ -355,11 +467,15 @@ main() {
 
   sync_module_fields
   seed_portal_modules
+  seed_superadmin
+  seed_default_staff_profiles
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   log_success "BkPortal setup complete"
   echo "  php artisan serve"
+  echo "  Superadmin (dev only): superadmin@example.com / Admin@123"
+  echo "  Default staff: Warehouse + Sales profiles/roles per org"
   echo "  Re-sync fields anytime: ./setup.sh --fields-only"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
