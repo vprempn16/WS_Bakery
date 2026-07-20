@@ -14,6 +14,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['auth:sanctum', 'check.org'])->group(function () {
         // Logout endpoint
         Route::post('auth/logout', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'logout']);
+        Route::post('auth/change-password', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'changePassword']);
 
         // Allowed modules endpoint
         Route::get('allowed_modules', [\App\Modules\Api\V1\Settings\Controllers\ModuleController::class, 'allowedModules']);
@@ -167,6 +168,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('new', [UserController::class, 'store']);
                 Route::get('{id}', [UserController::class, 'show']);
                 Route::post('{id}', [UserController::class, 'update']);
+                Route::post('{id}/reset-password', [UserController::class, 'resetPassword']);
                 Route::delete('{id}', [UserController::class, 'destroy']);
             });
 

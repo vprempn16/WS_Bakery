@@ -14,6 +14,7 @@ return [
     ['id' => null, 'modulename' => 'Billing', 'modulelabel' => 'Billing', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 6],
     ['id' => null, 'modulename' => 'BranchDailyReport', 'modulelabel' => 'Branch Daily Report', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 7],
     ['id' => null, 'modulename' => 'BranchTransfer', 'modulelabel' => 'Branch Transfer', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 8],
+    ['id' => null, 'modulename' => 'BranchTransferItem', 'modulelabel' => 'Branch Transfer Item', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 8, 'parent_modulename' => 'BranchTransfer'],
     ['id' => null, 'modulename' => 'BranchStock', 'modulelabel' => 'Branch Stock', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 9],
     ['id' => null, 'modulename' => 'InventoryTransaction', 'modulelabel' => 'Inventory Transaction', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 10],
     ['id' => null, 'modulename' => 'ProductionBatch', 'modulelabel' => 'Production Batch', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 11],

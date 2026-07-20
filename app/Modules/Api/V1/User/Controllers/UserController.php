@@ -7,6 +7,7 @@ use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Modules\Api\V1\User\Models\User;
 use App\Modules\Api\V1\User\Requests\StoreUserRequest;
 use App\Modules\Api\V1\User\Requests\UpdateUserRequest;
+use App\Modules\Api\V1\User\Requests\ResetPasswordRequest;
 use App\Modules\Api\V1\User\Resources\UserResource;
 use App\Services\AuthUser;
 use Illuminate\Http\Request;
@@ -219,6 +220,30 @@ class UserController extends Controller
             $this->syncRoleAssignment($user, $values['roleId'], $orgId);
 
             return $this->success(new UserResource($user->fresh(['organization', 'branch'])), 'User updated successfully.');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('User not found.', null, null, null, 404);
+        }
+    }
+
+    /**
+     * Admin reset of another user's password (no current password required).
+     */
+    public function resetPassword(ResetPasswordRequest $request, $id)
+    {
+        $actor = auth()->user();
+        if (! $actor || ! method_exists($actor, 'isFullAdmin') || ! $actor->isFullAdmin()) {
+            return $this->error('Only an admin can reset passwords.', null, null, null, 403);
+        }
+
+        try {
+            $orgId = AuthUser::organizationId();
+            $user = User::where('organization_id', $orgId)->findOrFail($id);
+            $values = $request->input('data.values', []);
+
+            $user->password = Hash::make((string) $values['password']);
+            $user->save();
+
+            return $this->success(null, 'Password updated successfully.');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error('User not found.', null, null, null, 404);
         }

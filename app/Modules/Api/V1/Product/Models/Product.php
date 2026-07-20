@@ -55,9 +55,9 @@ class Product extends \App\Models\BKModel
         return $this->hasMany(\App\Modules\Api\V1\BranchTransfer\Models\BranchStock::class);
     }
 
-    public function branchTransfers()
+    public function branchTransferItems()
     {
-        return $this->hasMany(\App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer::class);
+        return $this->hasMany(\App\Modules\Api\V1\BranchTransfer\Models\BranchTransferItem::class);
     }
 
     public function dailyReportItems()

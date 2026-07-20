@@ -137,6 +137,13 @@ class ModuleService
                 continue;
             }
 
+            $parentModuleId = $module['parent_module_id'] ?? null;
+            if (!$parentModuleId && !empty($module['parent_modulename'])) {
+                $parentModuleId = DB::table('portal_module')
+                    ->where('modulename', $module['parent_modulename'])
+                    ->value('id');
+            }
+
             DB::table('portal_module')->insert([
                 'id' => $module['id'] ?? (string) Str::uuid(),
                 'modulename' => $module['modulename'],
@@ -148,7 +155,7 @@ class ModuleService
                 'sort_order' => $module['sort_order'] ?? 0,
                 'account_id' => $module['account_id'] ?? 'all',
                 'is_system_default' => $module['is_system_default'] ?? 1,
-                'parent_module_id' => $module['parent_module_id'] ?? null,
+                'parent_module_id' => $parentModuleId,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);

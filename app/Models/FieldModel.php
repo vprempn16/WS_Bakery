@@ -111,9 +111,13 @@ class FieldModel
 
         switch ($type) {
             case 'email': $rules[] = 'email'; break;
-            case 'integer': 
-            case 'number': 
-            case 'decimal': $rules[] = 'numeric'; break;
+            case 'integer':
+            case 'number':
+            case 'integer/number':
+            case 'decimal':
+            case 'currency':
+                $rules[] = 'numeric';
+                break;
             case 'date': 
             case 'datetime': 
             case 'timestamp': $rules[] = 'date'; break;
@@ -142,11 +146,11 @@ class FieldModel
             throw new ValidationException($validator);
         }
 
-        if (in_array($type, ['decimal', 'integer', 'number'], true)) {
+        if (in_array($type, ['decimal', 'integer', 'number', 'integer/number', 'currency'], true)) {
             if ($value === null || $value === '' || $value === false) {
                 $value = 0;
             } else {
-                if ($type === 'decimal') {
+                if (in_array($type, ['decimal', 'currency'], true)) {
                     $value = number_format((float) $value, 2, '.', '');
                 } else {
                     $value = (int) $value;

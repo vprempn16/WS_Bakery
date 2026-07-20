@@ -19,7 +19,7 @@ class UpdateProductRequest extends FormRequest
             'data.values.description' => ['nullable', 'string'],
             'data.values.price' => ['nullable', 'numeric', 'min:0'],
             'data.values.unit' => ['required', 'string', 'in:gm,pcs,ml'],
-            'data.values.category' => ['nullable', 'string', 'in:bread,sweet,cake,snack,beverage,other'],
+            'data.values.category' => ['nullable', 'string', 'in:bread,sweet,cake,snack,spices,beverage,other'],
             'data.values.shelfLifeDays' => ['nullable', 'integer', 'min:0'],
             'data.values.shelfLifeHours' => ['nullable', 'integer', 'min:0'],
             'data.values.tier' => ['nullable', 'string', 'in:tier_1,tier_2,tier_3'],

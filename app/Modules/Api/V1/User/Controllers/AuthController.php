@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Api\V1\Branch\Models\Branch;
 use App\Modules\Api\V1\User\Models\User;
 use App\Modules\Api\V1\User\Requests\LoginRequest;
+use App\Modules\Api\V1\User\Requests\ChangePasswordRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -86,5 +87,23 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return $this->success(null, 'Logout successful.');
+    }
+
+    /**
+     * Non-admin (or any logged-in user) changing own password — requires current password.
+     */
+    public function changePassword(ChangePasswordRequest $request)
+    {
+        $user = $request->user();
+        $values = $request->input('data.values', []);
+
+        if (! Hash::check((string) ($values['currentPassword'] ?? ''), $user->password)) {
+            return $this->error('Current password is incorrect.', null, null, null, 422);
+        }
+
+        $user->password = Hash::make((string) $values['password']);
+        $user->save();
+
+        return $this->success(null, 'Password changed successfully.');
     }
 }
