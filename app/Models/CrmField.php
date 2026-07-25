@@ -25,4 +25,12 @@ class CrmField extends Model
         'seq',
         'deleted',
     ];
+
+    protected $casts = [
+        'mandatory' => 'boolean',
+        'is_custom_field' => 'boolean',
+        'displaytype' => 'integer',
+        'deleted' => 'integer',
+        'seq' => 'integer',
+    ];
 }

@@ -54,12 +54,12 @@ class FieldModel
 
     public function isMandatory(): bool
     {
-        return $this->data->mandatory;
+        return (bool) (int) ($this->data->mandatory ?? 0);
     }
 
     public function isCustomField(): bool
     {
-        return (bool) $this->data->is_custom_field;
+        return (bool) (int) ($this->data->is_custom_field ?? 0);
     }
 
     public function validate($value)

@@ -42,7 +42,7 @@ class BranchDailyReportController extends Controller
 
         $reports = $query->orderBy('report_date', 'desc')->paginate($perPage);
 
-        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('BranchDailyReport');
+        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getApiFieldsForView('BranchDailyReport', 'DetailView');
 
         return $this->paginated(BranchDailyReportResource::collection($reports)->resource, $fieldList);
     }
@@ -156,7 +156,7 @@ class BranchDailyReportController extends Controller
                 ->findOrFail($id);
 
             $resource = new BranchDailyReportResource($report);
-            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('BranchDailyReport');
+            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getApiFieldsForView('BranchDailyReport', 'DetailView');
             
             return $this->success([
                 'fields' => $fieldList,

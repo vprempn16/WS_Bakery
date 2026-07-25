@@ -55,7 +55,7 @@ class InventoryTransactionController extends Controller
 
         $transactions = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('InventoryTransaction');
+        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getApiFieldsForView('InventoryTransaction', 'DetailView');
 
         return $this->paginated(InventoryTransactionResource::collection($transactions)->resource, $fieldList);
     }
@@ -99,7 +99,7 @@ class InventoryTransactionController extends Controller
             $transaction = InventoryTransaction::findOrFail($id);
             $resource = new InventoryTransactionResource($transaction);
             
-            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('InventoryTransaction');
+            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getApiFieldsForView('InventoryTransaction', 'DetailView');
             
             return $this->success([
                 'fields' => $fieldList,

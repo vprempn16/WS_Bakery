@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Product extends \App\Models\BaseModel
+class Product extends \App\Models\BKModel
 {
     use \App\Traits\Auditable;
     use HasFactory, HasUuids;

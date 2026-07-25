@@ -28,7 +28,11 @@ class FieldModelManager
     {
         $organizationId = auth()->user()?->organization_id ?? null;
 
-        if ($this->viewType == 'EditView' || $this->viewType == 'CreateView') {
+        // Profile settings UI needs every field (incl. system displaytype 2) so admins can set visibility.
+        // Forms: Create/Edit only editable (1). Detail/List: editable + view-only (1, 3).
+        if ($this->viewType === 'ProfileView') {
+            $displayTypes = [1, 2, 3];
+        } elseif ($this->viewType === 'EditView' || $this->viewType === 'CreateView') {
             $displayTypes = [1];
         } else {
             $displayTypes = [1, 3];
@@ -70,9 +74,9 @@ class FieldModelManager
                 'id'              => $model->getId(),
                 'fieldname'       => $model->getAPIName(),
                 'fieldlabel'      => $model->getLabel(),
-                'mandatory'       => $model->isMandatory(),
+                'mandatory'       => $model->isMandatory(), // true|false
                 'fieldtype'       => $model->getFieldType(),
-                'displaytype'     => $model->getDisplaytype(),
+                'displaytype'     => (int) $model->getDisplaytype(),
                 'is_custom_field' => $model->isCustomField(),
             ];
 
@@ -162,5 +166,53 @@ class FieldModelManager
             ->where('deleted', 0)
             ->first();
         return $relation->related_module ?? null;
+    }
+
+    /**
+     * Resolve module + apiField to crm_fields.id, optionally scoped by organization.
+     * When $organizationId is provided, returns only fields for that org or system (is_custom_field=0) fields.
+     */
+    public static function getFieldId(string $module, string $apiField, ?string $organizationId = null): ?string
+    {
+        $snakeField = \Illuminate\Support\Str::snake($apiField);
+        $camelField = \Illuminate\Support\Str::camel($apiField);
+
+        $query = DB::table('crm_fields')
+            ->where('modulename', $module)
+            ->where(function ($q) use ($apiField, $snakeField, $camelField) {
+                $q->where('apifieldname', $apiField)
+                  ->orWhere('fieldname', $apiField)
+                  ->orWhere('fieldname', $snakeField)
+                  ->orWhere('apifieldname', $camelField);
+            })
+            ->where('deleted', 0);
+
+        if ($organizationId !== null) {
+            $query->where(function ($q) use ($organizationId) {
+                $q->where('is_custom_field', 0)
+                  ->orWhere('organization_id', $organizationId);
+            });
+        }
+
+        return $query->value('id');
+    }
+
+    public static function getApiFieldName(string $fieldId): ?string
+    {
+        return DB::table('crm_fields')
+            ->where('id', $fieldId)
+            ->value('apifieldname');
+    }
+
+    /**
+     * Resolve multiple field IDs to api names in one query (avoids N+1).
+     * Returns map: field_id => apifieldname
+     */
+    public static function getApiFieldNames(array $fieldIds): array
+    {
+        return DB::table('crm_fields')
+            ->whereIn('id', $fieldIds)
+            ->pluck('apifieldname', 'id')
+            ->toArray();
     }
 }

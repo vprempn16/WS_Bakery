@@ -3,21 +3,27 @@
 namespace App\Modules\Api\V1\ProductionBatch\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Api\V1\Ingredient\Models\Ingredient;
+use App\Modules\Api\V1\InventoryTransaction\Models\InventoryTransaction;
+use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch;
 use App\Modules\Api\V1\ProductionBatch\Requests\StoreProductionBatchRequest;
 use App\Modules\Api\V1\ProductionBatch\Resources\ProductionBatchResource;
-use App\Modules\Api\V1\Product\Models\Product;
-use App\Modules\Api\V1\Ingredient\Models\Ingredient;
-use App\Modules\Api\V1\InventoryTransaction\Models\InventoryTransaction;
+use App\Modules\Api\V1\SavedFilter\Models\SavedFilter;
+use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
+use App\Modules\Api\V1\SavedFilter\Services\QueryFilterService;
+use App\Services\AuthUser;
+use App\Services\CRM\RecordObject;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class ProductionBatchController extends Controller
 {
     public function index(Request $request)
     {
-        $orgId = $request->user()->organization_id;
+        $orgId = AuthUser::organizationId();
         $perPage = $request->query('limit', $request->query('per_page', 20));
 
         $query = ProductionBatch::where('organization_id', $orgId);
@@ -26,72 +32,74 @@ class ProductionBatchController extends Controller
             $q->where('batch_number', 'like', "%{$search}%");
         });
 
-        // Apply saved filter if provided
         if ($request->has('savedFilterId')) {
-            $savedFilter = \App\Modules\Api\V1\SavedFilter\Models\SavedFilter::where('organization_id', $orgId)
+            $savedFilter = SavedFilter::where('organization_id', $orgId)
                 ->findOrFail($request->query('savedFilterId'));
-            \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'production_batches', $savedFilter->rules);
+            QueryFilterService::apply($query, 'production_batches', $savedFilter->rules);
         }
 
-        // Apply dynamic query rules if provided
         if ($request->has('rules')) {
             $rules = $request->input('rules');
             if (is_string($rules)) {
                 $rules = json_decode($rules, true);
             }
             if (is_array($rules)) {
-                \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'production_batches', $rules);
+                QueryFilterService::apply($query, 'production_batches', $rules);
             }
         }
 
         $batches = $query->orderBy('created_at', 'desc')->paginate($perPage);
-
-        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('ProductionBatch');
+        $fieldList = ModuleFieldConfig::getApiFieldsForView('ProductionBatch', 'DetailView');
 
         return $this->paginated(ProductionBatchResource::collection($batches)->resource, $fieldList);
     }
 
     public function store(StoreProductionBatchRequest $request)
     {
-        $orgId = $request->user()->organization_id;
-        $userId = $request->user()->id;
+        $orgId = AuthUser::organizationId();
+        $userId = AuthUser::id();
         $values = $request->input('data.values');
 
         try {
             DB::beginTransaction();
 
-            $product = Product::where('organization_id', $orgId)
-                ->with('recipes')
-                ->findOrFail($values['productId']);
+            try {
+                /** @var Product $product */
+                $product = RecordObject::make('Product', $values['productId'], [], 'DetailView');
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return $this->error('The selected product does not exist or access is denied.');
+            }
+            $product->load('recipes');
 
             $quantityProduced = (float) $values['quantityProduced'];
             $productionDate = Carbon::parse($values['productionDate']);
-            
-            // Calculate Expiry Timestamp
-            $expiryTimestamp = null;
+
             if ($product->shelf_life_hours > 0) {
                 $expiryTimestamp = $productionDate->copy()->addHours($product->shelf_life_hours);
             } elseif ($product->shelf_life_days > 0) {
                 $expiryTimestamp = $productionDate->copy()->addDays($product->shelf_life_days);
             } else {
-                // Default: 12 hours validity if not specified
                 $expiryTimestamp = $productionDate->copy()->addHours(12);
             }
 
-            // Create the Production Batch record first to get the batch number for reference notes
-            $batch = new ProductionBatch([
-                'organization_id' => $orgId,
-                'product_id' => $product->id,
-                'quantity_produced' => $quantityProduced,
-                'production_date' => $productionDate,
-                'expiry_timestamp' => $expiryTimestamp,
-                'status' => 'completed',
+            /** @var ProductionBatch $batch */
+            $batch = RecordObject::make('ProductionBatch', null, [
+                'productId' => $product->id,
+                'quantityProduced' => $quantityProduced,
+                'productionDate' => $values['productionDate'],
                 'notes' => $values['notes'] ?? null,
-                'created_by' => $userId,
-            ]);
-            $batch->save(); // This will trigger the boot method and auto-generate batch_number
+            ], 'CreateView');
+            $batch->organization_id = $orgId;
+            $batch->product_id = $product->id;
+            $batch->quantity_produced = $quantityProduced;
+            $batch->production_date = $productionDate;
+            $batch->expiry_timestamp = $expiryTimestamp;
+            $batch->status = 'completed';
+            $batch->notes = $values['notes'] ?? null;
+            $batch->created_by = $userId;
+            $batch->save();
 
-            // Process Ingredients Deduction
             foreach ($product->recipes as $recipe) {
                 $totalIngredientNeeded = $recipe->quantity_required * $quantityProduced;
 
@@ -109,7 +117,6 @@ class ProductionBatchController extends Controller
                     $ingredient->current_stock -= $totalIngredientNeeded;
                     $ingredient->save();
 
-                    // Log Inventory Transaction
                     InventoryTransaction::create([
                         'organization_id' => $orgId,
                         'ingredient_id' => $ingredient->id,
@@ -121,17 +128,14 @@ class ProductionBatchController extends Controller
                 }
             }
 
-            // Add Finished Goods Stock
             $product->current_stock += $quantityProduced;
             $product->save();
 
             DB::commit();
 
             return $this->success(new ProductionBatchResource($batch), 'Production batch logged successfully.', 201);
-            
         } catch (\Exception $e) {
             DB::rollBack();
-            // Typically you'd log the exception here: \Log::error($e);
             return $this->error('Failed to log production batch: ' . $e->getMessage(), null, null, null, 500);
         }
     }
@@ -139,31 +143,33 @@ class ProductionBatchController extends Controller
     public function show($id)
     {
         try {
-            $orgId = auth()->user()->organization_id;
-            $batch = ProductionBatch::where('organization_id', $orgId)->findOrFail($id);
+            /** @var ProductionBatch $batch */
+            $batch = RecordObject::make('ProductionBatch', $id, [], 'DetailView');
             $resource = new ProductionBatchResource($batch);
-            
-            $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getMappedFields('ProductionBatch');
-            
+            $fieldList = ModuleFieldConfig::getApiFieldsForView('ProductionBatch', 'DetailView');
+
             return $this->success([
                 'fields' => $fieldList,
-                'values' => $resource->toArray(request())
+                'values' => $resource->toArray(request()),
             ]);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             return $this->error('Production Batch not found.', null, null, null, 404);
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
         }
     }
 
     public function update(Request $request, $id)
     {
-        $orgId = $request->user()->organization_id;
-        $userId = $request->user()->id;
-        $values = $request->input('data.values');
+        $orgId = AuthUser::organizationId();
+        $userId = AuthUser::id();
+        $values = $request->input('data.values') ?? [];
 
         try {
             DB::beginTransaction();
 
-            $batch = ProductionBatch::where('organization_id', $orgId)->findOrFail($id);
+            /** @var ProductionBatch $batch */
+            $batch = RecordObject::make('ProductionBatch', $id, [], 'EditView');
 
             // Allow updating status, notes, and production date directly
             if (isset($values['status'])) {
@@ -191,9 +197,9 @@ class ProductionBatchController extends Controller
                 $newQuantity = (float) $values['quantityProduced'];
                 $difference = $newQuantity - $batch->quantity_produced;
                 
-                $product = Product::where('organization_id', $orgId)
-                    ->with('recipes')
-                    ->findOrFail($batch->product_id);
+                /** @var Product $product */
+                $product = RecordObject::make('Product', $batch->product_id, [], 'DetailView');
+                $product->load('recipes');
 
                 foreach ($product->recipes as $recipe) {
                     $totalIngredientDifference = $recipe->quantity_required * $difference;
@@ -231,8 +237,7 @@ class ProductionBatchController extends Controller
             DB::commit();
 
             return $this->success(new ProductionBatchResource($batch), 'Production batch updated successfully.');
-            
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             DB::rollBack();
             return $this->error('Production Batch not found.', null, null, null, 404);
         } catch (\Exception $e) {
@@ -244,15 +249,15 @@ class ProductionBatchController extends Controller
     public function destroy($id)
     {
         try {
-            $orgId = auth()->user()->organization_id;
-            $batch = ProductionBatch::where('organization_id', $orgId)->findOrFail($id);
-            
-            // Phase 2: Simple delete without transaction reversal.
-            $batch->delete();
+            /** @var ProductionBatch $batch */
+            $batch = RecordObject::make('ProductionBatch', $id, [], 'EditView');
+            $batch->deleteRecord();
 
             return $this->success(null, 'Production Batch successfully deleted.');
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             return $this->error('Production Batch not found.', null, null, null, 404);
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), null, null, null, 400);
         }
     }
 }

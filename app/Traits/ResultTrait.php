@@ -3,6 +3,8 @@
 namespace App\Traits;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 trait ResultTrait
 {
@@ -75,6 +77,25 @@ trait ResultTrait
         }
 
         return response()->json($payload, $status);
+    }
+
+    /**
+     * Convert an exception into the standard API error payload.
+     */
+    protected function errorFromException(Throwable $e, ?string $message = null): JsonResponse
+    {
+        Log::error($message ?: 'API exception', [
+            'exception' => $e::class,
+            'error' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ]);
+
+        $userMessage = $message
+            ? trim($message . ': ' . $e->getMessage())
+            : $e->getMessage();
+
+        return $this->error($userMessage ?: $this->genericErrorMessage);
     }
 
     /**
