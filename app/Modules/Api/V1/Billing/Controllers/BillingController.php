@@ -262,14 +262,15 @@ class BillingController extends Controller
     {
         $orgId = AuthUser::organizationId();
         $perPage = $request->query('per_page', 20);
-        $category = $request->query('category', 'all');
+        $category = strtolower((string) $request->query('category', 'all'));
 
         $query = Product::where('organization_id', $orgId)
             ->select('id', 'name', 'price', 'unit', 'category')
             ->orderBy('name');
 
+        // "all" / "All" means no category filter
         if ($category && $category !== 'all') {
-            $query->where('category', $category);
+            $query->whereRaw('LOWER(category) = ?', [$category]);
         }
 
         $paginator = $query->paginate($perPage);
