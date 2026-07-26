@@ -10,6 +10,7 @@ use App\Modules\Api\V1\Billing\Requests\StoreBillingRequest;
 use App\Modules\Api\V1\Billing\Requests\UpdateBillingRequest;
 use App\Modules\Api\V1\Billing\Resources\BillingResource;
 use App\Modules\Api\V1\Billing\Services\BillingStockService;
+use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Services\AuthUser;
@@ -262,25 +263,39 @@ class BillingController extends Controller
     {
         $orgId = AuthUser::organizationId();
         $perPage = $request->query('per_page', 20);
-        $category = $request->query('category', 'all');
+        $category = strtolower((string) $request->query('category', 'all'));
+        $branchId = $request->header('X-Branch-Id') ?: $request->query('branch_id');
 
         $query = Product::where('organization_id', $orgId)
             ->select('id', 'name', 'price', 'unit', 'category')
             ->orderBy('name');
 
+        // "all" / "All" means no category filter
         if ($category && $category !== 'all') {
-            $query->where('category', $category);
+            $query->whereRaw('LOWER(category) = ?', [$category]);
         }
 
         $paginator = $query->paginate($perPage);
+        $productIds = collect($paginator->items())->pluck('id')->all();
 
-        $formatted = collect($paginator->items())->map(function ($item) {
+        $stockByProduct = [];
+        if ($branchId && !empty($productIds)) {
+            $stockByProduct = BranchStock::where('organization_id', $orgId)
+                ->where('branch_id', $branchId)
+                ->whereIn('product_id', $productIds)
+                ->pluck('current_stock', 'product_id')
+                ->map(fn ($stock) => (float) $stock)
+                ->all();
+        }
+
+        $formatted = collect($paginator->items())->map(function ($item) use ($stockByProduct) {
             return [
                 'id' => $item->id,
                 'name' => $item->name,
                 'price' => (float) $item->price,
                 'unit' => $item->unit,
                 'category' => $item->category,
+                'currentStock' => (float) ($stockByProduct[$item->id] ?? 0),
             ];
         });
 

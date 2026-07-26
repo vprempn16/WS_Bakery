@@ -4,7 +4,6 @@ namespace App\Modules\Api\V1\BranchTransfer\Models;
 
 use App\Models\BKModel;
 use App\Modules\Api\V1\Branch\Models\Branch;
-use App\Modules\Api\V1\Product\Models\Product;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
@@ -47,8 +46,8 @@ class BranchTransfer extends BKModel
         return $this->belongsTo(Branch::class);
     }
 
-    public function product()
+    public function items()
     {
-        return $this->belongsTo(Product::class);
+        return $this->hasMany(BranchTransferItem::class, 'branch_transfer_id');
     }
 }
