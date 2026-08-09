@@ -127,6 +127,7 @@ Route::prefix('v1')->group(function () {
         // Product and Recipe endpoints
         Route::prefix('Product')->group(function () {
             Route::get('', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'index']);
+            Route::get('check-product-number', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'checkProductNumber']);
             Route::post('new', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'store']);
             Route::get('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'show']);
             Route::post('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'update']);
