@@ -2,7 +2,10 @@
 
 namespace App\Modules\Api\V1\Product\Requests;
 
+use App\Modules\Api\V1\Product\Services\ProductNumberService;
+use App\Services\AuthUser;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class UpdateProductRequest extends FormRequest
 {
@@ -24,5 +27,34 @@ class UpdateProductRequest extends FormRequest
             'data.values.shelfLifeHours' => ['nullable', 'integer', 'min:0'],
             'data.values.tier' => ['nullable', 'string', 'in:tier_1,tier_2,tier_3'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $productNumber = $this->input('data.values.productNumber');
+            if ($productNumber === null || trim((string) $productNumber) === '') {
+                return;
+            }
+
+            $orgId = AuthUser::organizationId();
+            if (!$orgId) {
+                return;
+            }
+
+            $excludeId = $this->route('id');
+            $check = ProductNumberService::checkAvailability(
+                $orgId,
+                (string) $productNumber,
+                $excludeId ? (string) $excludeId : null
+            );
+
+            if (!$check['available']) {
+                $validator->errors()->add(
+                    'data.values.productNumber',
+                    $check['message'] ?? 'Product number already exists'
+                );
+            }
+        });
     }
 }

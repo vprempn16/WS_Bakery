@@ -5,13 +5,17 @@ namespace App\Modules\Api\V1\Product\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\FieldModelManager;
 use App\Modules\Api\V1\Product\Models\Product;
+use App\Modules\Api\V1\Product\Requests\StoreProductRequest;
+use App\Modules\Api\V1\Product\Requests\UpdateProductRequest;
 use App\Modules\Api\V1\Product\Resources\ProductResource;
+use App\Modules\Api\V1\Product\Services\ProductNumberService;
 use App\Modules\Api\V1\SavedFilter\Models\SavedFilter;
 use App\Modules\Api\V1\SavedFilter\Services\QueryFilterService;
 use App\Services\AuthUser;
 use App\Services\CRM\RecordObject;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
 {
@@ -63,11 +67,40 @@ class ProductController extends Controller
         return $this->paginated(ProductResource::collection($products)->resource, $fieldList);
     }
 
-    public function store(Request $request)
+    /**
+     * GET /Product/check-product-number?productNumber=03&excludeId=optional
+     */
+    public function checkProductNumber(Request $request)
+    {
+        $productNumber = $request->query('productNumber');
+        $excludeId = $request->query('excludeId');
+        $orgId = AuthUser::organizationId();
+
+        if (!$orgId) {
+            return $this->error('Organization required.', null, null, null, 403);
+        }
+
+        $result = ProductNumberService::checkAvailability(
+            $orgId,
+            $productNumber !== null ? (string) $productNumber : null,
+            $excludeId ? (string) $excludeId : null
+        );
+
+        return $this->success($result);
+    }
+
+    public function store(StoreProductRequest $request)
     {
         $values = $request->input('data.values') ?? [];
         if (empty($values['currentStock'])) {
             $values['currentStock'] = 0;
+        }
+
+        if (!empty($values['productNumber'])) {
+            $normalized = ProductNumberService::normalize((string) $values['productNumber']);
+            if ($normalized !== null) {
+                $values['productNumber'] = $normalized;
+            }
         }
 
         try {
@@ -80,6 +113,8 @@ class ProductController extends Controller
             $product->save();
 
             return $this->success(new ProductResource($product), 'Product created successfully.', 201);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         }
@@ -104,15 +139,25 @@ class ProductController extends Controller
         }
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateProductRequest $request, $id)
     {
         try {
             $values = $request->input('data.values') ?? [];
+
+            if (array_key_exists('productNumber', $values) && $values['productNumber'] !== null && $values['productNumber'] !== '') {
+                $normalized = ProductNumberService::normalize((string) $values['productNumber']);
+                if ($normalized !== null) {
+                    $values['productNumber'] = $normalized;
+                }
+            }
+
             /** @var Product $product */
             $product = RecordObject::make('Product', $id, $values, 'EditView');
             $product->save();
 
             return $this->success(new ProductResource($product));
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (ModelNotFoundException $e) {
             return $this->error('Product not found.', null, null, null, 404);
         } catch (\Exception $e) {

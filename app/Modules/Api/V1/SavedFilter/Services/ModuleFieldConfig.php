@@ -117,7 +117,7 @@ class ModuleFieldConfig
         'products' => [
             ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization', 'fieldtype' => 'relationPickList', 'displaytype' => 2, 'mandatory' => 0],
-            ['fieldname' => 'productNumber', 'fieldlabel' => 'Product Number', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'productNumber', 'fieldlabel' => 'Product Number', 'fieldtype' => 'text', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'name', 'fieldlabel' => 'Name', 'fieldtype' => 'text', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'description', 'fieldlabel' => 'Description', 'fieldtype' => 'textarea', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'price', 'fieldlabel' => 'Price', 'fieldtype' => 'currency', 'displaytype' => 1, 'mandatory' => 1],

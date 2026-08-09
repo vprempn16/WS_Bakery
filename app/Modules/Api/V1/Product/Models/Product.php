@@ -3,10 +3,11 @@
 namespace App\Modules\Api\V1\Product\Models;
 
 use App\Modules\Api\V1\Organization\Models\Organization;
+use App\Modules\Api\V1\Product\Services\ProductNumberService;
 use App\Modules\Api\V1\Recipe\Models\Recipe;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class Product extends \App\Models\BKModel
 {
@@ -17,6 +18,34 @@ class Product extends \App\Models\BKModel
 
     protected static function booted()
     {
+        static::saving(function ($product) {
+            if ($product->product_number === null || trim((string) $product->product_number) === '') {
+                return;
+            }
+
+            $normalized = ProductNumberService::normalize((string) $product->product_number);
+            if ($normalized !== null) {
+                $product->product_number = $normalized;
+            }
+
+            $orgId = $product->organization_id;
+            if (!$orgId) {
+                return;
+            }
+
+            $check = ProductNumberService::checkAvailability(
+                (string) $orgId,
+                (string) $product->product_number,
+                $product->exists ? (string) $product->id : null
+            );
+
+            if (!$check['available']) {
+                throw ValidationException::withMessages([
+                    'data.values.productNumber' => [$check['message'] ?? 'Product number already exists'],
+                ]);
+            }
+        });
+
         static::creating(function ($product) {
             if (empty($product->product_number)) {
                 $maxNumber = \Illuminate\Support\Facades\DB::table('products')
