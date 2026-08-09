@@ -514,6 +514,26 @@ This document outlines the API endpoints developed for Phase 1, focusing on Orga
 **Low Stock Endpoint ending**
 
 
+### 4.7 Ingredient Usage Trend
+
+**Ingredient Usage Trend starting**
+* **Endpoint**: `GET /api/v1/Ingredient/{id}/usage-trend?weeks=4`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Aggregates consumption (`out`, `waste`, `production`) from `inventory_transactions` for the ingredient into weekly buckets. No new columns required.
+* **Response fields**: `unit`, `periodLabel`, `monthlyConsumption`, `percentChange` (null if no prior period), `peakWeekLabel`, `weeks[{label,value}]`
+**Ingredient Usage Trend ending**
+
+
+### 4.8 Product Sales Trend
+
+**Product Sales Trend starting**
+* **Endpoint**: `GET /api/v1/Product/{id}/sales-trend?weeks=4`
+* **Headers**: `Authorization: Bearer {token}`
+* **Description**: Aggregates `quantity_sold` from `branch_daily_report_items` joined to `branch_daily_reports.report_date` into weekly buckets for the product.
+* **Response fields**: same shape as Ingredient usage trend (`unit`, `periodLabel`, `monthlyConsumption`, `percentChange`, `peakWeekLabel`, `weeks`)
+**Product Sales Trend ending**
+
+
 ---
 
 ## 5. Vendor Management

@@ -112,6 +112,7 @@ Route::prefix('v1')->group(function () {
             Route::get('', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'index']);
             Route::get('low-stock', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'lowStock']);
             Route::post('new', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'store']);
+            Route::get('{id}/usage-trend', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'usageTrend']);
             Route::get('{id}', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'show']);
             Route::post('{id}', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'update']);
             Route::delete('{id}', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'destroy']);
@@ -129,6 +130,7 @@ Route::prefix('v1')->group(function () {
             Route::get('', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'index']);
             Route::get('check-product-number', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'checkProductNumber']);
             Route::post('new', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'store']);
+            Route::get('{id}/sales-trend', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'salesTrend']);
             Route::get('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'show']);
             Route::post('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'update']);
             Route::delete('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'destroy']);
