@@ -8,8 +8,10 @@ use App\Modules\Api\V1\Ingredient\Models\Ingredient;
 use App\Modules\Api\V1\Ingredient\Resources\IngredientResource;
 use App\Modules\Api\V1\SavedFilter\Models\SavedFilter;
 use App\Modules\Api\V1\SavedFilter\Services\QueryFilterService;
+use App\Modules\Api\V1\InventoryTransaction\Models\InventoryTransaction;
 use App\Services\AuthUser;
 use App\Services\CRM\RecordObject;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 
@@ -159,5 +161,81 @@ class IngredientController extends Controller
         $fieldList = FieldModelManager::make('Ingredient', 'DetailView', false)->getApiFormFields();
 
         return $this->paginated(IngredientResource::collection($ingredients)->resource, $fieldList);
+    }
+
+    /**
+     * Weekly consumption trend for an ingredient (out / waste / production).
+     */
+    public function usageTrend(Request $request, $id)
+    {
+        try {
+            /** @var Ingredient $ingredient */
+            $ingredient = RecordObject::make('Ingredient', $id, [], 'DetailView');
+            $orgId = AuthUser::organizationId();
+            $weeks = max(1, min(12, (int) $request->query('weeks', 4)));
+
+            $consumptionTypes = ['out', 'waste', 'production'];
+            $periodStart = Carbon::today()->subWeeks($weeks - 1)->startOfWeek();
+            $periodEnd = Carbon::today()->endOfWeek()->endOfDay();
+
+            $prevPeriodEnd = $periodStart->copy()->subDay()->endOfDay();
+            $prevPeriodStart = $prevPeriodEnd->copy()->subWeeks($weeks - 1)->startOfWeek();
+
+            $weekBuckets = [];
+            $cursor = $periodStart->copy();
+            for ($i = 1; $i <= $weeks; $i++) {
+                $weekStart = $cursor->copy()->startOfDay();
+                $weekEnd = $cursor->copy()->endOfWeek()->endOfDay();
+                $value = (float) InventoryTransaction::where('organization_id', $orgId)
+                    ->where('ingredient_id', $ingredient->id)
+                    ->whereIn('type', $consumptionTypes)
+                    ->whereBetween('created_at', [$weekStart, $weekEnd])
+                    ->sum('quantity');
+
+                $weekBuckets[] = [
+                    'label' => 'Week ' . $i,
+                    'value' => round($value, 2),
+                ];
+                $cursor->addWeek();
+            }
+
+            $monthlyConsumption = round(array_sum(array_column($weekBuckets, 'value')), 2);
+
+            $prevSum = (float) InventoryTransaction::where('organization_id', $orgId)
+                ->where('ingredient_id', $ingredient->id)
+                ->whereIn('type', $consumptionTypes)
+                ->whereBetween('created_at', [$prevPeriodStart, $prevPeriodEnd])
+                ->sum('quantity');
+
+            $percentChange = null;
+            if ($prevSum > 0) {
+                $percentChange = round((($monthlyConsumption - $prevSum) / $prevSum) * 100, 1);
+            }
+
+            $peakWeekLabel = null;
+            $peakValue = 0.0;
+            foreach ($weekBuckets as $bucket) {
+                if ($bucket['value'] > $peakValue) {
+                    $peakValue = $bucket['value'];
+                    $peakWeekLabel = $bucket['label'];
+                }
+            }
+            if ($peakValue <= 0) {
+                $peakWeekLabel = null;
+            }
+
+            return $this->success([
+                'unit' => $ingredient->unit ?? 'gm',
+                'periodLabel' => "Last {$weeks} weeks",
+                'monthlyConsumption' => $monthlyConsumption,
+                'percentChange' => $percentChange,
+                'peakWeekLabel' => $peakWeekLabel,
+                'weeks' => $weekBuckets,
+            ], 'Ingredient usage trend retrieved successfully');
+        } catch (ModelNotFoundException $e) {
+            return $this->error('Ingredient not found.', null, null, null, 404);
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), null, null, null, 400);
+        }
     }
 }
