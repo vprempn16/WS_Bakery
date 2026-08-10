@@ -12,6 +12,7 @@ class BranchStock extends Model
     use \App\Traits\Auditable;
     use HasUuids;
 
+    // Inline-edit of current_stock is blocked in GlobalInlineEditController.
     protected $fillable = [
         'organization_id',
         'branch_id',

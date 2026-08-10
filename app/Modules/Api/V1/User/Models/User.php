@@ -8,6 +8,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use App\Modules\Api\V1\Organization\Models\Organization;
+use Illuminate\Support\Facades\DB;
 
 class User extends Authenticatable
 {
@@ -69,11 +70,19 @@ class User extends Authenticatable
 
         $role = strtolower((string) ($this->role ?? ''));
 
-        // Org admin / platform superadmin: every module + all branch data
-        if (in_array($role, ['admin', 'superadmin'], true)) {
+        if (in_array($role, ['admin', 'superadmin', 'owner'], true)) {
             return $allModules;
         }
 
+        // Prefer modules from assigned Settings Roles → Profiles
+        $fromProfiles = $this->modulesFromAssignedRoles();
+        if ($fromProfiles !== null) {
+            return array_values(array_filter($allModules, function ($module) use ($fromProfiles) {
+                return in_array($module['value'], $fromProfiles, true);
+            }));
+        }
+
+        // Legacy fallback by users.role string
         if (in_array($role, ['warehouse', 'warehouse_manager', 'manager'], true)) {
             $warehouseModules = [
                 'product', 'ingredient', 'branchtransfer', 'branchstock',
@@ -85,7 +94,6 @@ class User extends Authenticatable
             }));
         }
 
-        // Branch staff: POS + daily report + products for their branch
         $branchModules = ['billing', 'branchdailyreport', 'product', 'branchstock'];
 
         return array_values(array_filter($allModules, function ($module) use ($branchModules) {
@@ -94,9 +102,60 @@ class User extends Authenticatable
     }
 
     /**
-     * Unrestricted roles: org admin (client) or platform superadmin (developer).
-     * Legacy "owner" is treated as admin until data is migrated.
+     * @return list<string>|null  lowercase module values with view permission, or null if no roles
      */
+    private function modulesFromAssignedRoles(): ?array
+    {
+        $orgId = $this->organization_id;
+        if (!$orgId) {
+            return null;
+        }
+
+        $roleIds = DB::table('roles')
+            ->join('role_user_rel', 'roles.id', '=', 'role_user_rel.role_id')
+            ->where('role_user_rel.user_id', $this->id)
+            ->where('role_user_rel.organization_id', $orgId)
+            ->where('roles.deleted', 0)
+            ->pluck('roles.id')
+            ->unique()
+            ->filter();
+
+        if ($roleIds->isEmpty()) {
+            return null;
+        }
+
+        $profileIds = DB::table('role_profile_rel')
+            ->whereIn('role_id', $roleIds)
+            ->where('organization_id', $orgId)
+            ->pluck('profile_id')
+            ->unique()
+            ->filter();
+
+        if ($profileIds->isEmpty()) {
+            return null;
+        }
+
+        $allowed = [];
+        foreach ($profileIds as $profileId) {
+            $profileFile = base_path("Profiles/{$orgId}/{$profileId}_Profile.php");
+            if (!file_exists($profileFile)) {
+                continue;
+            }
+            $data = include $profileFile;
+            if (!is_array($data) || !isset($data['modules']) || !is_array($data['modules'])) {
+                continue;
+            }
+            foreach ($data['modules'] as $moduleName => $modData) {
+                $view = (int) ($modData['permissions']['view'] ?? 0);
+                if ($view === 1) {
+                    $allowed[] = strtolower((string) $moduleName);
+                }
+            }
+        }
+
+        return $allowed === [] ? null : array_values(array_unique($allowed));
+    }
+
     public function isFullAdmin(): bool
     {
         $role = strtolower((string) ($this->role ?? ''));

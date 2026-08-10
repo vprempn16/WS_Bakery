@@ -54,7 +54,7 @@ class BillingStockService
     }
 
     /**
-     * Deduct sold quantities from branch stock (create bill).
+     * Deduct sold quantities from branch stock (paid bill).
      *
      * @param  array<int, array{productId:string, quantity:float|int|string}>  $items
      */
@@ -68,6 +68,26 @@ class BillingStockService
                 continue;
             }
             $deltas[$productId] = ($deltas[$productId] ?? 0) - $qty;
+        }
+
+        $this->applyDeltas($orgId, $branchId, $deltas);
+    }
+
+    /**
+     * Restore quantities to branch stock (cancel paid bill).
+     *
+     * @param  array<int, array{productId:string, quantity:float|int|string}>  $items
+     */
+    public function restoreForSale(string $orgId, string $branchId, array $items): void
+    {
+        $deltas = [];
+        foreach ($items as $item) {
+            $productId = (string) ($item['productId'] ?? '');
+            $qty = (float) ($item['quantity'] ?? 0);
+            if ($productId === '' || $qty <= 0) {
+                continue;
+            }
+            $deltas[$productId] = ($deltas[$productId] ?? 0) + $qty;
         }
 
         $this->applyDeltas($orgId, $branchId, $deltas);

@@ -5,35 +5,53 @@ namespace App\Modules\Api\V1\BranchTransfer\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\BranchTransfer\Resources\BranchStockResource;
+use App\Services\BranchAccess;
+use App\Services\PermissionService;
+use App\Support\ApiPagination;
 use Illuminate\Http\Request;
 
 class BranchStockController extends Controller
 {
     public function index(Request $request)
     {
-        $orgId = $request->user()->organization_id;
-        $perPage = $request->query('per_page', 20);
+        $user = $request->user();
+        $permissionService = new PermissionService($user);
+        if (! $permissionService->hasPermission('BranchStock', 'view')) {
+            return $this->error("You don't have permission to view BranchStock.", null, null, null, 403);
+        }
+
+        $orgId = $user->organization_id;
+        $perPage = ApiPagination::perPage($request);
 
         $query = BranchStock::with(['branch', 'product'])
             ->where('organization_id', $orgId);
 
-        // Filters
-        $query->when($request->query('branchId'), function ($q, $branchId) {
-            $q->where('branch_id', $branchId);
-        });
+        // Non-admins are locked to their assigned branch
+        if ($user && ! $user->isFullAdmin()) {
+            if (! $user->branch_id) {
+                return $this->error('No branch assigned to this user.', null, null, null, 403);
+            }
+            $query->where('branch_id', $user->branch_id);
+        } elseif ($request->query('branchId')) {
+            $branchId = (string) $request->query('branchId');
+            try {
+                BranchAccess::assertCanAccessBranch($user, $branchId);
+            } catch (\RuntimeException $e) {
+                return $this->error($e->getMessage(), null, null, null, 403);
+            }
+            $query->where('branch_id', $branchId);
+        }
 
         $query->when($request->query('productId'), function ($q, $productId) {
             $q->where('product_id', $productId);
         });
 
-        // Apply saved filter if provided
         if ($request->has('savedFilterId')) {
             $savedFilter = \App\Modules\Api\V1\SavedFilter\Models\SavedFilter::where('organization_id', $orgId)
                 ->findOrFail($request->query('savedFilterId'));
             \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'branch_stocks', $savedFilter->rules);
         }
 
-        // Apply dynamic query rules if provided
         if ($request->has('rules')) {
             $rules = $request->input('rules');
             if (is_string($rules)) {

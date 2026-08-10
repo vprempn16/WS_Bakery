@@ -13,7 +13,9 @@ class Ingredient extends \App\Models\BKModel
     use \App\Traits\Auditable;
     use HasFactory, HasUuids;
 
-    protected $guarded = [];
+    // Inherit BKModel guarded (id, organization_id, deleted, timestamps, created_by).
+    // Do not allow mass-assign of stock via API fill — stock changes go through InventoryTransaction.
+    protected $guarded = ['id', 'organization_id', 'deleted', 'created_at', 'updated_at', 'created_by', 'current_stock'];
 
     public function organization()
     {

@@ -6,15 +6,22 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     // 1. Publicly accessible routes (PascalCase + lowercase alias for clients)
-    Route::post('Organization/new', [OrganizationController::class, 'store']);
-    Route::post('organization/new', [OrganizationController::class, 'store']);
-    Route::post('auth/login', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'login']);
+    Route::post('Organization/new', [OrganizationController::class, 'store'])
+        ->middleware('throttle:auth-register');
+    Route::post('organization/new', [OrganizationController::class, 'store'])
+        ->middleware('throttle:auth-register');
+    Route::post('auth/login', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'login'])
+        ->middleware('throttle:auth-login');
 
     // 2. Protected routes requiring authentication AND organization context checking
     Route::middleware(['auth:sanctum', 'check.org'])->group(function () {
+        // Session / profile
+        Route::get('auth/me', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'me']);
+
         // Logout endpoint
         Route::post('auth/logout', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'logout']);
-        Route::post('auth/change-password', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'changePassword']);
+        Route::post('auth/change-password', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'changePassword'])
+            ->middleware('throttle:writes');
 
         // Allowed modules endpoint
         Route::get('allowed_modules', [\App\Modules\Api\V1\Settings\Controllers\ModuleController::class, 'allowedModules']);
@@ -29,7 +36,8 @@ Route::prefix('v1')->group(function () {
         Route::get('{module}/headers/{filterId}', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
 
         // Global Inline Edit endpoint
-        Route::patch('{module}/{id}/inline-edit', [\App\Http\Controllers\GlobalInlineEditController::class, 'update']);
+        Route::patch('{module}/{id}/inline-edit', [\App\Http\Controllers\GlobalInlineEditController::class, 'update'])
+            ->middleware('throttle:writes');
 
         // Global Audit Log endpoint
         Route::get('{module}/{id}/audit-log', [\App\Http\Controllers\GlobalAuditLogController::class, 'index']);
@@ -38,38 +46,47 @@ Route::prefix('v1')->group(function () {
         Route::prefix('Organization')->group(function () {
             Route::get('search', [OrganizationController::class, 'search']);
             Route::get('{id}', [OrganizationController::class, 'show']);
-            Route::post('{id}', [OrganizationController::class, 'update']);
-            Route::delete('{id}', [OrganizationController::class, 'destroy']);
+            Route::post('{id}', [OrganizationController::class, 'update'])
+                ->middleware('throttle:writes');
+            Route::delete('{id}', [OrganizationController::class, 'destroy'])
+                ->middleware('throttle:writes');
         });
 
         // Branch endpoints
         Route::prefix('Branch')->group(function () {
             Route::get('', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'index']);
-            Route::post('new', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'store']);
+            Route::post('new', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'store'])
+                ->middleware('throttle:writes');
             Route::get('{id}', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'show']);
-            Route::post('{id}', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'update']);
-            Route::delete('{id}', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'destroy']);
+            Route::post('{id}', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'update'])
+                ->middleware('throttle:writes');
+            Route::delete('{id}', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'destroy'])
+                ->middleware('throttle:writes');
         });
 
         // Branch Transfer endpoints
         Route::prefix('BranchTransfer')->group(function () {
             Route::get('', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'index']);
-            Route::post('new', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'store']);
+            Route::post('new', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'store'])
+                ->middleware('throttle:writes');
             Route::get('{id}', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'show']);
-            Route::post('{id}', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'update']);
-            Route::delete('{id}', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'destroy']);
+            Route::post('{id}', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'update'])
+                ->middleware('throttle:writes');
+            Route::delete('{id}', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'destroy'])
+                ->middleware('throttle:writes');
         });
 
         // Branch Stock endpoint
         Route::get('BranchStock', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchStockController::class, 'index']);
 
         // Reports endpoints
-        Route::prefix('Reports')->group(function () {
+        Route::prefix('Reports')->middleware('throttle:expensive')->group(function () {
             Route::get('ExpiringBatches', [\App\Modules\Api\V1\Reports\Controllers\ExpiryReportController::class, 'expiringBatches']);
         });
 
         // Dashboard endpoint
-        Route::get('Dashboard/Summary', [\App\Modules\Api\V1\Reports\Controllers\DashboardController::class, 'summary']);
+        Route::get('Dashboard/Summary', [\App\Modules\Api\V1\Reports\Controllers\DashboardController::class, 'summary'])
+            ->middleware('throttle:expensive');
 
         // Billing
         Route::prefix('Billing')->group(function () {
@@ -79,8 +96,10 @@ Route::prefix('v1')->group(function () {
             Route::get('headers', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'headerfields']);
             Route::get('{id}', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'show']);
             Route::get('/', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'index']);
-            Route::post('new', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'store']);
-            Route::post('{id}', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'update']);
+            Route::post('new', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'store'])
+                ->middleware('throttle:writes');
+            Route::post('{id}', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'update'])
+                ->middleware('throttle:writes');
         });
 
         // Branch Daily Report (Sales & Returns)
@@ -164,7 +183,7 @@ Route::prefix('v1')->group(function () {
          | Profile extras: modules, info?module=, repair
          |--------------------------------------------------------------------------
          */
-        Route::prefix('settings')->group(function () {
+        Route::prefix('settings')->middleware('admin')->group(function () {
             Route::prefix('User')->group(function () {
                 Route::get('', [UserController::class, 'index']);
                 Route::get('new', [UserController::class, 'createForm']);

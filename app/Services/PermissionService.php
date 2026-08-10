@@ -117,19 +117,75 @@ class PermissionService
     }
 
     /**
-     * Bakery role fallback when CRM profile files are not configured.
+     * Resolve profile module key (PascalCase) from any casing.
      */
-    protected function hasBakeryRoleAccess(string $module): bool
+    protected function resolveProfileModule(string $module): ?string
+    {
+        if (! $this->profileData) {
+            return null;
+        }
+
+        if (isset($this->profileData['modules'][$module])) {
+            return $module;
+        }
+
+        foreach (array_keys($this->profileData['modules']) as $key) {
+            if (strcasecmp((string) $key, $module) === 0) {
+                return (string) $key;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether the module appears in getAllowedModules() (legacy / UI list).
+     */
+    protected function moduleInAllowedList(string $module): bool
     {
         if (! method_exists($this->user, 'getAllowedModules')) {
             return false;
         }
 
+        $needle = strtolower($module);
         $allowed = collect($this->user->getAllowedModules())
             ->pluck('value')
             ->map(fn ($v) => strtolower((string) $v));
 
-        return $allowed->contains(strtolower($module));
+        return $allowed->contains($needle);
+    }
+
+    /**
+     * Conservative bakery fallback when CRM profile files are not configured.
+     * View is granted for allowed modules; write actions are restricted by role/module.
+     */
+    protected function hasBakeryRoleAccess(string $module, string $actionKey = 'view'): bool
+    {
+        if (! $this->moduleInAllowedList($module)) {
+            return false;
+        }
+
+        $action = strtolower($actionKey);
+        if ($action === 'view') {
+            return true;
+        }
+
+        $moduleLower = strtolower($module);
+        $role = strtolower((string) ($this->user->role ?? ''));
+
+        // Legacy warehouse-style roles: create/edit OK, delete denied by default
+        if (in_array($role, ['warehouse', 'warehouse_manager', 'manager'], true)) {
+            return in_array($action, ['create', 'edit'], true);
+        }
+
+        // Branch / POS staff: write only operational sales modules
+        $staffWriteModules = ['billing', 'branchdailyreport'];
+        if (in_array($moduleLower, $staffWriteModules, true)) {
+            return in_array($action, ['create', 'edit'], true);
+        }
+
+        // Inventory / catalog modules are view-only for generic staff
+        return false;
     }
 
     public function hasPermission(string $module, string $actionKey = 'view'): bool
@@ -139,15 +195,17 @@ class PermissionService
         }
 
         if ($this->profileData) {
-            if (! isset($this->profileData['modules'][$module]['permissions'][$actionKey])) {
-                // Fall through to bakery role if profile lacks this module
-                return $this->hasBakeryRoleAccess($module);
+            $resolved = $this->resolveProfileModule($module);
+            if ($resolved === null) {
+                // Profile assigned but module not granted — deny (do not widen via bakery list)
+                return false;
             }
 
-            return $this->profileData['modules'][$module]['permissions'][$actionKey] === 1;
+            // Explicit action bit only — missing action = deny
+            return (int) ($this->profileData['modules'][$resolved]['permissions'][$actionKey] ?? 0) === 1;
         }
 
-        return $this->hasBakeryRoleAccess($module);
+        return $this->hasBakeryRoleAccess($module, $actionKey);
     }
 
     public function canViewField(string $module, string $fieldId): bool
@@ -160,14 +218,23 @@ class PermissionService
             return true;
         }
 
-        if (!$this->profileData) {
-            return $this->hasBakeryRoleAccess($module);
+        if (! $this->hasPermission($module, 'view')) {
+            return false;
         }
 
-        $fieldSettings = $this->profileData['modules'][$module]['fields'][$fieldId] ?? null;
+        if (! $this->profileData) {
+            return true;
+        }
 
-        if (!$fieldSettings) {
-            return $this->hasBakeryRoleAccess($module);
+        $resolved = $this->resolveProfileModule($module);
+        if ($resolved === null) {
+            return false;
+        }
+
+        $fieldSettings = $this->profileData['modules'][$resolved]['fields'][$fieldId] ?? null;
+
+        if (! $fieldSettings) {
+            return true;
         }
 
         return (int) ($fieldSettings['invisible'] ?? 1) === 0;
@@ -180,17 +247,26 @@ class PermissionService
         }
 
         if ($fieldId === 'id') {
+            return false;
+        }
+
+        if (! $this->hasPermission($module, 'edit')) {
+            return false;
+        }
+
+        if (! $this->profileData) {
             return true;
         }
 
-        if (!$this->profileData) {
-            return $this->hasBakeryRoleAccess($module);
+        $resolved = $this->resolveProfileModule($module);
+        if ($resolved === null) {
+            return false;
         }
 
-        $fieldSettings = $this->profileData['modules'][$module]['fields'][$fieldId] ?? null;
+        $fieldSettings = $this->profileData['modules'][$resolved]['fields'][$fieldId] ?? null;
 
-        if (!$fieldSettings) {
-            return $this->hasBakeryRoleAccess($module);
+        if (! $fieldSettings) {
+            return true;
         }
 
         if ((int) ($fieldSettings['invisible'] ?? 1) === 1) {
@@ -198,5 +274,17 @@ class PermissionService
         }
 
         return (int) ($fieldSettings['editable'] ?? 0) === 1;
+    }
+
+    /**
+     * Deny helper for controllers — returns JSON-ready message or null if allowed.
+     */
+    public function denyMessage(string $module, string $actionKey = 'view'): ?string
+    {
+        if ($this->hasPermission($module, $actionKey)) {
+            return null;
+        }
+
+        return "You don't have permission to {$actionKey} {$module}.";
     }
 }

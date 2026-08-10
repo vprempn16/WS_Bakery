@@ -4,11 +4,11 @@ namespace App\Modules\Api\V1\BranchSales\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Api\V1\BranchSales\Models\BranchDailyReport;
-use App\Modules\Api\V1\BranchSales\Models\BranchDailyReportItem;
 use App\Modules\Api\V1\BranchSales\Requests\StoreBranchDailyReportRequest;
 use App\Modules\Api\V1\BranchSales\Resources\BranchDailyReportResource;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\Product\Models\Product;
+use App\Services\BranchAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -16,20 +16,28 @@ class BranchDailyReportController extends Controller
 {
     public function index(Request $request)
     {
-        $orgId = $request->user()->organization_id;
-        $perPage = $request->query('per_page', 20);
+        $user = $request->user();
+        $permissionService = new \App\Services\PermissionService($user);
+        if ($deny = $permissionService->denyMessage('BranchDailyReport', 'view')) {
+            return $this->error($deny, null, null, null, 403);
+        }
+
+        $orgId = $user->organization_id;
+        $perPage = \App\Support\ApiPagination::perPage($request);
 
         $query = BranchDailyReport::with(['branch', 'items.product'])
             ->where('organization_id', $orgId);
 
-        // Apply saved filter if provided
+        if ($user && !$user->isFullAdmin() && $user->branch_id) {
+            $query->where('branch_id', $user->branch_id);
+        }
+
         if ($request->has('savedFilterId')) {
             $savedFilter = \App\Modules\Api\V1\SavedFilter\Models\SavedFilter::where('organization_id', $orgId)
                 ->findOrFail($request->query('savedFilterId'));
             \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'branch_daily_reports', $savedFilter->rules);
         }
 
-        // Apply dynamic query rules if provided
         if ($request->has('rules')) {
             $rules = $request->input('rules');
             if (is_string($rules)) {
@@ -54,7 +62,12 @@ class BranchDailyReportController extends Controller
         $branchId = $values['branchId'];
         $reportDate = $values['reportDate'];
 
-        // Prevent duplicate reports for the same day
+        try {
+            BranchAccess::assertCanAccessBranch($request->user(), (string) $branchId);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
+        }
+
         $existingReport = BranchDailyReport::where('organization_id', $orgId)
             ->where('branch_id', $branchId)
             ->where('report_date', $reportDate)
@@ -71,27 +84,17 @@ class BranchDailyReportController extends Controller
             $totalWasteAmount = 0;
             $itemsData = [];
 
-            // Pre-process items, check stock, and calculate totals
+            // POS Billing is source of truth for sold qty stock.
+            // Daily report only deducts waste/returns (quantityReturned).
             foreach ($values['items'] as $item) {
                 $productId = $item['productId'];
                 $qtySold = (float) $item['quantitySold'];
                 $qtyReturned = (float) $item['quantityReturned'];
-                $totalDeduction = $qtySold + $qtyReturned;
 
-                if ($totalDeduction <= 0) continue; // Skip empty items
-
-                // 1. Validate Stock
-                $branchStock = BranchStock::where('organization_id', $orgId)
-                    ->where('branch_id', $branchId)
-                    ->where('product_id', $productId)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$branchStock || $branchStock->current_stock < $totalDeduction) {
-                    throw new \Exception("Insufficient stock at branch for Product ID: {$productId}");
+                if ($qtySold <= 0 && $qtyReturned <= 0) {
+                    continue;
                 }
 
-                // 2. Calculate Revenue/Waste based on Product price
                 $product = Product::where('organization_id', $orgId)->findOrFail($productId);
                 $unitPrice = (float) $product->price;
 
@@ -101,9 +104,21 @@ class BranchDailyReportController extends Controller
                 $totalRevenue += $subtotalRevenue;
                 $totalWasteAmount += $subtotalWaste;
 
-                // 3. Deduct Stock
-                $branchStock->current_stock -= $totalDeduction;
-                $branchStock->save();
+                // Deduct only waste/returns from branch stock
+                if ($qtyReturned > 0) {
+                    $branchStock = BranchStock::where('organization_id', $orgId)
+                        ->where('branch_id', $branchId)
+                        ->where('product_id', $productId)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (!$branchStock || (float) $branchStock->current_stock < $qtyReturned) {
+                        throw new \RuntimeException("Insufficient stock at branch for waste/return of Product ID: {$productId}");
+                    }
+
+                    $branchStock->current_stock = (float) $branchStock->current_stock - $qtyReturned;
+                    $branchStock->save();
+                }
 
                 $itemsData[] = [
                     'product_id' => $productId,
@@ -116,10 +131,9 @@ class BranchDailyReportController extends Controller
             }
 
             if (empty($itemsData)) {
-                throw new \Exception("No valid items to report.");
+                throw new \RuntimeException('No valid items to report.');
             }
 
-            // Create Report
             $report = BranchDailyReport::create([
                 'organization_id' => $orgId,
                 'branch_id' => $branchId,
@@ -131,16 +145,17 @@ class BranchDailyReportController extends Controller
                 'created_by' => $request->user()->id,
             ]);
 
-            // Create Items
             foreach ($itemsData as $data) {
                 $report->items()->create($data);
             }
 
             DB::commit();
             $report->load(['branch', 'items.product']);
-            
+
             return $this->success(new BranchDailyReportResource($report), 'Branch Daily Report submitted successfully.', 201);
-            
+        } catch (\RuntimeException $e) {
+            DB::rollBack();
+            return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Exception $e) {
             DB::rollBack();
             return $this->error('Failed to submit report: ' . $e->getMessage(), null, null, null, 500);
@@ -155,15 +170,19 @@ class BranchDailyReportController extends Controller
                 ->where('organization_id', $orgId)
                 ->findOrFail($id);
 
+            BranchAccess::assertCanAccessBranch($request->user(), (string) $report->branch_id);
+
             $resource = new BranchDailyReportResource($report);
             $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getApiFieldsForView('BranchDailyReport', 'DetailView');
-            
+
             return $this->success([
                 'fields' => $fieldList,
-                'values' => $resource->toArray(request())
+                'values' => $resource->toArray(request()),
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error('Daily Report not found.', null, null, null, 404);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
         }
     }
 }

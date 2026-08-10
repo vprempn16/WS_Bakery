@@ -23,8 +23,14 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
+        $user = AuthUser::requireUser();
+        $permissionService = new \App\Services\PermissionService($user);
+        if ($deny = $permissionService->denyMessage('Product', 'view')) {
+            return $this->error($deny, null, null, null, 403);
+        }
+
         $orgId = AuthUser::organizationId();
-        $perPage = $request->query('per_page', 20);
+        $perPage = \App\Support\ApiPagination::perPage($request);
 
         $query = Product::where('organization_id', $orgId);
 

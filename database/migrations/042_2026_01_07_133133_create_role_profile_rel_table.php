@@ -9,13 +9,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('role_profile_rel', function (Blueprint $table) {
-            $table->bigInteger('id', true)->nullable(false);
-            $table->primary('id');
+            // Use id() so SQLite does not get a duplicate PRIMARY KEY
+            $table->id();
             $table->bigInteger('role_id')->nullable();
             $table->char('organization_id', 36)->nullable();
             $table->integer('profile_id')->nullable();
-            $table->index(['role_id'], 'role_permissions_role_id_foreign');
-            $table->index(['organization_id'], 'role_permissions_organization_id_foreign');
+            $table->index(['role_id'], 'role_profile_rel_role_id_idx');
+            $table->index(['organization_id'], 'role_profile_rel_org_id_idx');
         });
     }
 

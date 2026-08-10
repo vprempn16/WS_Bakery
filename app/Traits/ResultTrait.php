@@ -91,11 +91,15 @@ trait ResultTrait
             'line' => $e->getLine(),
         ]);
 
-        $userMessage = $message
-            ? trim($message . ': ' . $e->getMessage())
-            : $e->getMessage();
+        if (app()->hasDebugModeEnabled()) {
+            $userMessage = $message
+                ? trim($message . ': ' . $e->getMessage())
+                : $e->getMessage();
 
-        return $this->error($userMessage ?: $this->genericErrorMessage);
+            return $this->error($userMessage ?: $this->genericErrorMessage);
+        }
+
+        return $this->error($message ?: $this->genericErrorMessage);
     }
 
     /**

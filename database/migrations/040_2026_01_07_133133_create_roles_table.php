@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('roles', function (Blueprint $table) {
-            $table->bigInteger('id', true)->nullable(false);
-            $table->primary('id');
+            // Use id() so SQLite does not get a duplicate PRIMARY KEY
+            $table->id();
             $table->string('name', 255)->nullable(false);
             $table->string('status', 255)->nullable(false);
             $table->text('description')->nullable();

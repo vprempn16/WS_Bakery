@@ -10,6 +10,7 @@ use App\Modules\Api\V1\Organization\Requests\UpdateOrganizationRequest;
 use App\Modules\Api\V1\Organization\Resources\OrganizationResource;
 use App\Modules\Api\V1\User\Models\User;
 use App\Services\DefaultStaffProfilesService;
+use App\Support\ApiPagination;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -50,8 +51,6 @@ class OrganizationController extends Controller
                 'password' => Hash::make($userData['password']),
             ]);
 
-            $token = $user->createToken('auth_token')->plainTextToken;
-
             app(DefaultStaffProfilesService::class)->ensureForOrganization(
                 (string) $organization->id,
                 (string) $user->id
@@ -60,46 +59,29 @@ class OrganizationController extends Controller
             return [
                 'organization' => $organization,
                 'user' => $user,
-                'token' => $token,
                 'org_id' => $organization->id,
                 'main_branch' => $mainBranch,
-                'refresh_token' => null,
             ];
         });
 
         $user = $result['user'];
         $mainBranch = $result['main_branch'];
 
+        if (\App\Services\AuthSessionService::prefersCookieSession($request)) {
+            \App\Services\AuthSessionService::loginUser($request, $user);
+            $authPayload = \App\Services\AuthSessionService::authPayload($user);
+        } else {
+            $token = $user->createToken('auth_token')->plainTextToken;
+            $authPayload = \App\Services\AuthSessionService::authPayload($user);
+            $authPayload['token'] = $token;
+        }
+
         return $this->success([
-            'token' => $result['token'],
+            'token' => $authPayload['token'],
             'refresh_token' => null,
             'org_id' => $result['org_id'],
-            'branches' => [[
-                'id' => $mainBranch->id,
-                'org_id' => $result['org_id'],
-                'name' => $mainBranch->name,
-                'address' => $mainBranch->address,
-                'phone' => $mainBranch->phone,
-                'type' => $mainBranch->type,
-            ]],
-            'user' => [
-                'id' => $user->id,
-                'first_name' => $user->first_name,
-                'last_name' => $user->last_name,
-                'name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
-                'email' => $user->email,
-                'phone_number' => $user->phone,
-                'role' => 'admin',
-                'is_admin' => true,
-                'is_active' => 1,
-                'org_id' => $result['org_id'],
-                'branch_id' => $mainBranch->id,
-                'organization' => [
-                    'id' => $result['organization']->id,
-                    'name' => $result['organization']->name,
-                ],
-                'allowed_modules' => $user->getAllowedModules(),
-            ],
+            'branches' => $authPayload['branches'],
+            'user' => $authPayload['user'],
             'organization' => $result['organization'],
         ], 'Organization created successfully.', 201);
     }
@@ -107,7 +89,12 @@ class OrganizationController extends Controller
     public function show($id)
     {
         try {
-            $organization = Organization::findOrFail($id);
+            $user = request()->user();
+            if (! $user || (string) $user->organization_id !== (string) $id) {
+                return $this->error('Unauthorized organization context.', null, null, null, 403);
+            }
+
+            $organization = Organization::where('id', $id)->firstOrFail();
             $resource = new OrganizationResource($organization);
 
             $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getApiFieldsForView('Organization', 'DetailView');
@@ -124,7 +111,16 @@ class OrganizationController extends Controller
     public function update(UpdateOrganizationRequest $request, $id)
     {
         try {
-            $organization = Organization::findOrFail($id);
+            $user = $request->user();
+            if (! $user || (string) $user->organization_id !== (string) $id) {
+                return $this->error('Unauthorized organization context.', null, null, null, 403);
+            }
+
+            if (! method_exists($user, 'isFullAdmin') || ! $user->isFullAdmin()) {
+                return $this->error('Admin access required.', null, null, null, 403);
+            }
+
+            $organization = Organization::where('id', $id)->firstOrFail();
             $values = $request->input('data.values');
 
             $organization->update([
@@ -144,7 +140,16 @@ class OrganizationController extends Controller
     public function destroy($id)
     {
         try {
-            $organization = Organization::findOrFail($id);
+            $user = request()->user();
+            if (! $user || (string) $user->organization_id !== (string) $id) {
+                return $this->error('Unauthorized organization context.', null, null, null, 403);
+            }
+
+            if (! method_exists($user, 'isFullAdmin') || ! $user->isFullAdmin()) {
+                return $this->error('Admin access required.', null, null, null, 403);
+            }
+
+            $organization = Organization::where('id', $id)->firstOrFail();
             $organization->delete();
 
             return $this->success(null, 'Organization successfully deleted.');
@@ -153,14 +158,30 @@ class OrganizationController extends Controller
         }
     }
 
+    /**
+     * Tenant-scoped search — only the caller's own organization.
+     */
     public function search(Request $request)
     {
-        $query = $request->query('query');
-        $perPage = $request->query('per_page', 20);
+        $user = $request->user();
+        if (! $user || ! $user->organization_id) {
+            return $this->error('Unauthorized organization context.', null, null, null, 403);
+        }
 
-        $results = Organization::where('name', 'like', "%{$query}%")
-            ->orWhere('email', 'like', "%{$query}%")
-            ->paginate($perPage);
+        $query = trim((string) $request->query('query', ''));
+        $perPage = ApiPagination::perPage($request);
+
+        $builder = Organization::where('id', $user->organization_id);
+
+        if ($query !== '') {
+            $like = '%' . addcslashes($query, '%_\\') . '%';
+            $builder->where(function ($q) use ($like) {
+                $q->where('name', 'like', $like)
+                    ->orWhere('email', 'like', $like);
+            });
+        }
+
+        $results = $builder->paginate($perPage);
 
         $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getApiFieldsForView('Organization', 'DetailView');
 

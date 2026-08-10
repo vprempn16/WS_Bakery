@@ -3,19 +3,18 @@
 namespace Database\Seeders;
 
 use App\Modules\Api\V1\Branch\Models\Branch;
+use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\Organization\Models\Organization;
+use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\User\Models\User;
 use App\Services\DefaultStaffProfilesService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 /**
  * Persistent seed for Playwright E2E.
- *
- * Creates ONE fixed organization + users that the E2E suite logs into every run.
- * Idempotent: safe to run repeatedly. It never re-creates records that already
- * exist, so the Playwright org/user IDs stay stable across runs.
  *
  *   php artisan db:seed --class=Database\\Seeders\\PlaywrightSeeder
  *
@@ -32,6 +31,10 @@ class PlaywrightSeeder extends Seeder
     public const SALES_EMAIL = 'e2e.sales@bk.test';
     public const PASSWORD = 'Playwright@123';
 
+    /** Weight product for POS billing E2E — keep in sync with e2e/billing.weight.spec.ts */
+    public const WEIGHT_PRODUCT_NAME = 'E2E Laddu';
+    public const WEIGHT_PRODUCT_PRICE_PER_KG = 400;
+
     public function run(): void
     {
         $organization = Organization::firstOrCreate(
@@ -44,7 +47,6 @@ class PlaywrightSeeder extends Seeder
             ]
         );
 
-        // Admin — full access (dashboard, settings, all modules).
         $admin = User::firstOrCreate(
             ['email' => self::ADMIN_EMAIL],
             [
@@ -58,36 +60,26 @@ class PlaywrightSeeder extends Seeder
             ]
         );
 
-        // Branch is a BKModel — its save pipeline resolves organization_id / created_by
-        // from the authenticated user, so act as the admin while seeding branches.
         Auth::login($admin);
 
-        // Warehouse (transfers originate here) + a retail branch (transfer destination).
-        $warehouse = Branch::firstOrCreate(
-            ['organization_id' => $organization->id, 'name' => 'Main'],
-            [
-                'type' => 'warehouse',
-                'address' => '1 Test Street, Automation City',
-                'phone' => '+911111111111',
-            ]
-        );
+        $warehouse = $this->findOrCreateBranch($organization->id, 'Main', [
+            'type' => 'warehouse',
+            'address' => '1 Test Street, Automation City',
+            'phone' => '+911111111111',
+        ]);
 
-        $retail = Branch::firstOrCreate(
-            ['organization_id' => $organization->id, 'name' => 'E2E Retail Branch'],
-            [
-                'type' => 'retail',
-                'address' => '2 Test Street, Automation City',
-                'phone' => '+912222222222',
-            ]
-        );
+        $retail = $this->findOrCreateBranch($organization->id, 'E2E Retail Branch', [
+            'type' => 'retail',
+            'address' => '2 Test Street, Automation City',
+            'phone' => '+912222222222',
+        ]);
 
         if (! $admin->branch_id) {
             $admin->branch_id = $warehouse->id;
             $admin->save();
         }
 
-        // Warehouse staff — scoped to warehouse modules (ingredients, production, transfers).
-        User::firstOrCreate(
+        $warehouseUser = User::firstOrCreate(
             ['email' => self::WAREHOUSE_EMAIL],
             [
                 'organization_id' => $organization->id,
@@ -101,8 +93,7 @@ class PlaywrightSeeder extends Seeder
             ]
         );
 
-        // Sales staff — scoped to retail branch (POS / billing / daily report).
-        User::firstOrCreate(
+        $salesUser = User::firstOrCreate(
             ['email' => self::SALES_EMAIL],
             [
                 'organization_id' => $organization->id,
@@ -116,16 +107,119 @@ class PlaywrightSeeder extends Seeder
             ]
         );
 
-        // Default staff profiles + roles (same as real org creation).
+        if ((string) $warehouseUser->branch_id !== (string) $warehouse->id) {
+            $warehouseUser->branch_id = $warehouse->id;
+            $warehouseUser->save();
+        }
+        if ((string) $salesUser->branch_id !== (string) $retail->id) {
+            $salesUser->branch_id = $retail->id;
+            $salesUser->save();
+        }
+
         app(DefaultStaffProfilesService::class)->ensureForOrganization(
             (string) $organization->id,
             (string) $admin->id
         );
+
+        $this->assignRoleToUser((string) $organization->id, $warehouseUser->id, 'Warehouse');
+        $this->assignRoleToUser((string) $organization->id, $salesUser->id, 'Sales');
+
+        $this->seedWeightProductForBilling($organization->id, $retail->id);
 
         $this->command?->info('Playwright org ready:');
         $this->command?->line("  organization_id : {$organization->id}");
         $this->command?->line("  warehouse branch: {$warehouse->id}");
         $this->command?->line("  retail branch   : {$retail->id}");
         $this->command?->line('  admin login     : ' . self::ADMIN_EMAIL . ' / ' . self::PASSWORD);
+    }
+
+    /**
+     * BKModel::fill() only maps CRM fields, so firstOrCreate drops `name`.
+     * Assign attributes directly instead.
+     */
+    private function findOrCreateBranch(string $orgId, string $name, array $attrs): Branch
+    {
+        $existing = Branch::withoutGlobalScopes()
+            ->where('organization_id', $orgId)
+            ->where('name', $name)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $branch = new Branch();
+        $branch->organization_id = $orgId;
+        $branch->name = $name;
+        foreach ($attrs as $key => $value) {
+            $branch->{$key} = $value;
+        }
+        $branch->save();
+
+        return $branch;
+    }
+
+    private function assignRoleToUser(string $orgId, string $userId, string $roleName): void
+    {
+        $role = DB::table('roles')
+            ->where('organization_id', $orgId)
+            ->where('name', $roleName)
+            ->where('deleted', 0)
+            ->first();
+
+        if (!$role) {
+            return;
+        }
+
+        $exists = DB::table('role_user_rel')
+            ->where('organization_id', $orgId)
+            ->where('user_id', $userId)
+            ->where('role_id', $role->id)
+            ->exists();
+
+        if (!$exists) {
+            DB::table('role_user_rel')->insert([
+                'role_id' => $role->id,
+                'organization_id' => $orgId,
+                'user_id' => $userId,
+            ]);
+        }
+    }
+
+    private function seedWeightProductForBilling(string $orgId, string $retailBranchId): void
+    {
+        $product = Product::withoutGlobalScopes()
+            ->where('organization_id', $orgId)
+            ->where('name', self::WEIGHT_PRODUCT_NAME)
+            ->first();
+
+        if (! $product) {
+            $product = new Product();
+            $product->organization_id = $orgId;
+            $product->name = self::WEIGHT_PRODUCT_NAME;
+            $product->price = self::WEIGHT_PRODUCT_PRICE_PER_KG;
+            $product->unit = 'gm';
+            $product->category = 'sweet';
+            $product->current_stock = 0;
+            $product->save();
+        }
+
+        $stock = BranchStock::withoutGlobalScopes()
+            ->where('organization_id', $orgId)
+            ->where('branch_id', $retailBranchId)
+            ->where('product_id', $product->id)
+            ->first();
+
+        if (! $stock) {
+            BranchStock::create([
+                'organization_id' => $orgId,
+                'branch_id' => $retailBranchId,
+                'product_id' => $product->id,
+                'current_stock' => 5000,
+            ]);
+        } elseif ((float) $stock->current_stock < 1000) {
+            $stock->current_stock = 5000;
+            $stock->save();
+        }
     }
 }
