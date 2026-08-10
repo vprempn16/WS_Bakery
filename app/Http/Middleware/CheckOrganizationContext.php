@@ -18,34 +18,52 @@ class CheckOrganizationContext
         $user = $request->user();
 
         if ($user) {
-            $userOrgId = $user->organization_id;
+            $userOrgId = (string) $user->organization_id;
 
-            // Check organizationId in request body (e.g. data.values.organizationId)
-            $bodyOrgId = $request->input('data.values.organizationId') 
+            // Body organization context
+            $bodyOrgId = $request->input('data.values.organizationId')
                 ?? $request->input('data.values.organization_id')
                 ?? $request->input('organizationId')
                 ?? $request->input('organization_id');
 
-            if ($bodyOrgId && $bodyOrgId !== $userOrgId) {
+            if ($bodyOrgId && (string) $bodyOrgId !== $userOrgId) {
                 return response()->json([
-                    'message' => 'Unauthorized organization context.'
+                    'status' => false,
+                    'message' => 'Unauthorized organization context.',
                 ], 403);
             }
 
-            // Check organizationId in query params
+            // Query organization context
             $queryOrgId = $request->query('organizationId') ?? $request->query('organization_id');
-            if ($queryOrgId && $queryOrgId !== $userOrgId) {
+            if ($queryOrgId && (string) $queryOrgId !== $userOrgId) {
                 return response()->json([
-                    'message' => 'Unauthorized organization context.'
+                    'status' => false,
+                    'message' => 'Unauthorized organization context.',
                 ], 403);
             }
 
-            // Check if viewing/updating/deleting organization directly
-            if ($request->is('api/v1/organization/*') && !$request->is('api/v1/organization/search')) {
+            // Header organization context (frontend sends X-Org-Id)
+            $headerOrgId = $request->header('X-Org-Id') ?? $request->header('X-Organization-Id');
+            if ($headerOrgId && (string) $headerOrgId !== $userOrgId) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Unauthorized organization context.',
+                ], 403);
+            }
+
+            // Direct Organization routes (PascalCase and lowercase)
+            if (
+                ($request->is('api/v1/Organization/*') || $request->is('api/v1/organization/*'))
+                && ! $request->is('api/v1/Organization/search')
+                && ! $request->is('api/v1/organization/search')
+                && ! $request->is('api/v1/Organization/new')
+                && ! $request->is('api/v1/organization/new')
+            ) {
                 $routeOrgId = $request->route('id');
-                if ($routeOrgId && $routeOrgId !== $userOrgId) {
+                if ($routeOrgId && (string) $routeOrgId !== $userOrgId) {
                     return response()->json([
-                        'message' => 'Unauthorized organization context.'
+                        'status' => false,
+                        'message' => 'Unauthorized organization context.',
                     ], 403);
                 }
             }
@@ -54,4 +72,3 @@ class CheckOrganizationContext
         return $next($request);
     }
 }
-

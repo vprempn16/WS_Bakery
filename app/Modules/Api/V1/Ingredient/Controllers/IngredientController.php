@@ -21,13 +21,13 @@ class IngredientController extends Controller
     public function index(Request $request)
     {
         $user = AuthUser::requireUser();
-        $permissionService = new PermissionService($user);
-        if (!$permissionService->hasPermission('Ingredient', 'view')) {
-            return $this->error("You don't have permission to view Ingredient.", null, null, null, 403);
+        $permissionService = new \App\Services\PermissionService($user);
+        if ($deny = $permissionService->denyMessage('Ingredient', 'view')) {
+            return $this->error($deny, null, null, null, 403);
         }
 
         $orgId = AuthUser::organizationId();
-        $perPage = $request->query('per_page', 20);
+        $perPage = \App\Support\ApiPagination::perPage($request);
 
         $query = Ingredient::where('organization_id', $orgId);
 

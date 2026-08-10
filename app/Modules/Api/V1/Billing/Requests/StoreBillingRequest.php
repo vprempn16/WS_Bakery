@@ -27,7 +27,7 @@ class StoreBillingRequest extends FormRequest
             'data.relatedRecords.items' => ['required', 'array', 'min:1'],
             'data.relatedRecords.items.*.productId' => ['required', 'exists:products,id'],
             'data.relatedRecords.items.*.quantity' => ['required', 'numeric', 'min:0.01'],
-            'data.relatedRecords.items.*.unitPrice' => ['required', 'numeric', 'min:0'],
+            'data.relatedRecords.items.*.unitPrice' => ['nullable', 'numeric', 'min:0'],
             'data.relatedRecords.items.*.unit' => ['required', 'string'],
             'data.relatedRecords.items.*.category' => ['required', 'string'],
         ];

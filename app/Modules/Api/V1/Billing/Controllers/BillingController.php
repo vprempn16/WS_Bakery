@@ -9,6 +9,7 @@ use App\Modules\Api\V1\Billing\Models\BillingItem;
 use App\Modules\Api\V1\Billing\Requests\StoreBillingRequest;
 use App\Modules\Api\V1\Billing\Requests\UpdateBillingRequest;
 use App\Modules\Api\V1\Billing\Resources\BillingResource;
+use App\Modules\Api\V1\Billing\Services\BillingPriceService;
 use App\Modules\Api\V1\Billing\Services\BillingStockService;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\Product\Models\Product;
@@ -31,7 +32,12 @@ class BillingController extends Controller
     {
         $orgId = AuthUser::organizationId();
         $user = AuthUser::user();
-        $perPage = $request->query('per_page', 20);
+        $permissionService = new \App\Services\PermissionService($user);
+        if ($deny = $permissionService->denyMessage('Billing', 'view')) {
+            return $this->error($deny, null, null, null, 403);
+        }
+
+        $perPage = \App\Support\ApiPagination::perPage($request);
 
         $query = Billing::with('branch')
             ->where('organization_id', $orgId);
@@ -87,7 +93,16 @@ class BillingController extends Controller
     public function store(StoreBillingRequest $request)
     {
         try {
-            return DB::transaction(function () use ($request) {
+            $idempotencyKey = $request->header('Idempotency-Key');
+            if ($idempotencyKey) {
+                $cacheKey = 'idempotency:billing:' . AuthUser::id() . ':' . hash('sha256', $idempotencyKey);
+                $cached = cache()->get($cacheKey);
+                if (is_array($cached)) {
+                    return response()->json($cached['body'], $cached['status']);
+                }
+            }
+
+            $response = DB::transaction(function () use ($request) {
                 $data = $request->input('data.values') ?? [];
                 $itemsData = $request->input('data.relatedRecords.items') ?? [];
                 $orgId = AuthUser::organizationId();
@@ -112,11 +127,11 @@ class BillingController extends Controller
                 }
 
                 BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $data['branchId']);
-                $this->assertProductsAccessible($itemsData);
+                $pricedItems = $this->resolveCatalogPrices($orgId, $itemsData);
 
                 // Deduct stock only for completed (paid) sales — pending/hold must not touch stock
                 if ($paymentStatus === 'paid') {
-                    $this->stockService->deductForSale($orgId, $data['branchId'], $itemsData);
+                    $this->stockService->deductForSale($orgId, $data['branchId'], $pricedItems);
                 }
 
                 /** @var Billing $billing */
@@ -124,16 +139,14 @@ class BillingController extends Controller
                 $billing->organization_id = $orgId;
                 $billing->branch_id = $data['branchId'];
                 $billing->bill_number = 'BILL-' . date('Ymd') . '-' . strtoupper(Str::random(4));
-                $billing->discount_amount = $data['discountAmount'] ?? $billing->discount_amount ?? 0;
-                $billing->tax_amount = $data['taxAmount'] ?? $billing->tax_amount ?? 0;
                 $billing->payment_method = $paymentMethodDb;
                 $billing->payment_status = $paymentStatusDb;
                 $billing->billing_date = now();
                 $billing->save();
 
                 $subTotal = 0;
-                foreach ($itemsData as $itemData) {
-                    $totalPrice = $itemData['quantity'] * $itemData['unitPrice'];
+                foreach ($pricedItems as $itemData) {
+                    $totalPrice = (float) $itemData['totalPrice'];
                     $subTotal += $totalPrice;
 
                     $item = new BillingItem();
@@ -147,8 +160,21 @@ class BillingController extends Controller
                     $item->save();
                 }
 
+                $discount = max(0, (float) ($data['discountAmount'] ?? 0));
+                $tax = max(0, (float) ($data['taxAmount'] ?? 0));
+                if ($discount > $subTotal) {
+                    throw new \RuntimeException('Discount cannot exceed subtotal.');
+                }
+                // Tax hard cap: 100% of (subtotal - discount) to block absurd client values
+                $taxable = $subTotal - $discount;
+                if ($tax > $taxable) {
+                    throw new \RuntimeException('Tax amount is unreasonably high.');
+                }
+
                 $billing->sub_total = $subTotal;
-                $billing->grand_total = ($subTotal - (float) $billing->discount_amount) + (float) $billing->tax_amount;
+                $billing->discount_amount = $discount;
+                $billing->tax_amount = $tax;
+                $billing->grand_total = ($subTotal - $discount) + $tax;
                 $billing->save();
 
                 return $this->success(
@@ -156,10 +182,20 @@ class BillingController extends Controller
                     'Bill created successfully'
                 );
             });
+
+            if ($idempotencyKey && method_exists($response, 'getStatusCode') && $response->getStatusCode() < 400) {
+                $cacheKey = 'idempotency:billing:' . AuthUser::id() . ':' . hash('sha256', $idempotencyKey);
+                cache()->put($cacheKey, [
+                    'status' => $response->getStatusCode(),
+                    'body' => $response->getData(true),
+                ], now()->addHours(24));
+            }
+
+            return $response;
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Exception $e) {
-            return $this->error('Failed to create bill: ' . $e->getMessage(), null, null, null, 500);
+            return $this->error('Failed to create bill.', null, null, null, 500);
         }
     }
 
@@ -209,7 +245,7 @@ class BillingController extends Controller
                 // Pending → paid: deduct stock now
                 if ($oldStatus === 'pending' && $newStatus === 'paid') {
                     $itemsForDeduct = is_array($itemsData)
-                        ? $itemsData
+                        ? $this->resolveCatalogPrices($orgId, $itemsData)
                         : $billing->items->map(fn ($item) => [
                             'productId' => $item->product_id,
                             'quantity' => $item->quantity,
@@ -236,14 +272,15 @@ class BillingController extends Controller
                 $subTotal = (float) $billing->sub_total;
 
                 if (is_array($itemsData)) {
-                    $this->assertProductsAccessible($itemsData);
+                    $pricedItems = $this->resolveCatalogPrices($orgId, $itemsData);
+                    $itemsData = $pricedItems;
 
                     $existingItemIds = $billing->items()->pluck('id')->toArray();
                     $newItemIds = [];
                     $subTotal = 0;
 
                     foreach ($itemsData as $itemData) {
-                        $totalPrice = $itemData['quantity'] * $itemData['unitPrice'];
+                        $totalPrice = (float) $itemData['totalPrice'];
                         $subTotal += $totalPrice;
 
                         if (isset($itemData['id']) && in_array($itemData['id'], $existingItemIds, true)) {
@@ -294,10 +331,10 @@ class BillingController extends Controller
                 }
 
                 if (isset($data['discountAmount'])) {
-                    $billing->discount_amount = $data['discountAmount'];
+                    $billing->discount_amount = max(0, (float) $data['discountAmount']);
                 }
                 if (isset($data['taxAmount'])) {
-                    $billing->tax_amount = $data['taxAmount'];
+                    $billing->tax_amount = max(0, (float) $data['taxAmount']);
                 }
                 if (isset($data['paymentMethod'])) {
                     $method = strtolower((string) $data['paymentMethod']);
@@ -315,7 +352,17 @@ class BillingController extends Controller
                     };
                 }
 
-                $billing->grand_total = ((float) $billing->sub_total - (float) $billing->discount_amount) + (float) $billing->tax_amount;
+                $subTotal = (float) $billing->sub_total;
+                $discount = (float) $billing->discount_amount;
+                $tax = (float) $billing->tax_amount;
+                if ($discount > $subTotal) {
+                    throw new \RuntimeException('Discount cannot exceed subtotal.');
+                }
+                if ($tax > max(0, $subTotal - $discount)) {
+                    throw new \RuntimeException('Tax amount is unreasonably high.');
+                }
+
+                $billing->grand_total = ($subTotal - $discount) + $tax;
                 $billing->save();
 
                 return $this->success(
@@ -328,16 +375,26 @@ class BillingController extends Controller
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Exception $e) {
-            return $this->error('Failed to update bill: ' . $e->getMessage(), null, null, null, 500);
+            return $this->error('Failed to update bill.', null, null, null, 500);
         }
     }
 
     public function getPosProducts(Request $request)
     {
+        $user = AuthUser::user();
+        $permissionService = new \App\Services\PermissionService($user);
+        if ($deny = $permissionService->denyMessage('Billing', 'view')) {
+            return $this->error($deny, null, null, null, 403);
+        }
+
         $orgId = AuthUser::organizationId();
-        $perPage = $request->query('per_page', 20);
+        $perPage = \App\Support\ApiPagination::perPage($request);
         $category = strtolower((string) $request->query('category', 'all'));
         $branchId = $request->header('X-Branch-Id') ?: $request->query('branch_id');
+
+        if ($user && ! $user->isFullAdmin() && $user->branch_id) {
+            $branchId = $user->branch_id;
+        }
 
         if ($branchId) {
             try {
@@ -416,15 +473,52 @@ class BillingController extends Controller
         return $this->success($categories, 'POS Categories retrieved successfully');
     }
 
-    private function assertProductsAccessible(array $itemsData): void
+    /**
+     * Enforce org product access and overwrite client unit prices with catalog prices.
+     *
+     * @param  array<int, array<string, mixed>>  $itemsData
+     * @return array<int, array<string, mixed>>
+     */
+    private function resolveCatalogPrices(string $orgId, array $itemsData): array
     {
-        $productIds = collect($itemsData)->pluck('productId')->filter()->unique()->values();
-        foreach ($productIds as $productId) {
+        $resolved = [];
+        foreach ($itemsData as $itemData) {
+            $productId = (string) ($itemData['productId'] ?? '');
+            if ($productId === '') {
+                throw new \RuntimeException('Product is required for each bill line.');
+            }
+
             try {
                 RecordObject::make('Product', $productId, [], 'DetailView');
             } catch (\Exception $e) {
                 throw new \RuntimeException('The selected product does not exist or access is denied.');
             }
+
+            $product = Product::where('organization_id', $orgId)->where('id', $productId)->first();
+            if (! $product) {
+                throw new \RuntimeException('The selected product does not exist or access is denied.');
+            }
+
+            $qty = (float) ($itemData['quantity'] ?? 0);
+            if ($qty <= 0) {
+                throw new \RuntimeException('Quantity must be greater than zero.');
+            }
+
+            $unit = $itemData['unit'] ?? $product->unit;
+            $catalogPrice = (float) $product->price;
+            $totalPrice = BillingPriceService::lineTotal($qty, $catalogPrice, $unit);
+
+            $resolved[] = [
+                'id' => $itemData['id'] ?? null,
+                'productId' => $productId,
+                'quantity' => $qty,
+                'unitPrice' => $catalogPrice,
+                'totalPrice' => $totalPrice,
+                'unit' => $unit,
+                'category' => $itemData['category'] ?? $product->category,
+            ];
         }
+
+        return $resolved;
     }
 }

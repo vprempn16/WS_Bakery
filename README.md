@@ -6,15 +6,19 @@ Laravel API for the BK Portal bakery ERP.
 
 - Copy `.env.example` → `.env`, generate `APP_KEY`, set `APP_ENV=production` and **`APP_DEBUG=false`**.
 - Configure `DB_*` (MySQL recommended for production; SQLite is fine for local/tests).
-- Run `php artisan migrate --force` and start a queue worker if `QUEUE_CONNECTION=database`:
+- Prefer Redis for `CACHE_STORE`, `QUEUE_CONNECTION`, and rate limiting when running multiple app instances.
+- Set `SANCTUM_TOKEN_EXPIRATION` (minutes; default 480). Tokens expire and password changes revoke all sessions.
+- Run `php artisan migrate --force` and start a queue worker if using the database/redis queue:
   `php artisan queue:work`.
-- Sanctum bearer tokens are used for SPA/API auth. Login is rate-limited (`throttle:5,1`).
+- API security: org isolation, branch scoping, module permissions, billing catalog prices, security headers, and tiered throttles are enforced in code.
+- Terminate TLS at your reverse proxy and keep `APP_URL` on HTTPS.
 - Do not expose Playwright/demo seed users in production.
+- Run dependency audits before release: `composer audit` and frontend `npm audit`.
 
 ### Tests
 
 ```bash
-php artisan test --filter='StockIntegrityTest|AuthorizationHardeningTest'
+php artisan test --filter='StockIntegrityTest|AuthorizationHardeningTest|SecurityHardeningTest'
 ```
 
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>

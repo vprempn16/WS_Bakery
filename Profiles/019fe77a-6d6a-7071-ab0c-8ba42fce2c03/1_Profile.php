@@ -6,37 +6,17 @@ return array (
   'status' => 'Active',
   'modules' => 
   array (
-    'Branch' => 
-    array (
-      'permissions' => 
-      array (
-        'view' => 1,
-        'create' => 0,
-        'edit' => 0,
-        'delete' => 0,
-      ),
-    ),
-    'BranchStock' => 
-    array (
-      'permissions' => 
-      array (
-        'view' => 1,
-        'create' => 1,
-        'edit' => 1,
-        'delete' => 0,
-      ),
-    ),
-    'BranchTransfer' => 
-    array (
-      'permissions' => 
-      array (
-        'view' => 1,
-        'create' => 1,
-        'edit' => 1,
-        'delete' => 0,
-      ),
-    ),
     'Ingredient' => 
+    array (
+      'permissions' => 
+      array (
+        'view' => 1,
+        'create' => 1,
+        'edit' => 1,
+        'delete' => 0,
+      ),
+    ),
+    'Vendor' => 
     array (
       'permissions' => 
       array (
@@ -66,16 +46,6 @@ return array (
         'delete' => 0,
       ),
     ),
-    'ProductionBatch' => 
-    array (
-      'permissions' => 
-      array (
-        'view' => 1,
-        'create' => 1,
-        'edit' => 1,
-        'delete' => 0,
-      ),
-    ),
     'Recipe' => 
     array (
       'permissions' => 
@@ -86,13 +56,43 @@ return array (
         'delete' => 0,
       ),
     ),
-    'Vendor' => 
+    'ProductionBatch' => 
     array (
       'permissions' => 
       array (
         'view' => 1,
         'create' => 1,
         'edit' => 1,
+        'delete' => 0,
+      ),
+    ),
+    'BranchStock' => 
+    array (
+      'permissions' => 
+      array (
+        'view' => 1,
+        'create' => 1,
+        'edit' => 1,
+        'delete' => 0,
+      ),
+    ),
+    'BranchTransfer' => 
+    array (
+      'permissions' => 
+      array (
+        'view' => 1,
+        'create' => 1,
+        'edit' => 1,
+        'delete' => 0,
+      ),
+    ),
+    'Branch' => 
+    array (
+      'permissions' => 
+      array (
+        'view' => 1,
+        'create' => 0,
+        'edit' => 0,
         'delete' => 0,
       ),
     ),

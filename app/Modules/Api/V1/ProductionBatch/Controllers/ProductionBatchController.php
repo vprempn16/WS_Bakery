@@ -23,8 +23,14 @@ class ProductionBatchController extends Controller
 {
     public function index(Request $request)
     {
+        $user = AuthUser::requireUser();
+        $permissionService = new \App\Services\PermissionService($user);
+        if ($deny = $permissionService->denyMessage('ProductionBatch', 'view')) {
+            return $this->error($deny, null, null, null, 403);
+        }
+
         $orgId = AuthUser::organizationId();
-        $perPage = $request->query('limit', $request->query('per_page', 20));
+        $perPage = \App\Support\ApiPagination::perPage($request);
 
         $query = ProductionBatch::where('organization_id', $orgId);
 

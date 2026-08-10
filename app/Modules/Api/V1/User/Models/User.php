@@ -70,7 +70,7 @@ class User extends Authenticatable
 
         $role = strtolower((string) ($this->role ?? ''));
 
-        if (in_array($role, ['admin', 'superadmin'], true)) {
+        if (in_array($role, ['admin', 'superadmin', 'owner'], true)) {
             return $allModules;
         }
 

@@ -24,16 +24,26 @@ class BranchTransferController extends Controller
 {
     public function index(Request $request)
     {
+        $user = AuthUser::requireUser();
+        $permissionService = new \App\Services\PermissionService($user);
+        if ($deny = $permissionService->denyMessage('BranchTransfer', 'view')) {
+            return $this->error($deny, null, null, null, 403);
+        }
+
         $orgId = AuthUser::organizationId();
-        $perPage = $request->query('per_page', 20);
+        $perPage = \App\Support\ApiPagination::perPage($request);
 
         $query = BranchTransfer::with(['branch'])
             ->withCount('items')
             ->where('organization_id', $orgId);
 
-        $query->when($request->query('branchId'), function ($q, $branchId) {
-            $q->where('branch_id', $branchId);
-        });
+        if (! $user->isFullAdmin() && $user->branch_id) {
+            $query->where('branch_id', $user->branch_id);
+        } else {
+            $query->when($request->query('branchId'), function ($q, $branchId) {
+                $q->where('branch_id', $branchId);
+            });
+        }
 
         $query->when($request->query('search'), function ($q, $search) {
             $q->where('transfer_number', 'like', "%{$search}%");

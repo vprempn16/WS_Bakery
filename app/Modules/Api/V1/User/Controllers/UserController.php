@@ -242,6 +242,7 @@ class UserController extends Controller
 
             $user->password = Hash::make((string) $values['password']);
             $user->save();
+            $user->tokens()->delete();
 
             return $this->success(null, 'Password updated successfully.');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {

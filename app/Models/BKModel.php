@@ -132,7 +132,10 @@ class BKModel extends Model
 	}
 	public function save(array $options = [])
 	{
-		Log::info("SAVE - Start for module: {$this->getModuleName()}", ['attributes' => $this->getAttributes()]);
+		Log::info("SAVE - Start for module: {$this->getModuleName()}", [
+			'id' => $this->id ?? null,
+			'organization_id' => $this->organization_id ?? null,
+		]);
 		$this->assignUuidIfNew();
 		$this->assignNumbering();
 		$this->assignDefaults();

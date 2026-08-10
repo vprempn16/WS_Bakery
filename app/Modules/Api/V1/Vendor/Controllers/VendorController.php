@@ -19,8 +19,14 @@ class VendorController extends Controller
 {
     public function index(Request $request)
     {
+        $user = AuthUser::requireUser();
+        $permissionService = new \App\Services\PermissionService($user);
+        if ($deny = $permissionService->denyMessage('Vendor', 'view')) {
+            return $this->error($deny, null, null, null, 403);
+        }
+
         $orgId = AuthUser::organizationId();
-        $perPage = $request->query('per_page', 20);
+        $perPage = \App\Support\ApiPagination::perPage($request);
 
         $query = Vendor::where('organization_id', $orgId);
 

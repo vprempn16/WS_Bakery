@@ -16,9 +16,14 @@ class BranchDailyReportController extends Controller
 {
     public function index(Request $request)
     {
-        $orgId = $request->user()->organization_id;
         $user = $request->user();
-        $perPage = $request->query('per_page', 20);
+        $permissionService = new \App\Services\PermissionService($user);
+        if ($deny = $permissionService->denyMessage('BranchDailyReport', 'view')) {
+            return $this->error($deny, null, null, null, 403);
+        }
+
+        $orgId = $user->organization_id;
+        $perPage = \App\Support\ApiPagination::perPage($request);
 
         $query = BranchDailyReport::with(['branch', 'items.product'])
             ->where('organization_id', $orgId);

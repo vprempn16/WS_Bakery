@@ -27,7 +27,7 @@ class UpdateBillingRequest extends FormRequest
             'data.relatedRecords.items.*.id' => ['nullable', 'exists:billing_items,id'],
             'data.relatedRecords.items.*.productId' => ['required_with:data.relatedRecords.items', 'exists:products,id'],
             'data.relatedRecords.items.*.quantity' => ['required_with:data.relatedRecords.items', 'numeric', 'min:0.01'],
-            'data.relatedRecords.items.*.unitPrice' => ['required_with:data.relatedRecords.items', 'numeric', 'min:0'],
+            'data.relatedRecords.items.*.unitPrice' => ['nullable', 'numeric', 'min:0'],
             'data.relatedRecords.items.*.unit' => ['required_with:data.relatedRecords.items', 'string'],
             'data.relatedRecords.items.*.category' => ['required_with:data.relatedRecords.items', 'string'],
         ];

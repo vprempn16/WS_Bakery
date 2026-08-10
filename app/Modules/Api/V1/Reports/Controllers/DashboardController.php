@@ -15,7 +15,12 @@ class DashboardController extends Controller
 {
     public function summary(Request $request)
     {
-        $orgId = $request->user()->organization_id;
+        $user = $request->user();
+        if (! $user || ! method_exists($user, 'isFullAdmin') || ! $user->isFullAdmin()) {
+            return $this->error('Admin access required.', null, null, null, 403);
+        }
+
+        $orgId = $user->organization_id;
         $today = Carbon::today();
 
         // POS Billing is the sales source of truth

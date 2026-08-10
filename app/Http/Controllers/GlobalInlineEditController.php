@@ -23,18 +23,35 @@ class GlobalInlineEditController extends Controller
         'Billing' => \App\Modules\Api\V1\Billing\Models\Billing::class,
     ];
 
-    /** Ledger / stock fields must never be mutated via inline edit. */
+    /** Ledger / stock / security / financial fields must never be mutated via inline edit. */
     private array $blockedColumns = [
         'current_stock',
         'quantity',
         'quantity_produced',
         'quantity_required',
+        'quantity_sold',
+        'quantity_returned',
         'sub_total',
         'grand_total',
         'discount_amount',
         'tax_amount',
+        'unit_price',
+        'total_price',
+        'payment_status',
+        'payment_method',
         'organization_id',
+        'branch_id',
         'password',
+        'remember_token',
+        'role',
+        'is_active',
+        'is_admin',
+        'email',
+        'price',
+        'bill_number',
+        'transfer_number',
+        'batch_number',
+        'status',
     ];
 
     public function update(Request $request, string $module, string $id)
@@ -48,7 +65,7 @@ class GlobalInlineEditController extends Controller
         $orgId = $request->user()->organization_id;
 
         $resolvedModule = ucfirst($module);
-        if (!isset($this->moduleToModelMap[$resolvedModule])) {
+        if (! isset($this->moduleToModelMap[$resolvedModule])) {
             if (isset($this->moduleToModelMap[$module])) {
                 $resolvedModule = $module;
             } else {
@@ -61,7 +78,7 @@ class GlobalInlineEditController extends Controller
 
         if (in_array($column, $this->blockedColumns, true)) {
             return $this->error(
-                "Field '{$field}' cannot be updated inline. Use the proper inventory or billing workflow.",
+                "Field '{$field}' cannot be updated inline. Use the proper workflow.",
                 null,
                 null,
                 null,
@@ -71,7 +88,12 @@ class GlobalInlineEditController extends Controller
 
         $user = $request->user();
         $permissionService = new PermissionService($user);
-        if (!$permissionService->hasPermission($resolvedModule, 'edit')) {
+        if (! $permissionService->hasPermission($resolvedModule, 'edit')) {
+            return $this->error("You don't have permission to edit {$resolvedModule}.", null, null, null, 403);
+        }
+
+        // Settings-sensitive modules: admins only via settings island, not inline
+        if (in_array($resolvedModule, ['User'], true) && (! method_exists($user, 'isFullAdmin') || ! $user->isFullAdmin())) {
             return $this->error("You don't have permission to edit {$resolvedModule}.", null, null, null, 403);
         }
 
@@ -81,11 +103,10 @@ class GlobalInlineEditController extends Controller
             return $this->error("Record not found in module '{$resolvedModule}'.", null, null, null, 404);
         }
 
-        if (!$record->isFillable($column) && !empty($record->getGuarded()) && $record->isGuarded($column)) {
+        if (! $record->isFillable($column) && ! empty($record->getGuarded()) && $record->isGuarded($column)) {
             return $this->error("Field '{$field}' is not allowed to be updated inline.", null, null, null, 403);
         }
 
-        // When $guarded = [], isFillable is always true — still block guarded-like system columns
         if (in_array($column, ['id', 'organization_id', 'created_at', 'updated_at', 'created_by', 'deleted'], true)) {
             return $this->error("Field '{$field}' is not allowed to be updated inline.", null, null, null, 403);
         }
@@ -100,7 +121,7 @@ class GlobalInlineEditController extends Controller
                 'value' => $record->$column,
             ], "Successfully updated '{$field}'.");
         } catch (\Exception $e) {
-            return $this->error('Failed to update record: ' . $e->getMessage(), null, null, null, 500);
+            return $this->error('Failed to update record.', null, null, null, 500);
         }
     }
 }

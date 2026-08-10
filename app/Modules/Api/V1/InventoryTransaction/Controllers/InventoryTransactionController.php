@@ -23,7 +23,7 @@ class InventoryTransactionController extends Controller
         }
 
         $orgId = $user->organization_id;
-        $perPage = $request->query('per_page', 20);
+        $perPage = \App\Support\ApiPagination::perPage($request);
 
         $query = InventoryTransaction::where('organization_id', $orgId);
 

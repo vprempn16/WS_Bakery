@@ -3,7 +3,9 @@
 namespace Database\Seeders;
 
 use App\Modules\Api\V1\Branch\Models\Branch;
+use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\Organization\Models\Organization;
+use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\User\Models\User;
 use App\Services\DefaultStaffProfilesService;
 use Illuminate\Database\Seeder;
@@ -28,6 +30,10 @@ class PlaywrightSeeder extends Seeder
     public const WAREHOUSE_EMAIL = 'e2e.warehouse@bk.test';
     public const SALES_EMAIL = 'e2e.sales@bk.test';
     public const PASSWORD = 'Playwright@123';
+
+    /** Weight product for POS billing E2E — keep in sync with e2e/billing.weight.spec.ts */
+    public const WEIGHT_PRODUCT_NAME = 'E2E Laddu';
+    public const WEIGHT_PRODUCT_PRICE_PER_KG = 400;
 
     public function run(): void
     {
@@ -118,6 +124,8 @@ class PlaywrightSeeder extends Seeder
         $this->assignRoleToUser((string) $organization->id, $warehouseUser->id, 'Warehouse');
         $this->assignRoleToUser((string) $organization->id, $salesUser->id, 'Sales');
 
+        $this->seedWeightProductForBilling($organization->id, $retail->id);
+
         $this->command?->info('Playwright org ready:');
         $this->command?->line("  organization_id : {$organization->id}");
         $this->command?->line("  warehouse branch: {$warehouse->id}");
@@ -175,6 +183,43 @@ class PlaywrightSeeder extends Seeder
                 'organization_id' => $orgId,
                 'user_id' => $userId,
             ]);
+        }
+    }
+
+    private function seedWeightProductForBilling(string $orgId, string $retailBranchId): void
+    {
+        $product = Product::withoutGlobalScopes()
+            ->where('organization_id', $orgId)
+            ->where('name', self::WEIGHT_PRODUCT_NAME)
+            ->first();
+
+        if (! $product) {
+            $product = new Product();
+            $product->organization_id = $orgId;
+            $product->name = self::WEIGHT_PRODUCT_NAME;
+            $product->price = self::WEIGHT_PRODUCT_PRICE_PER_KG;
+            $product->unit = 'gm';
+            $product->category = 'sweet';
+            $product->current_stock = 0;
+            $product->save();
+        }
+
+        $stock = BranchStock::withoutGlobalScopes()
+            ->where('organization_id', $orgId)
+            ->where('branch_id', $retailBranchId)
+            ->where('product_id', $product->id)
+            ->first();
+
+        if (! $stock) {
+            BranchStock::create([
+                'organization_id' => $orgId,
+                'branch_id' => $retailBranchId,
+                'product_id' => $product->id,
+                'current_stock' => 5000,
+            ]);
+        } elseif ((float) $stock->current_stock < 1000) {
+            $stock->current_stock = 5000;
+            $stock->save();
         }
     }
 }

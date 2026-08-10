@@ -18,8 +18,19 @@ class BranchController extends Controller
 {
     public function index(Request $request)
     {
+        $user = AuthUser::requireUser();
+        $permissionService = new \App\Services\PermissionService($user);
+        if ($deny = $permissionService->denyMessage('Branch', 'view')) {
+            return $this->error($deny, null, null, null, 403);
+        }
+
         $organizationId = AuthUser::organizationId();
         $query = Branch::where('organization_id', $organizationId);
+
+        // Non-admins only see their assigned branch
+        if (! $user->isFullAdmin() && $user->branch_id) {
+            $query->where('id', $user->branch_id);
+        }
 
         $query->when($request->query('search'), function ($q, $search) {
             $q->where(function ($inner) use ($search) {
@@ -45,7 +56,7 @@ class BranchController extends Controller
             }
         }
 
-        $perPage = $request->query('limit', $request->query('per_page', 20));
+        $perPage = \App\Support\ApiPagination::perPage($request);
         $branches = $query->paginate($perPage);
         $fieldList = ModuleFieldConfig::getApiFieldsForView('Branch', 'DetailView');
 
