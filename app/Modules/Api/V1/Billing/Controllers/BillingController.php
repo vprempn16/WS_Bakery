@@ -14,6 +14,7 @@ use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Services\AuthUser;
+use App\Services\BranchAccess;
 use App\Services\CRM\RecordObject;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
@@ -29,12 +30,17 @@ class BillingController extends Controller
     public function index(Request $request)
     {
         $orgId = AuthUser::organizationId();
+        $user = AuthUser::user();
         $perPage = $request->query('per_page', 20);
 
-        $billings = Billing::with('branch')
-            ->where('organization_id', $orgId)
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage);
+        $query = Billing::with('branch')
+            ->where('organization_id', $orgId);
+
+        if ($user && !$user->isFullAdmin() && $user->branch_id) {
+            $query->where('branch_id', $user->branch_id);
+        }
+
+        $billings = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         $fieldList = FieldModelManager::make('Billing', 'DetailView', false)->getApiFormFields();
 
@@ -46,6 +52,7 @@ class BillingController extends Controller
         try {
             /** @var Billing $billing */
             $billing = RecordObject::make('Billing', $id, [], 'DetailView');
+            BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $billing->branch_id);
             $billing->load(['branch', 'items.product']);
 
             $fieldList = FieldModelManager::make('Billing', 'DetailView', false)->getApiFormFields();
@@ -56,6 +63,8 @@ class BillingController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             return $this->error('Bill not found.', null, null, null, 404);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), null, null, null, 403);
         }
@@ -82,15 +91,33 @@ class BillingController extends Controller
                 $data = $request->input('data.values') ?? [];
                 $itemsData = $request->input('data.relatedRecords.items') ?? [];
                 $orgId = AuthUser::organizationId();
+                $paymentStatus = strtolower((string) ($data['paymentStatus'] ?? 'paid'));
+                $paymentMethod = strtolower((string) ($data['paymentMethod'] ?? 'cash'));
+                $paymentMethodDb = match ($paymentMethod) {
+                    'card' => 'Card',
+                    'upi' => 'UPI',
+                    default => 'Cash',
+                };
+                $paymentStatusDb = match ($paymentStatus) {
+                    'pending' => 'Pending',
+                    'cancelled' => 'Cancelled',
+                    default => 'Paid',
+                };
 
-                try {
-                    RecordObject::make('Branch', $data['branchId'], [], 'DetailView');
-                } catch (\Exception $e) {
-                    return $this->error('The selected branch does not exist or access is denied.');
+                $branch = \App\Modules\Api\V1\Branch\Models\Branch::where('organization_id', $orgId)
+                    ->where('id', $data['branchId'])
+                    ->first();
+                if (!$branch) {
+                    return $this->error('The selected branch does not exist or access is denied.', null, null, null, 403);
                 }
 
+                BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $data['branchId']);
                 $this->assertProductsAccessible($itemsData);
-                $this->stockService->deductForSale($orgId, $data['branchId'], $itemsData);
+
+                // Deduct stock only for completed (paid) sales — pending/hold must not touch stock
+                if ($paymentStatus === 'paid') {
+                    $this->stockService->deductForSale($orgId, $data['branchId'], $itemsData);
+                }
 
                 /** @var Billing $billing */
                 $billing = RecordObject::make('Billing', null, $data, 'CreateView');
@@ -99,8 +126,8 @@ class BillingController extends Controller
                 $billing->bill_number = 'BILL-' . date('Ymd') . '-' . strtoupper(Str::random(4));
                 $billing->discount_amount = $data['discountAmount'] ?? $billing->discount_amount ?? 0;
                 $billing->tax_amount = $data['taxAmount'] ?? $billing->tax_amount ?? 0;
-                $billing->payment_method = $data['paymentMethod'] ?? $billing->payment_method ?? 'cash';
-                $billing->payment_status = $data['paymentStatus'] ?? $billing->payment_status ?? 'paid';
+                $billing->payment_method = $paymentMethodDb;
+                $billing->payment_status = $paymentStatusDb;
                 $billing->billing_date = now();
                 $billing->save();
 
@@ -147,12 +174,48 @@ class BillingController extends Controller
                 /** @var Billing $billing */
                 $billing = RecordObject::make('Billing', $id, [], 'EditView');
                 $billing->load('items');
+                BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $billing->branch_id);
 
+                $oldStatus = strtolower((string) $billing->payment_status);
                 $oldBranchId = $billing->branch_id;
                 $oldItems = $billing->items->map(fn ($item) => [
                     'product_id' => $item->product_id,
                     'quantity' => $item->quantity,
                 ])->all();
+
+                if ($oldStatus === 'cancelled') {
+                    return $this->error('Cancelled bills cannot be edited.', null, null, null, 400);
+                }
+
+                $newStatus = isset($data['paymentStatus'])
+                    ? strtolower((string) $data['paymentStatus'])
+                    : $oldStatus;
+
+                // Cancel paid bill → restore stock
+                if ($newStatus === 'cancelled' && $oldStatus === 'paid') {
+                    $restoreItems = $billing->items->map(fn ($item) => [
+                        'productId' => $item->product_id,
+                        'quantity' => $item->quantity,
+                    ])->all();
+                    $this->stockService->restoreForSale($orgId, $billing->branch_id, $restoreItems);
+                    $billing->payment_status = 'Cancelled';
+                    $billing->save();
+                    return $this->success(
+                        new BillingResource($billing->load(['branch', 'items.product'])),
+                        'Bill cancelled and stock restored'
+                    );
+                }
+
+                // Pending → paid: deduct stock now
+                if ($oldStatus === 'pending' && $newStatus === 'paid') {
+                    $itemsForDeduct = is_array($itemsData)
+                        ? $itemsData
+                        : $billing->items->map(fn ($item) => [
+                            'productId' => $item->product_id,
+                            'quantity' => $item->quantity,
+                        ])->all();
+                    $this->stockService->deductForSale($orgId, $data['branchId'] ?? $billing->branch_id, $itemsForDeduct);
+                }
 
                 if (!empty($data)) {
                     $billing = RecordObject::make('Billing', $id, $data, 'EditView');
@@ -166,6 +229,7 @@ class BillingController extends Controller
                     } catch (\Exception $e) {
                         return $this->error('The selected branch does not exist or access is denied.');
                     }
+                    BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $data['branchId']);
                     $billing->branch_id = $data['branchId'];
                 }
 
@@ -215,18 +279,18 @@ class BillingController extends Controller
                         BillingItem::whereIn('id', $itemsToDelete)->delete();
                     }
 
-                    $this->stockService->reconcileSale(
-                        $orgId,
-                        $oldBranchId,
-                        $newBranchId,
-                        $oldItems,
-                        $itemsData
-                    );
+                    // Only reconcile stock when the bill is (or remains) paid
+                    if ($newStatus === 'paid' && $oldStatus === 'paid') {
+                        $this->stockService->reconcileSale(
+                            $orgId,
+                            $oldBranchId,
+                            $newBranchId,
+                            $oldItems,
+                            $itemsData
+                        );
+                    }
 
                     $billing->sub_total = $subTotal;
-                    $billing->grand_total = ($subTotal - (float) $billing->discount_amount) + (float) $billing->tax_amount;
-                } else {
-                    $billing->grand_total = ((float) $billing->sub_total - (float) $billing->discount_amount) + (float) $billing->tax_amount;
                 }
 
                 if (isset($data['discountAmount'])) {
@@ -236,10 +300,19 @@ class BillingController extends Controller
                     $billing->tax_amount = $data['taxAmount'];
                 }
                 if (isset($data['paymentMethod'])) {
-                    $billing->payment_method = $data['paymentMethod'];
+                    $method = strtolower((string) $data['paymentMethod']);
+                    $billing->payment_method = match ($method) {
+                        'card' => 'Card',
+                        'upi' => 'UPI',
+                        default => 'Cash',
+                    };
                 }
                 if (isset($data['paymentStatus'])) {
-                    $billing->payment_status = $data['paymentStatus'];
+                    $billing->payment_status = match ($newStatus) {
+                        'pending' => 'Pending',
+                        'cancelled' => 'Cancelled',
+                        default => 'Paid',
+                    };
                 }
 
                 $billing->grand_total = ((float) $billing->sub_total - (float) $billing->discount_amount) + (float) $billing->tax_amount;
@@ -266,11 +339,18 @@ class BillingController extends Controller
         $category = strtolower((string) $request->query('category', 'all'));
         $branchId = $request->header('X-Branch-Id') ?: $request->query('branch_id');
 
+        if ($branchId) {
+            try {
+                BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $branchId);
+            } catch (\RuntimeException $e) {
+                return $this->error($e->getMessage(), null, null, null, 403);
+            }
+        }
+
         $query = Product::where('organization_id', $orgId)
             ->select('id', 'name', 'price', 'unit', 'category')
             ->orderBy('name');
 
-        // "all" / "All" means no category filter
         if ($category && $category !== 'all') {
             $query->whereRaw('LOWER(category) = ?', [$category]);
         }
@@ -336,9 +416,6 @@ class BillingController extends Controller
         return $this->success($categories, 'POS Categories retrieved successfully');
     }
 
-    /**
-     * Validate each unique product once via RecordObject (bounded cart size).
-     */
     private function assertProductsAccessible(array $itemsData): void
     {
         $productIds = collect($itemsData)->pluck('productId')->filter()->unique()->values();

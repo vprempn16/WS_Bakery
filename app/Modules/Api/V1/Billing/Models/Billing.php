@@ -10,7 +10,17 @@ class Billing extends \App\Models\BKModel
 {
     use HasUuids, \App\Traits\Auditable;
 
-    protected $guarded = [];
+    protected $guarded = [
+        'id',
+        'organization_id',
+        'deleted',
+        'created_at',
+        'updated_at',
+        'created_by',
+        'sub_total',
+        'grand_total',
+        'bill_number',
+    ];
 
     protected $casts = [
         'billing_date' => 'datetime',

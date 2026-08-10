@@ -11,6 +11,7 @@ use App\Modules\Api\V1\SavedFilter\Services\QueryFilterService;
 use App\Modules\Api\V1\InventoryTransaction\Models\InventoryTransaction;
 use App\Services\AuthUser;
 use App\Services\CRM\RecordObject;
+use App\Services\PermissionService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
@@ -19,6 +20,12 @@ class IngredientController extends Controller
 {
     public function index(Request $request)
     {
+        $user = AuthUser::requireUser();
+        $permissionService = new PermissionService($user);
+        if (!$permissionService->hasPermission('Ingredient', 'view')) {
+            return $this->error("You don't have permission to view Ingredient.", null, null, null, 403);
+        }
+
         $orgId = AuthUser::organizationId();
         $perPage = $request->query('per_page', 20);
 

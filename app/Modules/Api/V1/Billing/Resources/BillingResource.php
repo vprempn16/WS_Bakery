@@ -11,6 +11,13 @@ class BillingResource extends JsonResource
     {
         $data = $this->resource->transformToApiFormat();
         $data['branchId_label'] = $this->branch ? $this->branch->name : null;
+
+        if (isset($data['paymentStatus'])) {
+            $data['paymentStatus'] = strtolower((string) $data['paymentStatus']);
+        }
+        if (isset($data['paymentMethod'])) {
+            $data['paymentMethod'] = strtolower((string) $data['paymentMethod']);
+        }
         
         $data['items'] = $this->whenLoaded('items', function () {
             return $this->items->map(function ($item) {

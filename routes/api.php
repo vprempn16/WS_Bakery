@@ -8,7 +8,8 @@ Route::prefix('v1')->group(function () {
     // 1. Publicly accessible routes (PascalCase + lowercase alias for clients)
     Route::post('Organization/new', [OrganizationController::class, 'store']);
     Route::post('organization/new', [OrganizationController::class, 'store']);
-    Route::post('auth/login', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'login']);
+    Route::post('auth/login', [\App\Modules\Api\V1\User\Controllers\AuthController::class, 'login'])
+        ->middleware('throttle:5,1');
 
     // 2. Protected routes requiring authentication AND organization context checking
     Route::middleware(['auth:sanctum', 'check.org'])->group(function () {
@@ -164,7 +165,7 @@ Route::prefix('v1')->group(function () {
          | Profile extras: modules, info?module=, repair
          |--------------------------------------------------------------------------
          */
-        Route::prefix('settings')->group(function () {
+        Route::prefix('settings')->middleware('admin')->group(function () {
             Route::prefix('User')->group(function () {
                 Route::get('', [UserController::class, 'index']);
                 Route::get('new', [UserController::class, 'createForm']);

@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('profile_module_fields')) {
+            return;
+        }
+
         Schema::create('profile_module_fields', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('profileid');

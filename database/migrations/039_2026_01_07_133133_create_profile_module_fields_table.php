@@ -10,8 +10,8 @@ return new class extends Migration
     {
         if (!Schema::hasTable('profile_module_fields')) {
             Schema::create('profile_module_fields', function (Blueprint $table) {
-                $table->bigInteger('id', true)->nullable(false);
-                $table->primary('id');
+                // Use id() so SQLite does not get a duplicate PRIMARY KEY
+                $table->id();
                 $table->integer('profileid')->nullable(false);
                 $table->char('organization_id', 36)->nullable();
                 $table->string('modulename', 100)->nullable(false);

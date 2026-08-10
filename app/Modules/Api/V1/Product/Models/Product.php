@@ -14,7 +14,8 @@ class Product extends \App\Models\BKModel
     use \App\Traits\Auditable;
     use HasFactory, HasUuids;
 
-    protected $guarded = [];
+    // Stock must only change via ProductionBatch / BranchTransfer / Billing flows.
+    protected $guarded = ['id', 'organization_id', 'deleted', 'created_at', 'updated_at', 'created_by', 'current_stock'];
 
     protected static function booted()
     {
@@ -48,18 +49,27 @@ class Product extends \App\Models\BKModel
 
         static::creating(function ($product) {
             if (empty($product->product_number)) {
-                $maxNumber = \Illuminate\Support\Facades\DB::table('products')
-                    ->whereRaw('product_number REGEXP "^[0-9]+$"')
-                    ->selectRaw('MAX(CAST(product_number AS UNSIGNED)) as max_num')
-                    ->value('max_num');
+                $driver = \Illuminate\Support\Facades\DB::getDriverName();
+                if ($driver === 'sqlite') {
+                    $maxNumber = \Illuminate\Support\Facades\DB::table('products')
+                        ->pluck('product_number')
+                        ->filter(fn ($n) => is_string($n) && preg_match('/^\d+$/', $n))
+                        ->map(fn ($n) => (int) $n)
+                        ->max();
+                } else {
+                    $maxNumber = \Illuminate\Support\Facades\DB::table('products')
+                        ->whereRaw('product_number REGEXP "^[0-9]+$"')
+                        ->selectRaw('MAX(CAST(product_number AS UNSIGNED)) as max_num')
+                        ->value('max_num');
+                }
 
-                $nextNum = $maxNumber ? (int)$maxNumber + 1 : 1;
-                
-                while (\Illuminate\Support\Facades\DB::table('products')->where('product_number', (string)$nextNum)->exists()) {
+                $nextNum = $maxNumber ? (int) $maxNumber + 1 : 1;
+
+                while (\Illuminate\Support\Facades\DB::table('products')->where('product_number', (string) $nextNum)->exists()) {
                     $nextNum++;
                 }
 
-                $product->product_number = (string)$nextNum;
+                $product->product_number = (string) $nextNum;
             }
         });
     }

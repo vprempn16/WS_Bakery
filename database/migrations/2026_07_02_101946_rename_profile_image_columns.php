@@ -36,21 +36,23 @@ return new class extends Migration
             });
         }
 
-        // Update crm_fields metadata
-        DB::table('crm_fields')
-            ->whereIn('modulename', ['Lead', 'Contact'])
-            ->where('fieldname', 'user_image')
-            ->update(['fieldname' => 'profileImage']);
+        // crm_fields is created later (2026_07_11); skip on fresh installs until then.
+        if (Schema::hasTable('crm_fields')) {
+            DB::table('crm_fields')
+                ->whereIn('modulename', ['Lead', 'Contact'])
+                ->where('fieldname', 'user_image')
+                ->update(['fieldname' => 'profileImage']);
 
-        DB::table('crm_fields')
-            ->where('modulename', 'User')
-            ->where('fieldname', 'image')
-            ->update(['fieldname' => 'profileImage']);
+            DB::table('crm_fields')
+                ->where('modulename', 'User')
+                ->where('fieldname', 'image')
+                ->update(['fieldname' => 'profileImage']);
 
-        DB::table('crm_fields')
-            ->where('modulename', 'Product')
-            ->where('fieldname', 'profile_image')
-            ->update(['fieldname' => 'profileImage']);
+            DB::table('crm_fields')
+                ->where('modulename', 'Product')
+                ->where('fieldname', 'profile_image')
+                ->update(['fieldname' => 'profileImage']);
+        }
     }
 
     /**
@@ -82,19 +84,21 @@ return new class extends Migration
             });
         }
 
-        DB::table('crm_fields')
-            ->whereIn('modulename', ['Lead', 'Contact'])
-            ->where('fieldname', 'profileImage')
-            ->update(['fieldname' => 'user_image']);
+        if (Schema::hasTable('crm_fields')) {
+            DB::table('crm_fields')
+                ->whereIn('modulename', ['Lead', 'Contact'])
+                ->where('fieldname', 'profileImage')
+                ->update(['fieldname' => 'user_image']);
 
-        DB::table('crm_fields')
-            ->where('modulename', 'User')
-            ->where('fieldname', 'profileImage')
-            ->update(['fieldname' => 'image']);
+            DB::table('crm_fields')
+                ->where('modulename', 'User')
+                ->where('fieldname', 'profileImage')
+                ->update(['fieldname' => 'image']);
 
-        DB::table('crm_fields')
-            ->where('modulename', 'Product')
-            ->where('fieldname', 'profileImage')
-            ->update(['fieldname' => 'profile_image']);
+            DB::table('crm_fields')
+                ->where('modulename', 'Product')
+                ->where('fieldname', 'profileImage')
+                ->update(['fieldname' => 'profile_image']);
+        }
     }
 };

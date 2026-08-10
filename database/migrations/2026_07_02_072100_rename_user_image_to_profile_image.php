@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -10,6 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // crm_fields is created later (2026_07_11); skip on fresh installs until then.
+        if (!Schema::hasTable('crm_fields')) {
+            return;
+        }
+
         // 1. Update User module image field
         DB::table('crm_fields')
             ->where('modulename', 'User')
@@ -40,6 +46,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (!Schema::hasTable('crm_fields')) {
+            return;
+        }
+
         // 1. Rollback User module image field
         DB::table('crm_fields')
             ->where('modulename', 'User')

@@ -55,11 +55,17 @@ class ProductNumberService
 
         if (self::isNumericForm($productNumber)) {
             $numeric = (int) $normalized;
-            $query->where(function (Builder $q) use ($normalized, $numeric) {
+            $driver = \Illuminate\Support\Facades\DB::getDriverName();
+            $query->where(function (Builder $q) use ($normalized, $numeric, $driver) {
                 $q->where('product_number', $normalized)
-                    ->orWhere(function (Builder $inner) use ($numeric) {
-                        $inner->whereRaw('product_number REGEXP "^[0-9]+$"')
-                            ->whereRaw('CAST(product_number AS UNSIGNED) = ?', [$numeric]);
+                    ->orWhere(function (Builder $inner) use ($numeric, $driver) {
+                        if ($driver === 'sqlite') {
+                            $inner->where('product_number', (string) $numeric)
+                                ->orWhere('product_number', sprintf('%0' . strlen((string) $numeric) . 'd', $numeric));
+                        } else {
+                            $inner->whereRaw('product_number REGEXP "^[0-9]+$"')
+                                ->whereRaw('CAST(product_number AS UNSIGNED) = ?', [$numeric]);
+                        }
                     });
             });
         } else {
