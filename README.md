@@ -18,7 +18,16 @@ Laravel API for the BK Portal bakery ERP.
 ### Tests
 
 ```bash
-php artisan test --filter='StockIntegrityTest|AuthorizationHardeningTest|SecurityHardeningTest'
+php artisan test --filter='StockIntegrityTest|AuthorizationHardeningTest|SecurityHardeningTest|OnSiteDemoFlowTest'
+```
+
+### On-site client demo (laptop, no server)
+
+See [`docs/ON_SITE_DEMO.md`](../../docs/ON_SITE_DEMO.md) and run from repo root:
+
+```bash
+./scripts/demo-preflight.sh   # at home
+./scripts/demo-start.sh       # at client site
 ```
 
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
