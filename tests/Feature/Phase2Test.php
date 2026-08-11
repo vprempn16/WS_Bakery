@@ -3,9 +3,6 @@
 namespace Tests\Feature;
 
 use App\Modules\Api\V1\Organization\Models\Organization;
-use App\Modules\Api\V1\Vendor\Models\Vendor;
-use App\Modules\Api\V1\Ingredient\Models\Ingredient;
-use App\Modules\Api\V1\Product\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -34,11 +31,12 @@ class Phase2Test extends TestCase
                 'values' => [
                     'organizationId' => $org->id,
                     'name' => 'Supplier A',
-                ]
-            ]
+                ],
+            ],
         ]);
         $vendorResponse->assertStatus(201);
-        $vendorId = $vendorResponse->json('data.values.id');
+        $vendorId = $vendorResponse->json('data.id');
+        $this->assertNotEmpty($vendorId);
 
         // 3. Ingredient
         $ingredientResponse = $this->postJson('/api/v1/Ingredient/new', [
@@ -48,11 +46,12 @@ class Phase2Test extends TestCase
                     'vendorId' => $vendorId,
                     'name' => 'Sugar',
                     'unit' => 'g',
-                ]
-            ]
+                ],
+            ],
         ]);
         $ingredientResponse->assertStatus(201);
-        $ingredientId = $ingredientResponse->json('data.values.id');
+        $ingredientId = $ingredientResponse->json('data.id');
+        $this->assertNotEmpty($ingredientId);
 
         // 4. Inventory Transaction (Add Stock)
         $txResponse = $this->postJson('/api/v1/InventoryTransaction/new', [
@@ -62,9 +61,9 @@ class Phase2Test extends TestCase
                     'ingredientId' => $ingredientId,
                     'type' => 'in',
                     'quantity' => 1000,
-                    'referenceNote' => 'Purchased 1kg Sugar'
-                ]
-            ]
+                    'referenceNote' => 'Purchased 1kg Sugar',
+                ],
+            ],
         ]);
         $txResponse->assertStatus(201);
 
@@ -81,25 +80,35 @@ class Phase2Test extends TestCase
                     'organizationId' => $org->id,
                     'name' => 'Sweet Bread',
                     'price' => 50,
-                ]
-            ]
+                    'unit' => 'pcs',
+                ],
+            ],
         ]);
         $productResponse->assertStatus(201);
-        $this->assertEquals('PROD1', $productResponse->json('data.values.productNumber'));
-        $productId = $productResponse->json('data.values.id');
+        $productId = $productResponse->json('data.id');
+        $this->assertNotEmpty($productId);
+        $this->assertDatabaseHas('products', [
+            'id' => $productId,
+            'product_number' => '1',
+        ]);
 
-        // Create second product to verify autoincrement sequence (PROD2)
+        // Create second product to verify autoincrement sequence
         $secondProductResponse = $this->postJson('/api/v1/Product/new', [
             'data' => [
                 'values' => [
                     'organizationId' => $org->id,
                     'name' => 'Sour Bread',
                     'price' => 60,
-                ]
-            ]
+                    'unit' => 'pcs',
+                ],
+            ],
         ]);
         $secondProductResponse->assertStatus(201);
-        $this->assertEquals('PROD2', $secondProductResponse->json('data.values.productNumber'));
+        $secondProductId = $secondProductResponse->json('data.id');
+        $this->assertDatabaseHas('products', [
+            'id' => $secondProductId,
+            'product_number' => '2',
+        ]);
 
         // 6. Recipe
         $recipeResponse = $this->postJson("/api/v1/Product/{$productId}/recipe/new", [
@@ -107,8 +116,8 @@ class Phase2Test extends TestCase
                 'values' => [
                     'ingredientId' => $ingredientId,
                     'quantityRequired' => 200, // 200g of sugar per bread
-                ]
-            ]
+                ],
+            ],
         ]);
         $recipeResponse->assertStatus(201);
 

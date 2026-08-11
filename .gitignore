@@ -25,3 +25,12 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Generated permission profile cache (rebuilt from DB via ProfileDataGeneratorService)
+/Profiles/
+
+# Local env / IDE helpers
+.env.testing
+.env.*.local
+.phpstorm.meta.php
+_ide_helper_models.php
