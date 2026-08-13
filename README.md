@@ -8,17 +8,31 @@ Laravel API for the BK Portal bakery ERP.
 - Configure `DB_*` (MySQL recommended for production; SQLite is fine for local/tests).
 - Prefer Redis for `CACHE_STORE`, `QUEUE_CONNECTION`, and rate limiting when running multiple app instances.
 - Set `SANCTUM_TOKEN_EXPIRATION` (minutes; default 480). Tokens expire and password changes revoke all sessions.
+- Set SPA origin(s) for cookie auth:
+  - `CORS_ALLOWED_ORIGINS` — full frontend origin(s), e.g. `https://portal.yourbakery.com`
+  - `SANCTUM_STATEFUL_DOMAINS` — frontend host(s), e.g. `portal.yourbakery.com`
+  - With HTTPS: `SESSION_SECURE_COOKIE=true` and `APP_URL` on HTTPS (terminate TLS at reverse proxy).
 - Run `php artisan migrate --force` and start a queue worker if using the database/redis queue:
-  `php artisan queue:work`.
+  `php artisan queue:work` (keep alive with Supervisor). Most POS/billing work is synchronous; bulk profile repair is queued (`RepairProfilesJob`).
 - API security: org isolation, branch scoping, module permissions, billing catalog prices, security headers, and tiered throttles are enforced in code.
-- Terminate TLS at your reverse proxy and keep `APP_URL` on HTTPS.
 - Do not expose Playwright/demo seed users in production.
 - Run dependency audits before release: `composer audit` and frontend `npm audit`.
+
+**Hosting / DigitalOcean sizing, domains, and queue worker explanation:** see frontend [`agent/DEPLOYMENT.md`](../../bk-frontend/agent/DEPLOYMENT.md).
 
 ### Tests
 
 ```bash
-php artisan test --filter='StockIntegrityTest|AuthorizationHardeningTest|SecurityHardeningTest'
+php artisan test --filter='StockIntegrityTest|AuthorizationHardeningTest|SecurityHardeningTest|OnSiteDemoFlowTest'
+```
+
+### On-site client demo (laptop, no server)
+
+See [`docs/ON_SITE_DEMO.md`](../../docs/ON_SITE_DEMO.md) and run from repo root:
+
+```bash
+./scripts/demo-preflight.sh   # at home
+./scripts/demo-start.sh       # at client site
 ```
 
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>

@@ -122,6 +122,13 @@ class BKModel extends Model
 					'field_name' => $fieldName,
 					'is_custom' => $field->isCustomField(),
 				]);
+			} else {
+				// API/seed payloads may include columns not registered in crm_fields yet.
+				$column = Str::snake($key);
+				if ($this->isFillable($column) && !array_key_exists($column, $standardFields)) {
+					$this->setAttribute($column, $value);
+					$standardFields[$column] = $value;
+				}
 			}
 		}
 		// Fill standard fields - empty strings should be preserved from setAttribute above

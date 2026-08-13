@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Modules\Api\V1\Organization\Models\Organization;
 use App\Modules\Api\V1\User\Models\User;
+use App\Services\DefaultStaffProfilesService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -25,15 +27,14 @@ class AuthTest extends TestCase
                         'email' => 'demoarif@example.com',
                         'phoneNumber' => '+918012033834',
                         'password' => 'Admin@123',
-                        'confirmPassword' => 'Admin@123'
-                    ]
-                ]
-            ]
+                        'confirmPassword' => 'Admin@123',
+                    ],
+                ],
+            ],
         ]);
 
-        $response->assertStatus(201);
-        dump($response->json());
-        $response->assertJsonStructure([
+        $response->assertStatus(201)
+            ->assertJsonStructure([
                 'status',
                 'message',
                 'data' => [
@@ -47,10 +48,10 @@ class AuthTest extends TestCase
                         'role',
                         'organization' => [
                             'id',
-                            'name'
-                        ]
-                    ]
-                ]
+                            'name',
+                        ],
+                    ],
+                ],
             ])
             ->assertJson([
                 'status' => true,
@@ -61,12 +62,12 @@ class AuthTest extends TestCase
                         'last_name' => 'imran1',
                         'email' => 'demoarif@example.com',
                         'phone_number' => '+918012033834',
-                        'role' => 'owner',
+                        'role' => 'admin',
                         'organization' => [
-                            'name' => 'Demo'
-                        ]
-                    ]
-                ]
+                            'name' => 'Demo',
+                        ],
+                    ],
+                ],
             ]);
 
         $this->assertDatabaseHas('organizations', [
@@ -77,7 +78,7 @@ class AuthTest extends TestCase
             'email' => 'demoarif@example.com',
             'first_name' => 'Arif',
             'last_name' => 'imran1',
-            'role' => 'owner'
+            'role' => 'admin',
         ]);
     }
 
@@ -107,8 +108,8 @@ class AuthTest extends TestCase
                         'id' => $org->id,
                         'name' => 'WS Bakery',
                         'email' => 'wsbakery12@gmail.com',
-                    ]
-                ]
+                    ],
+                ],
             ]);
     }
 
@@ -135,20 +136,18 @@ class AuthTest extends TestCase
                     'name' => 'WS Bakery Updated',
                     'description' => 'New description',
                     'email' => 'updated@gmail.com',
-                ]
-            ]
+                ],
+            ],
         ]);
 
         $response->assertStatus(200)
             ->assertJson([
                 'data' => [
-                    'values' => [
-                        'id' => $org->id,
-                        'name' => 'WS Bakery Updated',
-                        'description' => 'New description',
-                        'email' => 'updated@gmail.com',
-                    ]
-                ]
+                    'id' => $org->id,
+                    'name' => 'WS Bakery Updated',
+                    'description' => 'New description',
+                    'email' => 'updated@gmail.com',
+                ],
             ]);
     }
 
@@ -192,8 +191,7 @@ class AuthTest extends TestCase
         $response = $this->getJson('/api/v1/Organization/search?query=Bakery');
 
         $response->assertStatus(200);
-        dump($response->json());
-        $response->assertJsonCount(1, 'data');
+        $response->assertJsonCount(1, 'data.list');
     }
 
     public function test_can_create_user_and_receive_token()
@@ -210,6 +208,10 @@ class AuthTest extends TestCase
             'role' => 'admin',
             'password' => Hash::make('password'),
         ]);
+        app(DefaultStaffProfilesService::class)->ensureForOrganization((string) $org->id, (string) $admin->id);
+        $roleId = DB::table('roles')->where('organization_id', $org->id)->where('name', 'Sales')->value('id');
+        $this->assertNotNull($roleId);
+
         \Laravel\Sanctum\Sanctum::actingAs($admin);
 
         $response = $this->postJson('/api/v1/settings/User/new', [
@@ -217,48 +219,45 @@ class AuthTest extends TestCase
                 'values' => [
                     'lastName' => 'Nath',
                     'firstName' => 'Prem',
-                    'role' => 'admin',
+                    'role' => 'staff',
+                    'roleId' => $roleId,
                     'email' => 'premnath@atomlines.com',
                     'phone' => '+91-9876543210',
                     'password' => 'Prem@2828',
                     'confirmPassword' => 'Prem@2828',
                     'organizationId' => $org->id,
-                ]
-            ]
+                ],
+            ],
         ]);
 
         $response->assertStatus(201)
             ->assertJsonStructure([
                 'data' => [
-                    'values' => [
-                        'id',
-                        'firstName',
-                        'lastName',
-                        'email',
-                        'phone',
-                        'role',
-                        'organizationId',
-                        'token',
-                    ]
-                ]
+                    'id',
+                    'firstName',
+                    'lastName',
+                    'email',
+                    'phone',
+                    'role',
+                    'organizationId',
+                ],
             ])
             ->assertJson([
                 'data' => [
-                    'values' => [
-                        'firstName' => 'Prem',
-                        'lastName' => 'Nath',
-                        'email' => 'premnath@atomlines.com',
-                        'phone' => '+91-9876543210',
-                        'role' => 'admin',
-                        'organizationId' => $org->id,
-                    ]
-                ]
+                    'firstName' => 'Prem',
+                    'lastName' => 'Nath',
+                    'email' => 'premnath@atomlines.com',
+                    'phone' => '+91-9876543210',
+                    'role' => 'staff',
+                    'organizationId' => $org->id,
+                ],
             ]);
 
         $this->assertDatabaseHas('users', [
             'email' => 'premnath@atomlines.com',
             'first_name' => 'Prem',
             'last_name' => 'Nath',
+            'role' => 'staff',
         ]);
     }
 
@@ -286,8 +285,8 @@ class AuthTest extends TestCase
                         'firstName' => 'Prem',
                         'lastName' => 'Nath',
                         'email' => 'premnath@atomlines.com',
-                    ]
-                ]
+                    ],
+                ],
             ]);
     }
 
@@ -314,41 +313,47 @@ class AuthTest extends TestCase
                     'email' => 'updateduser@atomlines.com',
                     'phone' => '+91-9876543210',
                     'organizationId' => $org->id,
-                ]
-            ]
+                ],
+            ],
         ]);
 
         $response->assertStatus(200)
             ->assertJson([
                 'data' => [
-                    'values' => [
-                        'id' => $user->id,
-                        'firstName' => 'Prem Updated',
-                        'lastName' => 'Nath Updated',
-                        'email' => 'updateduser@atomlines.com',
-                    ]
-                ]
+                    'id' => $user->id,
+                    'firstName' => 'Prem Updated',
+                    'lastName' => 'Nath Updated',
+                    'email' => 'updateduser@atomlines.com',
+                ],
             ]);
     }
 
     public function test_can_delete_user()
     {
         $org = Organization::create(['name' => 'WS Bakery']);
-        $user = User::create([
+        $admin = User::create([
+            'organization_id' => $org->id,
+            'first_name' => 'Admin',
+            'last_name' => 'User',
+            'email' => 'admin@example.com',
+            'role' => 'admin',
+            'password' => Hash::make('password'),
+        ]);
+        $staff = User::create([
             'organization_id' => $org->id,
             'first_name' => 'Prem',
             'last_name' => 'Nath',
             'email' => 'premnath@atomlines.com',
-            'role' => 'admin',
+            'role' => 'staff',
             'password' => Hash::make('password'),
         ]);
 
-        \Laravel\Sanctum\Sanctum::actingAs($user);
+        \Laravel\Sanctum\Sanctum::actingAs($admin);
 
-        $response = $this->deleteJson("/api/v1/settings/User/{$user->id}");
+        $response = $this->deleteJson("/api/v1/settings/User/{$staff->id}");
 
         $response->assertStatus(200);
-        $this->assertDatabaseMissing('users', ['id' => $user->id]);
+        $this->assertDatabaseMissing('users', ['id' => $staff->id]);
     }
 
     public function test_can_list_users()
@@ -368,6 +373,6 @@ class AuthTest extends TestCase
         $response = $this->getJson('/api/v1/settings/User');
 
         $response->assertStatus(200)
-            ->assertJsonCount(1, 'data');
+            ->assertJsonCount(1, 'data.list');
     }
 }
