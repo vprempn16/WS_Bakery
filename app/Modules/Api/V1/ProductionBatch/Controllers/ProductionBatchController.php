@@ -54,7 +54,7 @@ class ProductionBatchController extends Controller
             }
         }
 
-        $batches = $query->orderBy('created_at', 'desc')->paginate($perPage);
+        $batches = $query->with('product')->orderBy('created_at', 'desc')->paginate($perPage);
         $fieldList = ModuleFieldConfig::getApiFieldsForView('ProductionBatch', 'DetailView');
 
         return $this->paginated(ProductionBatchResource::collection($batches)->resource, $fieldList);
@@ -90,25 +90,22 @@ class ProductionBatchController extends Controller
 
             $quantityProduced = (float) $values['quantityProduced'];
             $productionDate = Carbon::parse($values['productionDate']);
-
-            if ($product->shelf_life_hours > 0) {
-                $expiryTimestamp = $productionDate->copy()->addHours($product->shelf_life_hours);
-            } elseif ($product->shelf_life_days > 0) {
-                $expiryTimestamp = $productionDate->copy()->addDays($product->shelf_life_days);
-            } else {
-                $expiryTimestamp = $productionDate->copy()->addHours(12);
-            }
+            $expiryTimestamp = $this->resolveExpiryTimestamp($product, $productionDate);
 
             /** @var ProductionBatch $batch */
             $batch = RecordObject::make('ProductionBatch', null, [
                 'productId' => $product->id,
                 'quantityProduced' => $quantityProduced,
+                'pieces' => $values['pieces'] ?? null,
                 'productionDate' => $values['productionDate'],
                 'notes' => $values['notes'] ?? null,
             ], 'CreateView');
             $batch->organization_id = $orgId;
             $batch->product_id = $product->id;
             $batch->quantity_produced = $quantityProduced;
+            $batch->pieces = isset($values['pieces']) && $values['pieces'] !== ''
+                ? (int) $values['pieces']
+                : null;
             $batch->production_date = $productionDate;
             $batch->expiry_timestamp = $expiryTimestamp;
             $batch->status = 'completed';
@@ -209,13 +206,7 @@ class ProductionBatchController extends Controller
             if (isset($values['productionDate'])) {
                 $batch->production_date = Carbon::parse($values['productionDate']);
                 $product = $batch->product;
-                if ($product->shelf_life_hours > 0) {
-                    $batch->expiry_timestamp = $batch->production_date->copy()->addHours($product->shelf_life_hours);
-                } elseif ($product->shelf_life_days > 0) {
-                    $batch->expiry_timestamp = $batch->production_date->copy()->addDays($product->shelf_life_days);
-                } else {
-                    $batch->expiry_timestamp = $batch->production_date->copy()->addHours(12);
-                }
+                $batch->expiry_timestamp = $this->resolveExpiryTimestamp($product, $batch->production_date);
             }
 
             // Explicit cancel via status
@@ -303,6 +294,18 @@ class ProductionBatchController extends Controller
                 $batch->quantity_produced = $newQuantity;
             }
 
+            if (array_key_exists('pieces', $values)) {
+                if ($values['pieces'] !== null && $values['pieces'] !== '') {
+                    if (filter_var($values['pieces'], FILTER_VALIDATE_INT) === false || (int) $values['pieces'] < 0) {
+                        DB::rollBack();
+                        return $this->error('Pieces must be a whole number of zero or more.', null, null, null, 400);
+                    }
+                    $batch->pieces = (int) $values['pieces'];
+                } else {
+                    $batch->pieces = null;
+                }
+            }
+
             $batch->save();
             DB::commit();
 
@@ -350,6 +353,17 @@ class ProductionBatchController extends Controller
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         }
+    }
+
+    private function resolveExpiryTimestamp(Product $product, Carbon $productionDate): Carbon
+    {
+        $hours = (int) ($product->shelf_life ?? 0);
+        if ($hours <= 0) {
+            // Default half day when product has no shelf life set
+            $hours = 12;
+        }
+
+        return $productionDate->copy()->addHours($hours);
     }
 
     private function reverseProductionStock(ProductionBatch $batch, string $orgId, ?string $userId): void

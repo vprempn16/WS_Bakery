@@ -33,7 +33,7 @@ class BranchTransferController extends Controller
         $orgId = AuthUser::organizationId();
         $perPage = \App\Support\ApiPagination::perPage($request);
 
-        $query = BranchTransfer::with(['branch'])
+        $query = BranchTransfer::with(['branch', 'creator'])
             ->withCount('items')
             ->where('organization_id', $orgId);
 
@@ -166,8 +166,8 @@ class BranchTransferController extends Controller
                     $branchStock->current_stock = (float) $branchStock->current_stock + $quantity;
                     $branchStock->save();
 
-                    $category = strtolower((string) ($product->category ?? ''));
-                    $needsPieces = $category !== 'spices';
+                    $unit = strtolower((string) ($product->unit ?? ($itemData['unit'] ?? '')));
+                    $needsPieces = in_array($unit, ['gm', 'ml', 'pcs'], true);
 
                     $item = new BranchTransferItem();
                     $item->organization_id = $orgId;

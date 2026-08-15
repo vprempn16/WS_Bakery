@@ -49,13 +49,13 @@ class StoreBranchTransferRequest extends FormRequest
                     continue;
                 }
 
-                $category = strtolower((string) ($product->category ?? ''));
-                $needsPieces = $category !== 'spices';
+                $unit = strtolower((string) ($product->unit ?? ''));
+                $needsPieces = in_array($unit, ['gm', 'ml', 'pcs'], true);
 
                 if ($needsPieces && (!isset($item['pieces']) || $item['pieces'] === '' || $item['pieces'] === null)) {
                     $validator->errors()->add(
                         "data.relatedRecords.items.{$index}.pieces",
-                        'Pieces is required for this product category.'
+                        'Pieces is required when product unit is gm, ml, or pcs.'
                     );
                 }
             }

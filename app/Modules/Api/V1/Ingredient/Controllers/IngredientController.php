@@ -41,9 +41,13 @@ class IngredientController extends Controller
 
         $query->when($request->query('stockStatus'), function ($q, $stockStatus) {
             if ($stockStatus === 'low') {
-                $q->whereColumn('current_stock', '<', 'minimum_stock_level');
+                // At or below minimum (still has stock) — yellow threshold
+                $q->where('current_stock', '>', 0)
+                    ->whereColumn('current_stock', '<=', 'minimum_stock_level');
+            } elseif ($stockStatus === 'critical' || $stockStatus === 'out') {
+                $q->where('current_stock', '<=', 0);
             } elseif ($stockStatus === 'in_stock') {
-                $q->whereColumn('current_stock', '>=', 'minimum_stock_level');
+                $q->whereColumn('current_stock', '>', 'minimum_stock_level');
             }
         });
 
@@ -162,7 +166,10 @@ class IngredientController extends Controller
         $orgId = AuthUser::organizationId();
         $perPage = $request->query('per_page', 20);
         $ingredients = Ingredient::where('organization_id', $orgId)
-            ->whereColumn('current_stock', '<', 'minimum_stock_level')
+            ->where(function ($q) {
+                $q->where('current_stock', '<=', 0)
+                    ->orWhereColumn('current_stock', '<=', 'minimum_stock_level');
+            })
             ->paginate($perPage);
 
         $fieldList = FieldModelManager::make('Ingredient', 'DetailView', false)->getApiFormFields();

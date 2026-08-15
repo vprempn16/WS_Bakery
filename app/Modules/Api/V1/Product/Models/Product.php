@@ -21,6 +21,10 @@ class Product extends \App\Models\BKModel
         'status' => 'active',
     ];
 
+    protected $casts = [
+        'shelf_life' => 'integer',
+    ];
+
     public function isSellable(): bool
     {
         return strtolower((string) ($this->status ?? 'active')) === 'active';
@@ -42,8 +46,23 @@ class Product extends \App\Models\BKModel
                     : 'active';
             }
 
+            if ($product->unit !== null && $product->unit !== '') {
+                $u = strtolower(trim((string) $product->unit));
+                if ($u === 'g') {
+                    $u = 'gm';
+                }
+                $product->unit = $u;
+            }
+
             if ($product->product_number === null || trim((string) $product->product_number) === '') {
                 return;
+            }
+
+            // Digits only
+            if (! preg_match('/^\d+$/', trim((string) $product->product_number))) {
+                throw ValidationException::withMessages([
+                    'data.values.productNumber' => ['Product number must contain digits only (no letters).'],
+                ]);
             }
 
             $normalized = ProductNumberService::normalize((string) $product->product_number);

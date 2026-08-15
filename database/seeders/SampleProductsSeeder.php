@@ -60,7 +60,7 @@ class SampleProductsSeeder extends Seeder
                 'price' => $p['price'],
                 'unit' => $p['unit'],
                 'tier' => 'tier_2',
-                'shelf_life_days' => 5,
+                'shelf_life' => 120, // 5 Days
                 'current_stock' => 50
             ]);
         }
