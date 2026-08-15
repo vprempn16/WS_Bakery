@@ -2,13 +2,14 @@
 
 namespace App\Services;
 
+use App\Modules\Api\V1\Branch\Models\Branch;
 use App\Modules\Api\V1\User\Models\User;
 
 class BranchAccess
 {
     /**
      * Whether the user may operate on the given branch.
-     * Full admins may use any org branch; others only their assigned branch.
+     * Full admins may use any branch in their organization; others only their assigned branch.
      */
     public static function canAccessBranch(?User $user, string $branchId): bool
     {
@@ -17,7 +18,13 @@ class BranchAccess
         }
 
         if ($user->isFullAdmin()) {
-            return true;
+            if ($branchId === '') {
+                return false;
+            }
+
+            return Branch::where('organization_id', $user->organization_id)
+                ->where('id', $branchId)
+                ->exists();
         }
 
         return (string) ($user->branch_id ?? '') === (string) $branchId;

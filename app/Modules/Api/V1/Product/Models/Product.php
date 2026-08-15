@@ -17,11 +17,52 @@ class Product extends \App\Models\BKModel
     // Stock must only change via ProductionBatch / BranchTransfer / Billing flows.
     protected $guarded = ['id', 'organization_id', 'deleted', 'created_at', 'updated_at', 'created_by', 'current_stock'];
 
+    protected $attributes = [
+        'status' => 'active',
+    ];
+
+    protected $casts = [
+        'shelf_life' => 'integer',
+    ];
+
+    public function isSellable(): bool
+    {
+        return strtolower((string) ($this->status ?? 'active')) === 'active';
+    }
+
     protected static function booted()
     {
+        static::creating(function ($product) {
+            if (empty($product->status)) {
+                $product->status = 'active';
+            }
+        });
+
         static::saving(function ($product) {
+            if ($product->status !== null && $product->status !== '') {
+                $normalized = strtolower(trim((string) $product->status));
+                $product->status = in_array($normalized, ['active', 'inactive'], true)
+                    ? $normalized
+                    : 'active';
+            }
+
+            if ($product->unit !== null && $product->unit !== '') {
+                $u = strtolower(trim((string) $product->unit));
+                if ($u === 'g') {
+                    $u = 'gm';
+                }
+                $product->unit = $u;
+            }
+
             if ($product->product_number === null || trim((string) $product->product_number) === '') {
                 return;
+            }
+
+            // Digits only
+            if (! preg_match('/^\d+$/', trim((string) $product->product_number))) {
+                throw ValidationException::withMessages([
+                    'data.values.productNumber' => ['Product number must contain digits only (no letters).'],
+                ]);
             }
 
             $normalized = ProductNumberService::normalize((string) $product->product_number);

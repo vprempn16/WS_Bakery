@@ -23,6 +23,7 @@ class StoreProductionBatchRequest extends FormRequest
         return [
             'data.values.productId' => ['required', 'uuid', 'exists:products,id'],
             'data.values.quantityProduced' => ['required', 'numeric', 'min:0.01'],
+            'data.values.pieces' => ['nullable', 'integer', 'min:0'],
             'data.values.productionDate' => ['required', 'date'],
             'data.values.notes' => ['nullable', 'string'],
         ];

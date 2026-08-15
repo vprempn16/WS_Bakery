@@ -35,14 +35,25 @@ class BranchTransferController extends Controller
         $orgId = AuthUser::organizationId();
         $perPage = \App\Support\ApiPagination::perPage($request);
 
-        $query = BranchTransfer::with(['branch'])
+        $query = BranchTransfer::with(['branch', 'creator'])
             ->withCount('items')
             ->where('organization_id', $orgId);
 
-        if (! $user->isFullAdmin() && $user->branch_id) {
+        if (! $user->isFullAdmin()) {
+            if (! $user->branch_id) {
+                return $this->error('No branch assigned to this user.', null, null, null, 403);
+            }
             $query->where('branch_id', $user->branch_id);
         } else {
-            $query->when($request->query('branchId'), function ($q, $branchId) {
+            $query->when($request->query('branchId'), function ($q, $branchId) use ($user) {
+                try {
+                    BranchAccess::assertCanAccessBranch($user, (string) $branchId);
+                } catch (\RuntimeException $e) {
+                    // Leave query unfiltered only if assertion fails — prefer empty via impossible id
+                    $q->whereRaw('1 = 0');
+
+                    return;
+                }
                 $q->where('branch_id', $branchId);
             });
         }
@@ -123,6 +134,12 @@ class BranchTransferController extends Controller
                         ->lockForUpdate()
                         ->firstOrFail();
 
+                    if (! $product->isSellable()) {
+                        throw new \RuntimeException(
+                            "Product \"{$product->name}\" is inactive and cannot be transferred."
+                        );
+                    }
+
                     if ((float) $product->current_stock < $quantity) {
                         throw new \RuntimeException(
                             "Insufficient warehouse stock for {$product->name}. Available: {$product->current_stock}, requested: {$quantity}."
@@ -151,8 +168,8 @@ class BranchTransferController extends Controller
                     $branchStock->current_stock = (float) $branchStock->current_stock + $quantity;
                     $branchStock->save();
 
-                    $category = strtolower((string) ($product->category ?? ''));
-                    $needsPieces = $category !== 'spices';
+                    $unit = strtolower((string) ($product->unit ?? ($itemData['unit'] ?? '')));
+                    $needsPieces = in_array($unit, ['gm', 'ml', 'pcs'], true);
 
                     $item = new BranchTransferItem();
                     $item->organization_id = $orgId;
@@ -184,6 +201,11 @@ class BranchTransferController extends Controller
         try {
             /** @var BranchTransfer $transfer */
             $transfer = RecordObject::make('BranchTransfer', $id, [], 'DetailView');
+            try {
+                BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $transfer->branch_id);
+            } catch (\RuntimeException $e) {
+                return $this->error($e->getMessage(), null, null, null, 403);
+            }
             $transfer->load(['branch', 'items.product']);
             $resource = new BranchTransferResource($transfer);
             $fieldList = ModuleFieldConfig::getApiFieldsForView('BranchTransfer', 'DetailView');
@@ -205,6 +227,11 @@ class BranchTransferController extends Controller
             $values = $request->input('data.values') ?? [];
             /** @var BranchTransfer $transfer */
             $transfer = RecordObject::make('BranchTransfer', $id, $values, 'EditView');
+            try {
+                BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $transfer->branch_id);
+            } catch (\RuntimeException $e) {
+                return $this->error($e->getMessage(), null, null, null, 403);
+            }
 
             if (strtolower((string) $transfer->status) === 'cancelled') {
                 return $this->error('Cancelled transfers cannot be edited.', null, null, null, 400);
@@ -248,6 +275,11 @@ class BranchTransferController extends Controller
             return DB::transaction(function () use ($id) {
                 /** @var BranchTransfer $transfer */
                 $transfer = RecordObject::make('BranchTransfer', $id, [], 'EditView');
+                try {
+                    BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $transfer->branch_id);
+                } catch (\RuntimeException $e) {
+                    return $this->error($e->getMessage(), null, null, null, 403);
+                }
                 $transfer->load('items');
 
                 if (strtolower((string) $transfer->status) === 'cancelled') {

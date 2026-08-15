@@ -42,7 +42,15 @@ class GlobalSearchController extends Controller
                 'module' => 'Product',
                 'model' => \App\Modules\Api\V1\Product\Models\Product::class,
                 'searchColumns' => ['name', 'product_number'],
-                'label' => function ($r) { return $r->product_number . ' - ' . $r->name; },
+                'label' => function ($r) {
+                    $num = $r->product_number !== null && $r->product_number !== ''
+                        ? '#' . $r->product_number
+                        : null;
+                    $unit = $r->unit ? strtolower((string) $r->unit) : null;
+                    $parts = array_filter([$r->name, $num ? "({$num})" : null, $unit ? "· {$unit}" : null]);
+
+                    return implode(' ', $parts);
+                },
                 'searchText' => function ($r) { return $r->product_number . ',' . $r->name; },
             ],
             'organizationId' => [
@@ -113,12 +121,20 @@ class GlobalSearchController extends Controller
         // Empty / whitespace: browse first records (so Main branch appears without typing).
         if ($value !== '') {
             $searchValue = '%' . addcslashes($value, '%_\\') . '%';
-            $query->where(function ($q) use ($searchColumns, $searchValue) {
+            $query->where(function ($q) use ($searchColumns, $searchValue, $module, $value) {
                 foreach ($searchColumns as $index => $column) {
                     if ($index === 0) {
                         $q->where($column, 'like', $searchValue);
                     } else {
                         $q->orWhere($column, 'like', $searchValue);
+                    }
+                }
+
+                // Product #: match normalized digits so 1 / 01 / 001 hit the same product
+                if ($module === 'Product' && preg_match('/^\d+$/', $value)) {
+                    $normalized = \App\Modules\Api\V1\Product\Services\ProductNumberService::normalize($value);
+                    if ($normalized !== null) {
+                        $q->orWhere('product_number', $normalized);
                     }
                 }
             });
@@ -137,11 +153,16 @@ class GlobalSearchController extends Controller
 
         $valuesList = [];
         foreach ($records as $record) {
-            $valuesList[] = [
+            $row = [
                 'id' => $record->id,
                 'label' => $mapping['label']($record),
                 'search_text' => $mapping['searchText']($record),
             ];
+            if ($module === 'Product') {
+                $row['unit'] = $record->unit;
+                $row['productNumber'] = $record->product_number;
+            }
+            $valuesList[] = $row;
         }
 
         return $this->success([

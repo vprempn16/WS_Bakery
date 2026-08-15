@@ -57,6 +57,8 @@ Route::prefix('v1')->group(function () {
             Route::get('', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'index']);
             Route::post('new', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'store'])
                 ->middleware('throttle:writes');
+            Route::get('{id}/transfer-history', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'branchTransferHistory']);
+            Route::get('{id}/inventory', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'branchInventory']);
             Route::get('{id}', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'show']);
             Route::post('{id}', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'update'])
                 ->middleware('throttle:writes');
@@ -93,6 +95,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('Billing')->group(function () {
             Route::get('pos-products/category', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'getPosCategories']);
             Route::get('pos-products', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'getPosProducts']);
+            Route::get('drafts', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'drafts']);
             Route::get('new', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'createForm']);
             Route::get('headers', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'headerfields']);
             Route::get('{id}', [\App\Modules\Api\V1\Billing\Controllers\BillingController::class, 'show']);
@@ -122,6 +125,9 @@ Route::prefix('v1')->group(function () {
         Route::prefix('Vendor')->group(function () {
             Route::get('', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'index']);
             Route::post('new', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'store']);
+            Route::get('{id}/ingredients', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'vendorIngredients']);
+            Route::get('{id}/purchase-history', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'vendorPurchaseHistory']);
+            Route::get('{id}/contact', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'vendorContact']);
             Route::get('{id}', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'show']);
             Route::post('{id}', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'update']);
             Route::delete('{id}', [\App\Modules\Api\V1\Vendor\Controllers\VendorController::class, 'destroy']);
@@ -133,6 +139,9 @@ Route::prefix('v1')->group(function () {
             Route::get('low-stock', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'lowStock']);
             Route::post('new', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'store']);
             Route::get('{id}/usage-trend', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'usageTrend']);
+            Route::get('{id}/stock-history', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'ingredientStockHistory']);
+            Route::get('{id}/vendors', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'ingredientVendors']);
+            Route::get('{id}/usage-in-products', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'ingredientUsageInProducts']);
             Route::get('{id}', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'show']);
             Route::post('{id}', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'update']);
             Route::delete('{id}', [\App\Modules\Api\V1\Ingredient\Controllers\IngredientController::class, 'destroy']);
@@ -151,6 +160,8 @@ Route::prefix('v1')->group(function () {
             Route::get('check-product-number', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'checkProductNumber']);
             Route::post('new', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'store']);
             Route::get('{id}/sales-trend', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'salesTrend']);
+            Route::get('{id}/production-history', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'productProductionHistory']);
+            Route::get('{id}/sales-history', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'productSalesHistory']);
             Route::get('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'show']);
             Route::post('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'update']);
             Route::delete('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'destroy']);
@@ -166,6 +177,9 @@ Route::prefix('v1')->group(function () {
         Route::prefix('ProductionBatch')->group(function () {
             Route::get('', [\App\Modules\Api\V1\ProductionBatch\Controllers\ProductionBatchController::class, 'index']);
             Route::post('new', [\App\Modules\Api\V1\ProductionBatch\Controllers\ProductionBatchController::class, 'store']);
+            Route::get('{id}/ingredients-used', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'productionIngredientsUsed']);
+            Route::get('{id}/quality-summary', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'productionQualitySummary']);
+            Route::get('{id}/dispatch', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'productionDispatch']);
             Route::get('{id}', [\App\Modules\Api\V1\ProductionBatch\Controllers\ProductionBatchController::class, 'show']);
             Route::post('{id}', [\App\Modules\Api\V1\ProductionBatch\Controllers\ProductionBatchController::class, 'update']);
             Route::delete('{id}', [\App\Modules\Api\V1\ProductionBatch\Controllers\ProductionBatchController::class, 'destroy']);

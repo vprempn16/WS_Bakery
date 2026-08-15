@@ -28,7 +28,10 @@ class BranchDailyReportController extends Controller
         $query = BranchDailyReport::with(['branch', 'items.product'])
             ->where('organization_id', $orgId);
 
-        if ($user && !$user->isFullAdmin() && $user->branch_id) {
+        if ($user && ! $user->isFullAdmin()) {
+            if (! $user->branch_id) {
+                return $this->error('No branch assigned to this user.', null, null, null, 403);
+            }
             $query->where('branch_id', $user->branch_id);
         }
 
