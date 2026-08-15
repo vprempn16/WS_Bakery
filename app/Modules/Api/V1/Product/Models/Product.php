@@ -49,15 +49,19 @@ class Product extends \App\Models\BKModel
 
         static::creating(function ($product) {
             if (empty($product->product_number)) {
+                $orgId = $product->organization_id;
                 $driver = \Illuminate\Support\Facades\DB::getDriverName();
+                $base = \Illuminate\Support\Facades\DB::table('products')
+                    ->when($orgId, fn ($q) => $q->where('organization_id', $orgId));
+
                 if ($driver === 'sqlite') {
-                    $maxNumber = \Illuminate\Support\Facades\DB::table('products')
+                    $maxNumber = (clone $base)
                         ->pluck('product_number')
                         ->filter(fn ($n) => is_string($n) && preg_match('/^\d+$/', $n))
                         ->map(fn ($n) => (int) $n)
                         ->max();
                 } else {
-                    $maxNumber = \Illuminate\Support\Facades\DB::table('products')
+                    $maxNumber = (clone $base)
                         ->whereRaw('product_number REGEXP "^[0-9]+$"')
                         ->selectRaw('MAX(CAST(product_number AS UNSIGNED)) as max_num')
                         ->value('max_num');
@@ -65,7 +69,12 @@ class Product extends \App\Models\BKModel
 
                 $nextNum = $maxNumber ? (int) $maxNumber + 1 : 1;
 
-                while (\Illuminate\Support\Facades\DB::table('products')->where('product_number', (string) $nextNum)->exists()) {
+                while (
+                    \Illuminate\Support\Facades\DB::table('products')
+                        ->when($orgId, fn ($q) => $q->where('organization_id', $orgId))
+                        ->where('product_number', (string) $nextNum)
+                        ->exists()
+                ) {
                     $nextNum++;
                 }
 

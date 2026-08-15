@@ -204,6 +204,15 @@ Vendor → Ingredient (stock in via InventoryTransaction)
 - Middleware: `auth:sanctum` + `check.org`
 - Global scopes: `OrganizationScope`, `NotDeletedScope` on `BKModel` where applied
 - Never cross-org read/write
+- **Org-scoped uniqueness**: business keys that must be unique *per bakery* (e.g. `products.product_number`) MUST use a composite unique index `(organization_id, …)`, never a global unique on the key alone. Global unique breaks new-org setup when another org already used `#1`.
+- **Product numbers**: uniqueness + auto-increment are **per organization**. Migration: `2026_08_14_163600_make_product_number_unique_per_organization`. On any new project / production deploy: `php artisan migrate` so this runs. Do not reintroduce `products_product_number_unique` on `product_number` alone.
+
+### Migrations (new project + production updates)
+1. **Never edit an already-deployed migration** to change schema on live DBs — add a **new** migration instead.
+2. Fresh install / new env: pull code → configure `.env` → `php artisan migrate` (runs all pending, including uniqueness fixes).
+3. Existing production: deploy code → backup DB → `php artisan migrate` on the server (only pending migrations run).
+4. When adding multi-tenant features, double-check unique indexes and auto-number generators are org-scoped.
+5. After a migration that fixes a bug, note it here under Multi-tenant / this section so agents do not regress it.
 
 ### Roles (current bakery)
 String roles on users (`admin` / `superadmin`, `warehouse`, branch) plus Profile/Role tables. Branch users typically get Billing, BranchDailyReport, Product. Do not assume Member/technician portal unless it is implemented here.
