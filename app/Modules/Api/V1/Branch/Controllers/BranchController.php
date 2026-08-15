@@ -28,7 +28,10 @@ class BranchController extends Controller
         $query = Branch::where('organization_id', $organizationId);
 
         // Non-admins only see their assigned branch
-        if (! $user->isFullAdmin() && $user->branch_id) {
+        if (! $user->isFullAdmin()) {
+            if (! $user->branch_id) {
+                return $this->error('No branch assigned to this user.', null, null, null, 403);
+            }
             $query->where('id', $user->branch_id);
         }
 

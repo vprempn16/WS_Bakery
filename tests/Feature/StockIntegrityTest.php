@@ -210,6 +210,124 @@ class StockIntegrityTest extends TestCase
         $this->assertEquals('Cancelled', Billing::find($billId)->payment_status);
     }
 
+    public function test_paid_to_pending_to_paid_does_not_double_deduct(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        BranchStock::create([
+            'organization_id' => $this->org->id,
+            'branch_id' => $this->branch->id,
+            'product_id' => $this->product->id,
+            'current_stock' => 10,
+        ]);
+
+        $create = $this->postJson('/api/v1/Billing/new', [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->branch->id,
+                    'paymentMethod' => 'cash',
+                    'paymentStatus' => 'paid',
+                    'discountAmount' => 0,
+                    'taxAmount' => 0,
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        [
+                            'productId' => $this->product->id,
+                            'quantity' => 3,
+                            'unitPrice' => 40,
+                            'unit' => 'pcs',
+                            'category' => 'bakery',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $create->assertSuccessful();
+        $billId = $create->json('data.id') ?? $create->json('data.values.id');
+        $this->assertNotEmpty($billId);
+
+        $stock = BranchStock::where('branch_id', $this->branch->id)
+            ->where('product_id', $this->product->id)
+            ->first();
+        $this->assertEquals(7.0, (float) $stock->current_stock);
+
+        $toPending = $this->postJson("/api/v1/Billing/{$billId}", [
+            'data' => [
+                'values' => [
+                    'paymentStatus' => 'pending',
+                ],
+            ],
+        ]);
+        $toPending->assertSuccessful();
+        $this->assertEquals(10.0, (float) $stock->fresh()->current_stock);
+        $this->assertEquals('Pending', Billing::find($billId)->payment_status);
+
+        $toPaid = $this->postJson("/api/v1/Billing/{$billId}", [
+            'data' => [
+                'values' => [
+                    'paymentStatus' => 'paid',
+                ],
+            ],
+        ]);
+        $toPaid->assertSuccessful();
+        $this->assertEquals(7.0, (float) $stock->fresh()->current_stock);
+        $this->assertEquals('Paid', Billing::find($billId)->payment_status);
+    }
+
+    public function test_billing_idempotency_key_returns_same_bill(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        BranchStock::create([
+            'organization_id' => $this->org->id,
+            'branch_id' => $this->branch->id,
+            'product_id' => $this->product->id,
+            'current_stock' => 10,
+        ]);
+
+        $payload = [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->branch->id,
+                    'paymentMethod' => 'cash',
+                    'paymentStatus' => 'paid',
+                    'discountAmount' => 0,
+                    'taxAmount' => 0,
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        [
+                            'productId' => $this->product->id,
+                            'quantity' => 2,
+                            'unitPrice' => 40,
+                            'unit' => 'pcs',
+                            'category' => 'bakery',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $headers = ['Idempotency-Key' => 'test-idem-key-stock-1'];
+
+        $first = $this->postJson('/api/v1/Billing/new', $payload, $headers);
+        $first->assertSuccessful();
+        $billId = $first->json('data.id') ?? $first->json('data.values.id');
+
+        $second = $this->postJson('/api/v1/Billing/new', $payload, $headers);
+        $second->assertSuccessful();
+        $secondId = $second->json('data.id') ?? $second->json('data.values.id');
+
+        $this->assertEquals($billId, $secondId);
+        $stock = BranchStock::where('branch_id', $this->branch->id)
+            ->where('product_id', $this->product->id)
+            ->first();
+        $this->assertEquals(8.0, (float) $stock->current_stock);
+        $this->assertEquals(1, Billing::where('organization_id', $this->org->id)->count());
+    }
+
     public function test_daily_report_sold_qty_does_not_deduct_stock(): void
     {
         Sanctum::actingAs($this->admin);
@@ -272,5 +390,73 @@ class StockIntegrityTest extends TestCase
         $response->assertSuccessful();
         $this->assertEquals(80.0, (float) $this->ingredient->fresh()->current_stock);
         $this->assertEquals(2.0, (float) $this->product->fresh()->current_stock);
+    }
+
+    public function test_inactive_product_cannot_be_sold(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $this->product->status = 'inactive';
+        $this->product->save();
+
+        BranchStock::create([
+            'organization_id' => $this->org->id,
+            'branch_id' => $this->branch->id,
+            'product_id' => $this->product->id,
+            'current_stock' => 10,
+        ]);
+
+        $response = $this->postJson('/api/v1/Billing/new', [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->branch->id,
+                    'paymentMethod' => 'cash',
+                    'paymentStatus' => 'paid',
+                    'discountAmount' => 0,
+                    'taxAmount' => 0,
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        [
+                            'productId' => $this->product->id,
+                            'quantity' => 1,
+                            'unitPrice' => 40,
+                            'unit' => 'pcs',
+                            'category' => 'bakery',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(400);
+        $this->assertStringContainsString('inactive', strtolower($response->json('message') ?? ''));
+        $this->assertEquals(10.0, (float) BranchStock::where('product_id', $this->product->id)->value('current_stock'));
+    }
+
+    public function test_pos_products_exclude_inactive(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $this->product->status = 'inactive';
+        $this->product->save();
+
+        $active = new Product();
+        $active->organization_id = $this->org->id;
+        $active->name = 'Active Bun';
+        $active->price = 15;
+        $active->unit = 'pcs';
+        $active->category = 'bakery';
+        $active->status = 'active';
+        $active->current_stock = 0;
+        $active->save();
+
+        $response = $this->withHeader('X-Branch-Id', (string) $this->branch->id)
+            ->getJson('/api/v1/Billing/pos-products');
+
+        $response->assertSuccessful();
+        $ids = collect($response->json('data.list') ?? [])->pluck('id')->all();
+        $this->assertContains($active->id, $ids);
+        $this->assertNotContains($this->product->id, $ids);
     }
 }
