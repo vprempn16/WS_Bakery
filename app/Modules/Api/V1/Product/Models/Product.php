@@ -17,9 +17,31 @@ class Product extends \App\Models\BKModel
     // Stock must only change via ProductionBatch / BranchTransfer / Billing flows.
     protected $guarded = ['id', 'organization_id', 'deleted', 'created_at', 'updated_at', 'created_by', 'current_stock'];
 
+    protected $attributes = [
+        'status' => 'active',
+    ];
+
+    public function isSellable(): bool
+    {
+        return strtolower((string) ($this->status ?? 'active')) === 'active';
+    }
+
     protected static function booted()
     {
+        static::creating(function ($product) {
+            if (empty($product->status)) {
+                $product->status = 'active';
+            }
+        });
+
         static::saving(function ($product) {
+            if ($product->status !== null && $product->status !== '') {
+                $normalized = strtolower(trim((string) $product->status));
+                $product->status = in_array($normalized, ['active', 'inactive'], true)
+                    ? $normalized
+                    : 'active';
+            }
+
             if ($product->product_number === null || trim((string) $product->product_number) === '') {
                 return;
             }

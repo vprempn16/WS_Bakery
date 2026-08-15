@@ -78,6 +78,11 @@ class ProductionBatchController extends Controller
             }
             $product->load('recipes');
 
+            if (! $product->isSellable()) {
+                DB::rollBack();
+                return $this->error('Cannot produce: product is inactive. Activate it first.', null, null, null, 400);
+            }
+
             if ($product->recipes->isEmpty()) {
                 DB::rollBack();
                 return $this->error('Cannot produce: product has no recipe ingredients. Add a recipe first.', null, null, null, 400);

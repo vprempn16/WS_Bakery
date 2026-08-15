@@ -42,8 +42,19 @@ class BillingController extends Controller
         $query = Billing::with('branch')
             ->where('organization_id', $orgId);
 
-        if ($user && !$user->isFullAdmin() && $user->branch_id) {
+        if ($user && ! $user->isFullAdmin()) {
+            if (! $user->branch_id) {
+                return $this->error('No branch assigned to this user.', null, null, null, 403);
+            }
             $query->where('branch_id', $user->branch_id);
+        } elseif ($request->query('branchId')) {
+            $branchId = (string) $request->query('branchId');
+            try {
+                BranchAccess::assertCanAccessBranch($user, $branchId);
+            } catch (\RuntimeException $e) {
+                return $this->error($e->getMessage(), null, null, null, 403);
+            }
+            $query->where('branch_id', $branchId);
         }
 
         $billings = $query->orderBy('created_at', 'desc')->paginate($perPage);
@@ -88,6 +99,86 @@ class BillingController extends Controller
         $fields = FieldModelManager::make('Billing', 'DetailView', false)->getApiFormFields();
 
         return $this->success(['fields' => $fields]);
+    }
+
+    /**
+     * Pending / held POS bills for the active branch (draft drawer).
+     */
+    public function drafts(Request $request)
+    {
+        $user = AuthUser::user();
+        $permissionService = new \App\Services\PermissionService($user);
+        if ($deny = $permissionService->denyMessage('Billing', 'view')) {
+            return $this->error($deny, null, null, null, 403);
+        }
+
+        $orgId = AuthUser::organizationId();
+        $branchId = $request->header('X-Branch-Id') ?: $request->query('branch_id') ?: $request->query('branchId');
+
+        if ($user && ! $user->isFullAdmin()) {
+            if (! $user->branch_id) {
+                return $this->error('No branch assigned to this user.', null, null, null, 403);
+            }
+            $branchId = $user->branch_id;
+        }
+
+        if (! $branchId) {
+            return $this->error('Select a branch to load draft bills.', null, null, null, 422);
+        }
+
+        try {
+            BranchAccess::assertCanAccessBranch($user, (string) $branchId);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
+        }
+
+        $bills = Billing::with(['items.product'])
+            ->where('organization_id', $orgId)
+            ->where('branch_id', $branchId)
+            ->whereRaw('LOWER(payment_status) = ?', ['pending'])
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get();
+
+        $list = $bills->map(function (Billing $billing) {
+            return [
+                'id' => $billing->id,
+                'bill_number' => $billing->bill_number,
+                'billNumber' => $billing->bill_number,
+                'customer_name' => $billing->customer_name,
+                'customerName' => $billing->customer_name,
+                'customer_phone' => $billing->customer_phone,
+                'customerPhone' => $billing->customer_phone,
+                'subtotal' => (float) $billing->sub_total,
+                'tax' => (float) $billing->tax_amount,
+                'total' => (float) $billing->grand_total,
+                'status' => 'pending',
+                'paymentStatus' => 'pending',
+                'branch_id' => $billing->branch_id,
+                'branchId' => $billing->branch_id,
+                'created_at' => optional($billing->created_at)?->toIso8601String(),
+                'updated_at' => optional($billing->updated_at)?->toIso8601String(),
+                'items' => $billing->items->map(function (BillingItem $item) {
+                    return [
+                        'productId' => $item->product_id,
+                        'productName' => $item->product?->name,
+                        'price' => (float) $item->unit_price,
+                        'quantity' => (float) $item->quantity,
+                        'tax_rate' => 0,
+                        'total' => (float) $item->total_price,
+                        'unit' => $item->unit,
+                        'category' => $item->category,
+                    ];
+                })->values()->all(),
+            ];
+        })->values()->all();
+
+        return $this->success([
+            'list' => $list,
+            'meta' => [
+                'total' => count($list),
+            ],
+        ], 'Draft bills retrieved successfully');
     }
 
     public function store(StoreBillingRequest $request)
@@ -240,6 +331,15 @@ class BillingController extends Controller
                         new BillingResource($billing->load(['branch', 'items.product'])),
                         'Bill cancelled and stock restored'
                     );
+                }
+
+                // Paid → pending (re-hold): restore stock so a later pending→paid does not double-deduct
+                if ($oldStatus === 'paid' && $newStatus === 'pending') {
+                    $restoreItems = $billing->items->map(fn ($item) => [
+                        'productId' => $item->product_id,
+                        'quantity' => $item->quantity,
+                    ])->all();
+                    $this->stockService->restoreForSale($orgId, $billing->branch_id, $restoreItems);
                 }
 
                 // Pending → paid: deduct stock now
@@ -405,7 +505,8 @@ class BillingController extends Controller
         }
 
         $query = Product::where('organization_id', $orgId)
-            ->select('id', 'name', 'price', 'unit', 'category')
+            ->whereRaw('LOWER(COALESCE(status, ?)) = ?', ['active', 'active'])
+            ->select('id', 'name', 'price', 'unit', 'category', 'status')
             ->orderBy('name');
 
         if ($category && $category !== 'all') {
@@ -432,6 +533,7 @@ class BillingController extends Controller
                 'price' => (float) $item->price,
                 'unit' => $item->unit,
                 'category' => $item->category,
+                'status' => strtolower((string) ($item->status ?? 'active')) === 'inactive' ? 'inactive' : 'active',
                 'currentStock' => (float) ($stockByProduct[$item->id] ?? 0),
             ];
         });
@@ -497,6 +599,10 @@ class BillingController extends Controller
             $product = Product::where('organization_id', $orgId)->where('id', $productId)->first();
             if (! $product) {
                 throw new \RuntimeException('The selected product does not exist or access is denied.');
+            }
+
+            if (! $product->isSellable()) {
+                throw new \RuntimeException("Product \"{$product->name}\" is inactive and cannot be sold.");
             }
 
             $qty = (float) ($itemData['quantity'] ?? 0);

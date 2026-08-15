@@ -149,6 +149,17 @@ class ModuleFieldConfig
                     ['value' => 'other', 'label' => 'Other'],
                 ],
             ],
+            [
+                'fieldname' => 'status',
+                'fieldlabel' => 'Status',
+                'fieldtype' => 'picklist',
+                'displaytype' => 1,
+                'mandatory' => 1,
+                'options' => [
+                    ['value' => 'active', 'label' => 'Active'],
+                    ['value' => 'inactive', 'label' => 'Inactive'],
+                ],
+            ],
             ['fieldname' => 'shelfLifeDays', 'fieldlabel' => 'Shelf Life Days', 'fieldtype' => 'integer/number', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'shelfLifeHours', 'fieldlabel' => 'Shelf Life Hours', 'fieldtype' => 'integer/number', 'displaytype' => 1, 'mandatory' => 0],
             [

@@ -5,8 +5,10 @@ namespace App\Modules\Api\V1\Reports\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Api\V1\Billing\Models\Billing;
 use App\Modules\Api\V1\Billing\Models\BillingItem;
+use App\Modules\Api\V1\Branch\Models\Branch;
 use App\Modules\Api\V1\BranchSales\Models\BranchDailyReport;
 use App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch;
+use App\Services\BranchAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,16 +25,38 @@ class DashboardController extends Controller
         $orgId = $user->organization_id;
         $today = Carbon::today();
 
-        // POS Billing is the sales source of truth
-        $salesToday = (float) Billing::where('organization_id', $orgId)
+        $branchId = $request->header('X-Branch-Id') ?: $request->query('branch_id') ?: $request->query('branchId');
+        if ($branchId) {
+            try {
+                BranchAccess::assertCanAccessBranch($user, (string) $branchId);
+            } catch (\RuntimeException $e) {
+                return $this->error($e->getMessage(), null, null, null, 403);
+            }
+
+            // Extra org check (BranchAccess already scopes admin to org branches)
+            $exists = Branch::where('organization_id', $orgId)->where('id', $branchId)->exists();
+            if (! $exists) {
+                return $this->error('Branch not found in this organization.', null, null, null, 403);
+            }
+        }
+
+        // POS Billing is the sales source of truth (optionally branch-scoped)
+        $salesQuery = Billing::where('organization_id', $orgId)
             ->whereDate('billing_date', $today)
-            ->whereRaw('LOWER(payment_status) = ?', ['paid'])
-            ->sum('grand_total');
+            ->whereRaw('LOWER(payment_status) = ?', ['paid']);
+        if ($branchId) {
+            $salesQuery->where('branch_id', $branchId);
+        }
+        $salesToday = (float) $salesQuery->sum('grand_total');
 
-        $wasteToday = (float) BranchDailyReport::where('organization_id', $orgId)
-            ->whereDate('report_date', $today)
-            ->sum('total_waste_amount');
+        $wasteQuery = BranchDailyReport::where('organization_id', $orgId)
+            ->whereDate('report_date', $today);
+        if ($branchId) {
+            $wasteQuery->where('branch_id', $branchId);
+        }
+        $wasteToday = (float) $wasteQuery->sum('total_waste_amount');
 
+        // Production is warehouse/org-level (not per retail branch)
         $productionToday = ProductionBatch::where('organization_id', $orgId)
             ->whereDate('production_date', $today)
             ->where(function ($q) {
@@ -41,9 +65,13 @@ class DashboardController extends Controller
             ->count();
 
         $sevenDaysAgo = Carbon::today()->subDays(6);
-        $salesTrend = Billing::where('organization_id', $orgId)
+        $trendQuery = Billing::where('organization_id', $orgId)
             ->whereDate('billing_date', '>=', $sevenDaysAgo)
-            ->whereRaw('LOWER(payment_status) = ?', ['paid'])
+            ->whereRaw('LOWER(payment_status) = ?', ['paid']);
+        if ($branchId) {
+            $trendQuery->where('branch_id', $branchId);
+        }
+        $salesTrend = $trendQuery
             ->select(DB::raw('DATE(billing_date) as date'), DB::raw('SUM(grand_total) as revenue'))
             ->groupBy('date')
             ->orderBy('date', 'asc')
@@ -60,12 +88,16 @@ class DashboardController extends Controller
         }
 
         $thirtyDaysAgo = Carbon::today()->subDays(30);
-        $topProducts = BillingItem::query()
+        $topQuery = BillingItem::query()
             ->join('billings', 'billings.id', '=', 'billing_items.billing_id')
             ->join('products', 'products.id', '=', 'billing_items.product_id')
             ->where('billings.organization_id', $orgId)
             ->whereRaw('LOWER(billings.payment_status) = ?', ['paid'])
-            ->whereDate('billings.billing_date', '>=', $thirtyDaysAgo)
+            ->whereDate('billings.billing_date', '>=', $thirtyDaysAgo);
+        if ($branchId) {
+            $topQuery->where('billings.branch_id', $branchId);
+        }
+        $topProducts = $topQuery
             ->select('products.name', DB::raw('SUM(billing_items.quantity) as total_sold'))
             ->groupBy('products.id', 'products.name')
             ->orderByDesc('total_sold')
@@ -78,6 +110,7 @@ class DashboardController extends Controller
                 'wasteToday' => $wasteToday,
                 'productionBatchesToday' => $productionToday,
             ],
+            'branchId' => $branchId ? (string) $branchId : null,
             'salesTrend7Days' => $trendData,
             'topProducts30Days' => $topProducts->map(function ($item) {
                 return [

@@ -45,6 +45,13 @@ class ProductController extends Controller
             $q->where('unit', $unit);
         });
 
+        $query->when($request->query('status'), function ($q, $status) {
+            $normalized = strtolower((string) $status);
+            if (in_array($normalized, ['active', 'inactive'], true)) {
+                $q->whereRaw('LOWER(COALESCE(status, ?)) = ?', ['active', $normalized]);
+            }
+        });
+
         $query->when($request->query('stockStatus'), function ($q, $stockStatus) {
             if ($stockStatus === 'out_of_stock') {
                 $q->where('current_stock', 0);
