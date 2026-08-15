@@ -3,6 +3,8 @@
 namespace App\Modules\Api\V1\BranchTransfer\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Api\V1\Branch\Models\Branch;
+use App\Modules\Api\V1\Organization\Models\Organization;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchTransferItem;
@@ -264,6 +266,80 @@ class BranchTransferController extends Controller
             return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
+        }
+    }
+
+    
+    public function invoice($id, Request $request)
+    {
+        try {
+            /** @var BranchTransfer $transfer */
+            $transfer = RecordObject::make('BranchTransfer', $id, [], 'DetailView');
+            $transfer->load(['branch', 'items.product', 'createdBy']);
+
+            $orgId = $transfer->organization_id;
+            $org = Organization::find($orgId);
+
+            // Source Branch (Warehouse / Central Kitchen)
+            $sourceBranch = Branch::where('organization_id', $orgId)
+                ->where('type', 'warehouse')
+                ->first();
+
+            $creatorName = $transfer->createdBy
+                ? trim($transfer->createdBy->first_name . ' ' . $transfer->createdBy->last_name)
+                : 'Bakery Admin';
+
+            $itemsFormatted = $transfer->items->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'productId' => $item->product_id,
+                    'productNumber' => $item->product->product_number ?? '',
+                    'productName' => $item->product->name ?? 'Unknown Product',
+                    'category' => ucfirst($item->product->category ?? 'General'),
+                    'quantity' => (float) $item->quantity,
+                    'unit' => $item->unit ?? $item->product->unit ?? 'pcs',
+                    'pieces' => $item->pieces !== null ? (float) $item->pieces : null,
+                ];
+            });
+
+            $data = [
+                'id' => $transfer->id,
+                'transferNumber' => $transfer->transfer_number,
+                'transferDate' => $transfer->transfer_date,
+                'status' => ucfirst($transfer->status),
+                'notes' => $transfer->notes,
+                'createdAt' => $transfer->created_at?->toIso8601String(),
+                'organization' => [
+                    'name' => $org?->name ?? 'Grand Bakery WMS',
+                    'email' => $org?->email ?? 'contact@grandbakery.com',
+                    'phone' => $org?->phone ?? '+919876543210',
+                    'address' => $org?->address ?? '123 Main Bazaar Road, Bangalore, Karnataka',
+                ],
+                'fromBranch' => [
+                    'id' => $sourceBranch->id ?? null,
+                    'name' => $sourceBranch->name ?? 'Central Kitchen & Warehouse',
+                    'type' => 'warehouse',
+                    'address' => $sourceBranch->address ?? 'Plot 45 Industrial Area, Bangalore',
+                    'phone' => $sourceBranch->phone ?? '+919876543211',
+                ],
+                'toBranch' => [
+                    'id' => $transfer->branch?->id ?? null,
+                    'name' => $transfer->branch?->name ?? 'Retail Outlet',
+                    'type' => $transfer->branch?->type ?? 'retail',
+                    'address' => $transfer->branch?->address ?? '12 Commercial Street, Bangalore',
+                    'phone' => $transfer->branch?->phone ?? '+919876543212',
+                ],
+                'issuedBy' => $creatorName,
+                'items' => $itemsFormatted,
+                'totalItems' => count($itemsFormatted),
+                'totalQuantity' => (float) $itemsFormatted->sum('quantity'),
+            ];
+
+            return $this->success($data, 'Invoice generated successfully.');
+        } catch (ModelNotFoundException $e) {
+            return $this->error('Transfer record not found.', null, null, null, 404);
+        } catch (\Exception $e) {
+            return $this->error('Failed to generate invoice: ' . $e->getMessage(), null, null, null, 500);
         }
     }
 

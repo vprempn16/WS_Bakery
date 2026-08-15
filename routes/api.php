@@ -70,6 +70,7 @@ Route::prefix('v1')->group(function () {
             Route::post('new', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'store'])
                 ->middleware('throttle:writes');
             Route::get('{id}', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'show']);
+            Route::get('{id}/invoice', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'invoice']);
             Route::post('{id}', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'update'])
                 ->middleware('throttle:writes');
             Route::delete('{id}', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'destroy'])
