@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Seeds default staff Profiles + Roles for an organization:
  * - Warehouse Staff (warehouse modules)
- * - Sales Staff (POS / billing modules)
+ * - Sales Staff (POS, branch receiving / stock, and daily reporting modules)
  *
  * Admin / superadmin do not use these profiles.
  */
@@ -25,18 +25,21 @@ class DefaultStaffProfilesService
                 'Product' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'Recipe' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'ProductionBatch' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
-                'BranchStock' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+                // BranchStock is a derived ledger (transfers/billing); view only.
+                'BranchStock' => ['view' => 1, 'create' => 0, 'edit' => 0, 'delete' => 0],
                 'BranchTransfer' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'Branch' => ['view' => 1, 'create' => 0, 'edit' => 0, 'delete' => 0],
             ],
         ],
         'Sales Staff' => [
-            'description' => 'Default sales / POS profile — billing, product view, branch stock, daily report.',
+            'description' => 'Default sub-branch profile — billing, product view, incoming transfers, branch stock, daily report.',
             'modules' => [
                 'Billing' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'Product' => ['view' => 1, 'create' => 0, 'edit' => 0, 'delete' => 0],
+                'BranchTransfer' => ['view' => 1, 'create' => 0, 'edit' => 0, 'delete' => 0],
                 'BranchStock' => ['view' => 1, 'create' => 0, 'edit' => 0, 'delete' => 0],
-                'BranchDailyReport' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+                // Reports are generated once per day from POS; no edit/delete API.
+                'BranchDailyReport' => ['view' => 1, 'create' => 1, 'edit' => 0, 'delete' => 0],
             ],
         ],
     ];

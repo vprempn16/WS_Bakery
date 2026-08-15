@@ -259,6 +259,12 @@ class AuthTest extends TestCase
             'last_name' => 'Nath',
             'role' => 'staff',
         ]);
+
+        $salesUser = User::where('email', 'premnath@atomlines.com')->firstOrFail();
+        $allowedModules = collect($salesUser->getAllowedModules())->pluck('value');
+        $this->assertContains('branchtransfer', $allowedModules);
+        $this->assertContains('branchstock', $allowedModules);
+        $this->assertContains('branchdailyreport', $allowedModules);
     }
 
     public function test_can_get_user_by_id()

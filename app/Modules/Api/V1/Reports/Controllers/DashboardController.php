@@ -25,7 +25,7 @@ class DashboardController extends Controller
         $orgId = $user->organization_id;
         $today = Carbon::today();
 
-        $branchId = $request->header('X-Branch-Id') ?: $request->query('branch_id') ?: $request->query('branchId');
+        $branchId = BranchAccess::resolveBranchIdFromRequest($request, $user);
         if ($branchId) {
             try {
                 BranchAccess::assertCanAccessBranch($user, (string) $branchId);

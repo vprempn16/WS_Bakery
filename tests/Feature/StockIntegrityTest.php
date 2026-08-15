@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Modules\Api\V1\Billing\Models\Billing;
+use App\Modules\Api\V1\Billing\Models\BillingItem;
 use App\Modules\Api\V1\Branch\Models\Branch;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\Ingredient\Models\Ingredient;
@@ -328,6 +329,77 @@ class StockIntegrityTest extends TestCase
         $this->assertEquals(1, Billing::where('organization_id', $this->org->id)->count());
     }
 
+    public function test_update_idempotency_key_prevents_double_pay_of_draft(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        BranchStock::create([
+            'organization_id' => $this->org->id,
+            'branch_id' => $this->branch->id,
+            'product_id' => $this->product->id,
+            'current_stock' => 10,
+        ]);
+
+        $create = $this->postJson('/api/v1/Billing/new', [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->branch->id,
+                    'paymentMethod' => 'cash',
+                    'paymentStatus' => 'pending',
+                    'discountAmount' => 0,
+                    'taxAmount' => 0,
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        [
+                            'productId' => $this->product->id,
+                            'quantity' => 2,
+                            'unitPrice' => 40,
+                            'unit' => 'pcs',
+                            'category' => 'bakery',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        $create->assertSuccessful();
+        $billId = $create->json('data.id') ?? $create->json('data.values.id');
+        $this->assertEquals(10.0, (float) BranchStock::where('product_id', $this->product->id)->value('current_stock'));
+
+        $payPayload = [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->branch->id,
+                    'paymentMethod' => 'cash',
+                    'paymentStatus' => 'paid',
+                    'discountAmount' => 0,
+                    'taxAmount' => 0,
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        [
+                            'productId' => $this->product->id,
+                            'quantity' => 2,
+                            'unitPrice' => 40,
+                            'unit' => 'pcs',
+                            'category' => 'bakery',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+        $headers = ['Idempotency-Key' => 'pay-draft-idem-1'];
+
+        $first = $this->postJson("/api/v1/Billing/{$billId}", $payPayload, $headers);
+        $first->assertSuccessful();
+        $this->assertEquals(8.0, (float) BranchStock::where('product_id', $this->product->id)->value('current_stock'));
+
+        $second = $this->postJson("/api/v1/Billing/{$billId}", $payPayload, $headers);
+        $second->assertSuccessful();
+        $this->assertEquals(8.0, (float) BranchStock::where('product_id', $this->product->id)->value('current_stock'));
+        $this->assertEquals('Paid', Billing::find($billId)->payment_status);
+    }
+
     public function test_daily_report_sold_qty_does_not_deduct_stock(): void
     {
         Sanctum::actingAs($this->admin);
@@ -365,6 +437,59 @@ class StockIntegrityTest extends TestCase
         } else {
             $this->assertTrue(true, 'Daily report create unavailable in test DB; stock path covered by billing tests.');
         }
+    }
+
+    public function test_daily_report_generates_items_from_paid_pos_sales(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $bill = new Billing();
+        $bill->organization_id = $this->org->id;
+        $bill->branch_id = $this->branch->id;
+        $bill->bill_number = 'BILL-REPORT-001';
+        $bill->payment_status = 'Paid';
+        $bill->payment_method = 'Cash';
+        $bill->billing_date = now();
+        $bill->sub_total = 80;
+        $bill->grand_total = 80;
+        $bill->save();
+
+        BillingItem::create([
+            'billing_id' => $bill->id,
+            'product_id' => $this->product->id,
+            'quantity' => 2,
+            'unit_price' => 40,
+            'total_price' => 80,
+            'unit' => 'pcs',
+            'category' => 'bakery',
+        ]);
+
+        $response = $this
+            ->withHeader('X-Branch-Id', (string) $this->branch->id)
+            ->postJson('/api/v1/BranchDailyReport/new', [
+                'data' => [
+                    'values' => [
+                        'reportDate' => now()->toDateString(),
+                    ],
+                ],
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.totalRevenue', 80)
+            ->assertJsonPath('data.items.0.productId', $this->product->id)
+            ->assertJsonPath('data.items.0.quantitySold', 2);
+
+        $today = now()->toDateString();
+        $this->withHeader('X-Branch-Id', (string) $this->branch->id)
+            ->getJson("/api/v1/BranchDailyReport?dateFrom={$today}&dateTo={$today}")
+            ->assertSuccessful()
+            ->assertJsonPath('data.meta.total', 1);
+
+        $tomorrow = now()->addDay()->toDateString();
+        $this->withHeader('X-Branch-Id', (string) $this->branch->id)
+            ->getJson("/api/v1/BranchDailyReport?dateFrom={$tomorrow}&dateTo={$tomorrow}")
+            ->assertSuccessful()
+            ->assertJsonPath('data.meta.total', 0);
     }
 
     public function test_production_with_recipe_consumes_ingredients(): void

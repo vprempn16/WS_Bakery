@@ -54,6 +54,13 @@ class ProductionBatchController extends Controller
             }
         }
 
+        if ($request->filled('dateFrom')) {
+            $query->whereDate('production_date', '>=', $request->query('dateFrom'));
+        }
+        if ($request->filled('dateTo')) {
+            $query->whereDate('production_date', '<=', $request->query('dateTo'));
+        }
+
         $batches = $query->with('product')->orderBy('created_at', 'desc')->paginate($perPage);
         $fieldList = ModuleFieldConfig::getApiFieldsForView('ProductionBatch', 'DetailView');
 

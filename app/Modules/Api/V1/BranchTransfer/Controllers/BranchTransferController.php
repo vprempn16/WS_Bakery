@@ -37,23 +37,10 @@ class BranchTransferController extends Controller
             ->withCount('items')
             ->where('organization_id', $orgId);
 
-        if (! $user->isFullAdmin()) {
-            if (! $user->branch_id) {
-                return $this->error('No branch assigned to this user.', null, null, null, 403);
-            }
-            $query->where('branch_id', $user->branch_id);
-        } else {
-            $query->when($request->query('branchId'), function ($q, $branchId) use ($user) {
-                try {
-                    BranchAccess::assertCanAccessBranch($user, (string) $branchId);
-                } catch (\RuntimeException $e) {
-                    // Leave query unfiltered only if assertion fails — prefer empty via impossible id
-                    $q->whereRaw('1 = 0');
-
-                    return;
-                }
-                $q->where('branch_id', $branchId);
-            });
+        try {
+            BranchAccess::applyListBranchScope($query, $request, $user);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
         }
 
         $query->when($request->query('search'), function ($q, $search) {
@@ -74,6 +61,13 @@ class BranchTransferController extends Controller
             if (is_array($rules)) {
                 QueryFilterService::apply($query, 'branch_transfers', $rules);
             }
+        }
+
+        if ($request->filled('dateFrom')) {
+            $query->whereDate('transfer_date', '>=', $request->query('dateFrom'));
+        }
+        if ($request->filled('dateTo')) {
+            $query->whereDate('transfer_date', '<=', $request->query('dateTo'));
         }
 
         $transfers = $query->orderBy('created_at', 'desc')->paginate($perPage);
