@@ -5,7 +5,7 @@ namespace App\Modules\Api\V1\Billing\Services;
 /**
  * Server-side billing math — must stay aligned with bk-frontend billingCalc.ts.
  *
- * Weight products (gm/kg/g): quantity is grams, catalog price is per kg.
+ * Weight products (gm/kg): quantity is grams, catalog price is per kg.
  * Piece products: quantity × catalog unit price.
  */
 class BillingPriceService
@@ -14,7 +14,7 @@ class BillingPriceService
     {
         $u = strtolower(trim((string) $unit));
 
-        return in_array($u, ['kg', 'gm', 'g'], true);
+        return in_array($u, ['kg', 'gm'], true);
     }
 
     /**

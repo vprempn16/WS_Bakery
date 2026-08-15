@@ -9,6 +9,7 @@ class ProductNumberService
 {
     /**
      * Trim and, for purely numeric values, strip leading zeros so 3/03/002 collide.
+     * Non-digit product numbers are rejected by callers — normalize still returns null for empty.
      */
     public static function normalize(?string $value): ?string
     {
@@ -26,6 +27,23 @@ class ProductNumberService
         }
 
         return $trimmed;
+    }
+
+    /** Product numbers must be digits only (leading zeros allowed on input, stripped on save). */
+    public static function assertDigitsOnly(?string $value): ?string
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        $trimmed = trim($value);
+        if (! preg_match('/^\d+$/', $trimmed)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'data.values.productNumber' => ['Product number must contain digits only (no letters).'],
+            ]);
+        }
+
+        return self::normalize($trimmed);
     }
 
     public static function isNumericForm(string $value): bool

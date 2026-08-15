@@ -46,6 +46,11 @@ class BranchTransfer extends BKModel
         return $this->belongsTo(Branch::class);
     }
 
+    public function creator()
+    {
+        return $this->belongsTo(\App\Modules\Api\V1\User\Models\User::class, 'created_by');
+    }
+
     public function items()
     {
         return $this->hasMany(BranchTransferItem::class, 'branch_transfer_id');

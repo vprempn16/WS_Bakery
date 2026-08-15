@@ -506,11 +506,26 @@ class BillingController extends Controller
 
         $query = Product::where('organization_id', $orgId)
             ->whereRaw('LOWER(COALESCE(status, ?)) = ?', ['active', 'active'])
-            ->select('id', 'name', 'price', 'unit', 'category', 'status')
+            ->select('id', 'name', 'price', 'unit', 'category', 'status', 'product_number')
             ->orderBy('name');
 
         if ($category && $category !== 'all') {
             $query->whereRaw('LOWER(category) = ?', [$category]);
+        }
+
+        $search = trim((string) $request->query('search', ''));
+        if ($search !== '') {
+            $like = '%' . addcslashes($search, '%_\\') . '%';
+            $normalizedNumber = \App\Modules\Api\V1\Product\Services\ProductNumberService::normalize($search);
+            $query->where(function ($q) use ($like, $search, $normalizedNumber) {
+                $q->where('name', 'like', $like);
+                if ($normalizedNumber !== null && preg_match('/^\d+$/', trim($search))) {
+                    $q->orWhere('product_number', $normalizedNumber)
+                        ->orWhere('product_number', 'like', $like);
+                } else {
+                    $q->orWhere('product_number', 'like', $like);
+                }
+            });
         }
 
         $paginator = $query->paginate($perPage);
@@ -530,6 +545,7 @@ class BillingController extends Controller
             return [
                 'id' => $item->id,
                 'name' => $item->name,
+                'productNumber' => $item->product_number,
                 'price' => (float) $item->price,
                 'unit' => $item->unit,
                 'category' => $item->category,

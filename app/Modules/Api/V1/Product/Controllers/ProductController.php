@@ -35,9 +35,16 @@ class ProductController extends Controller
         $query = Product::where('organization_id', $orgId);
 
         $query->when($request->query('search'), function ($q, $search) {
-            $q->where(function ($inner) use ($search) {
-                $inner->where('name', 'like', "%{$search}%")
-                    ->orWhere('product_number', 'like', "%{$search}%");
+            $like = '%' . addcslashes((string) $search, '%_\\') . '%';
+            $q->where(function ($inner) use ($search, $like) {
+                $inner->where('name', 'like', $like)
+                    ->orWhere('product_number', 'like', $like);
+                if (preg_match('/^\d+$/', trim((string) $search))) {
+                    $normalized = ProductNumberService::normalize((string) $search);
+                    if ($normalized !== null) {
+                        $inner->orWhere('product_number', $normalized);
+                    }
+                }
             });
         });
 
