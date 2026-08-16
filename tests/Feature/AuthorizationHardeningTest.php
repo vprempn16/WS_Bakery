@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Modules\Api\V1\Billing\Models\Billing;
 use App\Modules\Api\V1\Branch\Models\Branch;
+use App\Modules\Api\V1\BranchSales\Models\BranchDailyReport;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\Organization\Models\Organization;
 use App\Modules\Api\V1\Product\Models\Product;
@@ -122,11 +123,31 @@ class AuthorizationHardeningTest extends TestCase
                     ],
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'staff-bill-other-branch-1']);
 
         $response->assertStatus(400);
         $this->assertStringContainsString('branch', strtolower($response->json('message') ?? ''));
         $this->assertDatabaseCount('billings', 0);
+    }
+
+    public function test_staff_daily_report_ignores_spoofed_branch_header(): void
+    {
+        Sanctum::actingAs($this->staff);
+
+        $response = $this
+            ->withHeader('X-Branch-Id', (string) $this->branchB->id)
+            ->postJson('/api/v1/BranchDailyReport/new', [
+                'data' => [
+                    'values' => [
+                        'reportDate' => now()->toDateString(),
+                    ],
+                ],
+            ]);
+
+        $response->assertCreated();
+        $report = BranchDailyReport::firstOrFail();
+        $this->assertSame((string) $this->branchA->id, (string) $report->branch_id);
+        $this->assertNotSame((string) $this->branchB->id, (string) $report->branch_id);
     }
 
     public function test_login_is_rate_limited(): void
@@ -263,5 +284,100 @@ class AuthorizationHardeningTest extends TestCase
         $resAll = $this->flushHeaders()->getJson('/api/v1/Dashboard/Summary');
         $resAll->assertSuccessful();
         $this->assertEquals(350.0, (float) ($resAll->json('data.kpis.salesToday') ?? 0));
+    }
+
+    public function test_admin_billing_list_scopes_by_branch_header(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $billA = new Billing();
+        $billA->organization_id = $this->org->id;
+        $billA->branch_id = $this->branchA->id;
+        $billA->bill_number = 'BILL-LIST-A';
+        $billA->payment_status = 'Paid';
+        $billA->payment_method = 'Cash';
+        $billA->billing_date = now();
+        $billA->sub_total = 10;
+        $billA->grand_total = 10;
+        $billA->save();
+
+        $billB = new Billing();
+        $billB->organization_id = $this->org->id;
+        $billB->branch_id = $this->branchB->id;
+        $billB->bill_number = 'BILL-LIST-B';
+        $billB->payment_status = 'Paid';
+        $billB->payment_method = 'Cash';
+        $billB->billing_date = now();
+        $billB->sub_total = 20;
+        $billB->grand_total = 20;
+        $billB->save();
+
+        $resA = $this->withHeader('X-Branch-Id', (string) $this->branchA->id)
+            ->getJson('/api/v1/Billing');
+        $resA->assertSuccessful();
+        $idsA = collect($resA->json('data.list') ?? [])->pluck('id')->all();
+        $this->assertContains($billA->id, $idsA);
+        $this->assertNotContains($billB->id, $idsA);
+
+        $resB = $this->withHeader('X-Branch-Id', (string) $this->branchB->id)
+            ->getJson('/api/v1/Billing');
+        $resB->assertSuccessful();
+        $idsB = collect($resB->json('data.list') ?? [])->pluck('id')->all();
+        $this->assertContains($billB->id, $idsB);
+        $this->assertNotContains($billA->id, $idsB);
+    }
+
+    public function test_pending_to_paid_cannot_drain_other_branch_stock(): void
+    {
+        Sanctum::actingAs($this->staff);
+
+        BranchStock::create([
+            'organization_id' => $this->org->id,
+            'branch_id' => $this->branchA->id,
+            'product_id' => $this->product->id,
+            'current_stock' => 10,
+        ]);
+        BranchStock::create([
+            'organization_id' => $this->org->id,
+            'branch_id' => $this->branchB->id,
+            'product_id' => $this->product->id,
+            'current_stock' => 10,
+        ]);
+
+        $pending = new Billing();
+        $pending->organization_id = $this->org->id;
+        $pending->branch_id = $this->branchA->id;
+        $pending->bill_number = 'BILL-HOLD-A';
+        $pending->payment_status = 'Pending';
+        $pending->payment_method = 'Cash';
+        $pending->billing_date = now();
+        $pending->sub_total = 20;
+        $pending->grand_total = 20;
+        $pending->save();
+
+        \App\Modules\Api\V1\Billing\Models\BillingItem::create([
+            'billing_id' => $pending->id,
+            'product_id' => $this->product->id,
+            'quantity' => 1,
+            'unit_price' => 20,
+            'total_price' => 20,
+            'unit' => 'pcs',
+            'category' => 'bakery',
+        ]);
+
+        $response = $this->postJson('/api/v1/Billing/' . $pending->id, [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->branchB->id,
+                    'paymentStatus' => 'paid',
+                    'paymentMethod' => 'cash',
+                ],
+            ],
+        ], ['Idempotency-Key' => 'cross-branch-pay-attack-1']);
+
+        $response->assertStatus(400);
+        $this->assertEquals(10.0, (float) BranchStock::where('branch_id', $this->branchB->id)->value('current_stock'));
+        $this->assertEquals(10.0, (float) BranchStock::where('branch_id', $this->branchA->id)->value('current_stock'));
+        $this->assertEquals('Pending', Billing::find($pending->id)->payment_status);
     }
 }

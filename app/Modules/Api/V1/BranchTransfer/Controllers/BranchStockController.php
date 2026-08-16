@@ -26,20 +26,10 @@ class BranchStockController extends Controller
         $query = BranchStock::with(['branch', 'product'])
             ->where('organization_id', $orgId);
 
-        // Non-admins are locked to their assigned branch
-        if ($user && ! $user->isFullAdmin()) {
-            if (! $user->branch_id) {
-                return $this->error('No branch assigned to this user.', null, null, null, 403);
-            }
-            $query->where('branch_id', $user->branch_id);
-        } elseif ($request->query('branchId')) {
-            $branchId = (string) $request->query('branchId');
-            try {
-                BranchAccess::assertCanAccessBranch($user, $branchId);
-            } catch (\RuntimeException $e) {
-                return $this->error($e->getMessage(), null, null, null, 403);
-            }
-            $query->where('branch_id', $branchId);
+        try {
+            BranchAccess::applyListBranchScope($query, $request, $user);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
         }
 
         $query->when($request->query('productId'), function ($q, $productId) {
@@ -60,6 +50,13 @@ class BranchStockController extends Controller
             if (is_array($rules)) {
                 \App\Modules\Api\V1\SavedFilter\Services\QueryFilterService::apply($query, 'branch_stocks', $rules);
             }
+        }
+
+        if ($request->filled('dateFrom')) {
+            $query->whereDate('updated_at', '>=', $request->query('dateFrom'));
+        }
+        if ($request->filled('dateTo')) {
+            $query->whereDate('updated_at', '<=', $request->query('dateTo'));
         }
 
         $stocks = $query->paginate($perPage);

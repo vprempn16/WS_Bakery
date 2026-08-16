@@ -172,7 +172,7 @@ class SecurityHardeningTest extends TestCase
                     ],
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'securityhardeningtest-paid-1']);
 
         $response->assertSuccessful();
         $payload = $response->json('data');
@@ -226,7 +226,7 @@ class SecurityHardeningTest extends TestCase
                     ],
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'securityhardeningtest-paid-2']);
 
         $response->assertSuccessful();
         $payload = $response->json('data');
@@ -279,7 +279,7 @@ class SecurityHardeningTest extends TestCase
                     ],
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'securityhardeningtest-paid-3']);
 
         $response->assertSuccessful();
         $payload = $response->json('data');
@@ -321,7 +321,7 @@ class SecurityHardeningTest extends TestCase
                     ],
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'securityhardeningtest-paid-4']);
 
         $response->assertStatus(400);
         $this->assertStringContainsString('discount', strtolower($response->json('message') ?? ''));

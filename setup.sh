@@ -441,6 +441,7 @@ $totals = app(DefaultStaffProfilesService::class)->ensureForAllOrganizations();
 echo "   ✅ Orgs: {$totals['orgs']} | Profiles upserted: {$totals['profiles']} | Roles upserted: {$totals['roles']}\n";
 echo "   Profiles: Warehouse Staff, Sales Staff\n";
 echo "   Roles:    Warehouse → Warehouse Staff, Sales → Sales Staff\n";
+echo "   Sales:    POS + products + incoming transfers + branch stock + daily reports\n";
 PHP
   log_success "Default Warehouse + Sales profiles ready"
 }
@@ -475,7 +476,7 @@ main() {
   log_success "BkPortal setup complete"
   echo "  php artisan serve"
   echo "  Superadmin (dev only): superadmin@example.com / Admin@123"
-  echo "  Default staff: Warehouse + Sales profiles/roles per org"
+  echo "  Default staff: Warehouse + Sales profiles/roles per org (including branch receiving/reporting)"
   echo "  Re-sync fields anytime: ./setup.sh --fields-only"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }

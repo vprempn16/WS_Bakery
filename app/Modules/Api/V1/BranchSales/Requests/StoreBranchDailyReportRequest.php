@@ -14,10 +14,13 @@ class StoreBranchDailyReportRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'data.values.branchId' => ['required', 'string', 'exists:branches,id'],
+            // Branch comes from the authenticated X-Branch-Id context. The payload
+            // field remains optional for backward compatibility with older clients.
+            'data.values.branchId' => ['nullable', 'string', 'exists:branches,id'],
             'data.values.reportDate' => ['required', 'date'],
             'data.values.notes' => ['nullable', 'string'],
-            'data.values.items' => ['required', 'array', 'min:1'],
+            // When omitted, items are generated from paid POS bills for the date.
+            'data.values.items' => ['sometimes', 'array'],
             'data.values.items.*.productId' => ['required', 'string', 'exists:products,id'],
             'data.values.items.*.quantitySold' => ['required', 'numeric', 'min:0'],
             'data.values.items.*.quantityReturned' => ['required', 'numeric', 'min:0'],

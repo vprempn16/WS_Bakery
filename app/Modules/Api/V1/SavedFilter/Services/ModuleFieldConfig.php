@@ -251,6 +251,8 @@ class ModuleFieldConfig
             ['fieldname' => 'branchId', 'fieldlabel' => 'Branch', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'productId', 'fieldlabel' => 'Product', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock', 'fieldtype' => 'number', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'updatedDate', 'fieldlabel' => 'Date', 'fieldtype' => 'date', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'updatedTime', 'fieldlabel' => 'Time', 'fieldtype' => 'time', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
         ],
@@ -284,7 +286,8 @@ class ModuleFieldConfig
         'branch_daily_reports' => [
             ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'uuid', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization', 'fieldtype' => 'relationPickList', 'displaytype' => 2, 'mandatory' => 0],
-            ['fieldname' => 'branchId', 'fieldlabel' => 'Branch', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
+            // Branch is selected globally through BranchSwitcher / X-Branch-Id.
+            ['fieldname' => 'branchId', 'fieldlabel' => 'Branch', 'fieldtype' => 'relationPickList', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'reportDate', 'fieldlabel' => 'Report Date', 'fieldtype' => 'date', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'totalRevenue', 'fieldlabel' => 'Total Revenue', 'fieldtype' => 'number', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'totalWasteAmount', 'fieldlabel' => 'Total Waste Amount', 'fieldtype' => 'number', 'displaytype' => 3, 'mandatory' => 0],
@@ -297,9 +300,9 @@ class ModuleFieldConfig
             ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization', 'fieldtype' => 'relationPickList', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'branchId', 'fieldlabel' => 'Branch', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'billNumber', 'fieldlabel' => 'Bill Number', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
-            ['fieldname' => 'subTotal', 'fieldlabel' => 'Sub Total', 'fieldtype' => 'number', 'displaytype' => 3, 'mandatory' => 0],
-            ['fieldname' => 'discountAmount', 'fieldlabel' => 'Discount', 'fieldtype' => 'number', 'displaytype' => 1, 'mandatory' => 0],
-            ['fieldname' => 'taxAmount', 'fieldlabel' => 'Tax', 'fieldtype' => 'number', 'displaytype' => 1, 'mandatory' => 0],
+            ['fieldname' => 'subTotal', 'fieldlabel' => 'Sub Total', 'fieldtype' => 'number', 'displaytype' => 2, 'mandatory' => 0],
+            ['fieldname' => 'discountAmount', 'fieldlabel' => 'Discount', 'fieldtype' => 'number', 'displaytype' => 2, 'mandatory' => 0],
+            ['fieldname' => 'taxAmount', 'fieldlabel' => 'Tax', 'fieldtype' => 'number', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'grandTotal', 'fieldlabel' => 'Grand Total', 'fieldtype' => 'number', 'displaytype' => 3, 'mandatory' => 0],
             [
                 'fieldname' => 'paymentMethod',
