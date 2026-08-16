@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Modules\Api\V1\AuditLog\Models\AuditLog;
+use App\Services\BranchAccess;
 
 class GlobalAuditLogController extends Controller
 {
@@ -22,6 +23,13 @@ class GlobalAuditLogController extends Controller
         'Billing' => 'Billing',
     ];
 
+    private array $modelClassMap = [
+        'BranchStock' => \App\Modules\Api\V1\BranchTransfer\Models\BranchStock::class,
+        'BranchTransfer' => \App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer::class,
+        'BranchDailyReport' => \App\Modules\Api\V1\BranchSales\Models\BranchDailyReport::class,
+        'Billing' => \App\Modules\Api\V1\Billing\Models\Billing::class,
+    ];
+
     public function index(Request $request, string $module, string $id)
     {
         $orgId = $request->user()->organization_id;
@@ -33,6 +41,27 @@ class GlobalAuditLogController extends Controller
                 $resolvedModule = $module;
             } else {
                 return $this->error("Invalid module '{$module}'.", null, null, null, 400);
+            }
+        }
+
+        if (isset($this->modelClassMap[$resolvedModule])) {
+            $record = $this->modelClassMap[$resolvedModule]::where('organization_id', $orgId)->find($id);
+            if (! $record) {
+                return $this->error('Record not found.', null, null, null, 404);
+            }
+            if (! empty($record->branch_id)) {
+                try {
+                    if ($resolvedModule === 'BranchTransfer') {
+                        BranchAccess::assertCanAccessTransferDestination(
+                            $request->user(),
+                            (string) $record->branch_id
+                        );
+                    } else {
+                        BranchAccess::assertCanAccessBranch($request->user(), (string) $record->branch_id);
+                    }
+                } catch (\RuntimeException $e) {
+                    return $this->error($e->getMessage(), null, null, null, 403);
+                }
             }
         }
 

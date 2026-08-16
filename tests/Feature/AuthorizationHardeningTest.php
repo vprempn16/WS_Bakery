@@ -245,6 +245,231 @@ class AuthorizationHardeningTest extends TestCase
         $this->getJson('/api/v1/BranchTransfer/' . $transfer->id)->assertStatus(403);
     }
 
+    public function test_staff_cannot_view_other_branch_transfer_invoice(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $transfer = new \App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer();
+        $transfer->organization_id = $this->org->id;
+        $transfer->branch_id = $this->branchB->id;
+        $transfer->transfer_date = now()->toDateString();
+        $transfer->status = 'completed';
+        $transfer->created_by = $this->admin->id;
+        $transfer->save();
+
+        Sanctum::actingAs($this->staff);
+
+        $this->getJson('/api/v1/BranchTransfer/' . $transfer->id . '/invoice')->assertStatus(403);
+    }
+
+    public function test_destination_branch_staff_can_receive_but_cannot_dispatch_transfer(): void
+    {
+        $this->branchA->type = 'retail';
+        $this->branchA->save();
+
+        $transfer = new \App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer();
+        $transfer->organization_id = $this->org->id;
+        $transfer->branch_id = $this->branchA->id;
+        $transfer->transfer_date = now()->toDateString();
+        $transfer->status = 'dispatched';
+        $transfer->created_by = $this->admin->id;
+        $transfer->save();
+
+        $item = new \App\Modules\Api\V1\BranchTransfer\Models\BranchTransferItem();
+        $item->organization_id = $this->org->id;
+        $item->branch_transfer_id = $transfer->id;
+        $item->product_id = $this->product->id;
+        $item->quantity = 5;
+        $item->unit = 'pcs';
+        $item->pieces = 5;
+        $item->save();
+
+        Sanctum::actingAs($this->staff);
+
+        $this->postJson('/api/v1/BranchTransfer/' . $transfer->id, [
+            'data' => ['values' => ['status' => 'received']],
+        ])->assertSuccessful();
+
+        $this->assertEquals('received', $transfer->fresh()->status);
+        $this->assertEquals(
+            5.0,
+            (float) BranchStock::where('branch_id', $this->branchA->id)
+                ->where('product_id', $this->product->id)
+                ->value('current_stock')
+        );
+
+        $pending = new \App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer();
+        $pending->organization_id = $this->org->id;
+        $pending->branch_id = $this->branchA->id;
+        $pending->transfer_date = now()->toDateString();
+        $pending->status = 'pending';
+        $pending->created_by = $this->admin->id;
+        $pending->save();
+
+        $this->postJson('/api/v1/BranchTransfer/' . $pending->id, [
+            'data' => ['values' => ['status' => 'dispatched']],
+        ])->assertStatus(403);
+
+        // Branch staff may view/receive, but cannot edit pending items without edit permission.
+        $this->postJson('/api/v1/BranchTransfer/' . $pending->id, [
+            'data' => [
+                'relatedRecords' => [
+                    'items' => [
+                        [
+                            'productId' => $this->product->id,
+                            'quantity' => 2,
+                            'unit' => 'pcs',
+                            'pieces' => 2,
+                        ],
+                    ],
+                ],
+            ],
+        ])->assertStatus(403);
+    }
+
+    public function test_warehouse_staff_can_create_transfer_to_retail_branch(): void
+    {
+        $warehouse = new Branch();
+        $warehouse->organization_id = $this->org->id;
+        $warehouse->name = 'Central Warehouse';
+        $warehouse->type = 'warehouse';
+        $warehouse->save();
+
+        $this->branchA->type = 'retail';
+        $this->branchA->save();
+
+        $warehouseStaff = User::create([
+            'organization_id' => $this->org->id,
+            'branch_id' => $warehouse->id,
+            'first_name' => 'Warehouse',
+            'last_name' => 'Clerk',
+            'email' => 'warehouse-auth@example.com',
+            'role' => 'warehouse',
+            'password' => Hash::make('password'),
+        ]);
+
+        $this->product->current_stock = 100;
+        $this->product->status = 'active';
+        $this->product->save();
+
+        Sanctum::actingAs($warehouseStaff);
+
+        $this->assertTrue(\App\Services\BranchAccess::isWarehouseUser($warehouseStaff->fresh()));
+        $this->assertTrue(
+            \App\Services\BranchAccess::canAccessTransferDestination($warehouseStaff->fresh(), (string) $this->branchA->id)
+        );
+        $this->assertFalse(
+            \App\Services\BranchAccess::canAccessBranch($warehouseStaff->fresh(), (string) $this->branchA->id)
+        );
+
+        $response = $this->withHeader('X-Branch-Id', (string) $warehouse->id)
+            ->postJson('/api/v1/BranchTransfer/new', [
+                'data' => [
+                    'values' => [
+                        'branchId' => $this->branchA->id,
+                        'transferDate' => now()->toDateString(),
+                    ],
+                    'relatedRecords' => [
+                        'items' => [
+                            [
+                                'productId' => $this->product->id,
+                                'quantity' => 5,
+                                'unit' => 'pcs',
+                                'pieces' => 5,
+                            ],
+                        ],
+                    ],
+                ],
+            ], ['Idempotency-Key' => 'warehouse-staff-create-transfer-1']);
+
+        $response->assertStatus(201);
+
+        $transferId = (string) \App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer::query()
+            ->where('created_by', $warehouseStaff->id)
+            ->latest('created_at')
+            ->value('id');
+
+        $this->assertNotSame('', $transferId);
+        $this->withHeader('X-Branch-Id', (string) $warehouse->id)
+            ->getJson('/api/v1/BranchTransfer/' . $transferId)
+            ->assertSuccessful();
+        $this->withHeader('X-Branch-Id', (string) $warehouse->id)
+            ->getJson('/api/v1/BranchTransfer/' . $transferId . '/audit-log')
+            ->assertSuccessful();
+        $this->withHeader('X-Branch-Id', (string) $warehouse->id)
+            ->getJson('/api/v1/BranchTransfer/' . $transferId . '/invoice')
+            ->assertSuccessful();
+    }
+
+    public function test_staff_cannot_view_other_branch_inventory(): void
+    {
+        Sanctum::actingAs($this->staff);
+
+        $this->getJson('/api/v1/Branch/' . $this->branchB->id . '/inventory')->assertStatus(403);
+    }
+
+    public function test_gm_transfer_does_not_require_pieces(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $this->branchA->type = 'retail';
+        $this->branchA->save();
+
+        $weightProduct = new Product();
+        $weightProduct->organization_id = $this->org->id;
+        $weightProduct->name = 'Laddu';
+        $weightProduct->price = 40;
+        $weightProduct->unit = 'gm';
+        $weightProduct->category = 'sweet';
+        $weightProduct->current_stock = 5000;
+        $weightProduct->status = 'active';
+        $weightProduct->save();
+
+        $response = $this->postJson('/api/v1/BranchTransfer/new', [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->branchA->id,
+                    'transferDate' => now()->toDateString(),
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        ['productId' => $weightProduct->id, 'quantity' => 250, 'unit' => 'gm'],
+                    ],
+                ],
+            ],
+        ], ['Idempotency-Key' => 'auth-hardening-gm-no-pieces']);
+
+        $response->assertStatus(201);
+    }
+
+    public function test_pcs_transfer_requires_pieces(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $this->branchA->type = 'retail';
+        $this->branchA->save();
+        $this->product->current_stock = 100;
+        $this->product->status = 'active';
+        $this->product->save();
+
+        $response = $this->postJson('/api/v1/BranchTransfer/new', [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->branchA->id,
+                    'transferDate' => now()->toDateString(),
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        ['productId' => $this->product->id, 'quantity' => 5, 'unit' => 'pcs'],
+                    ],
+                ],
+            ],
+        ], ['Idempotency-Key' => 'auth-hardening-pcs-needs-pieces']);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['data.relatedRecords.items.0.pieces']);
+    }
+
     public function test_dashboard_summary_filters_by_branch_header(): void
     {
         Sanctum::actingAs($this->admin);

@@ -16,6 +16,7 @@ class RecipeResource extends JsonResource
             'productId_label' => $this->product ? $this->product->name : null,
             'ingredientId' => $this->ingredient_id,
             'ingredientId_label' => $this->ingredient ? $this->ingredient->name : null,
+            'unit' => $this->ingredient ? $this->ingredient->unit : null,
             'quantityRequired' => (float) $this->quantity_required,
             'ingredient' => $this->whenLoaded('ingredient', function() {
                 return new IngredientResource($this->ingredient);

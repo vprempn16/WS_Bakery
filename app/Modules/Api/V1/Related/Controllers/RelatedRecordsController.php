@@ -13,6 +13,7 @@ use App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch;
 use App\Modules\Api\V1\Recipe\Models\Recipe;
 use App\Modules\Api\V1\Vendor\Models\Vendor;
 use App\Services\AuthUser;
+use App\Services\BranchAccess;
 use App\Services\CRM\RecordObject;
 use Illuminate\Http\Request;
 
@@ -35,6 +36,7 @@ class RelatedRecordsController extends Controller
                 'id' => $b->id,
                 'batchNumber' => $b->batch_number,
                 'quantityProduced' => (float) $b->quantity_produced,
+                'unit' => $b->product?->unit,
                 'productionDate' => optional($b->production_date)?->format('Y-m-d'),
                 'expiryDate' => optional($b->expiry_timestamp)?->format('Y-m-d'),
                 'expiryTime' => optional($b->expiry_timestamp)?->format('H:i'),
@@ -81,7 +83,8 @@ class RelatedRecordsController extends Controller
 
     public function ingredientStockHistory(Request $request, string $id)
     {
-        $this->assertIngredient($id);
+        /** @var Ingredient $ingredient */
+        $ingredient = $this->assertIngredient($id);
         $orgId = AuthUser::organizationId();
         $rows = InventoryTransaction::where('organization_id', $orgId)
             ->where('ingredient_id', $id)
@@ -92,6 +95,7 @@ class RelatedRecordsController extends Controller
                 'id' => $t->id,
                 'type' => $t->type,
                 'quantity' => (float) $t->quantity,
+                'unit' => $ingredient->unit,
                 'referenceNote' => $t->reference_note,
                 'createdAt' => optional($t->created_at)?->format('Y-m-d H:i:s'),
             ]);
@@ -124,7 +128,8 @@ class RelatedRecordsController extends Controller
 
     public function ingredientUsageInProducts(Request $request, string $id)
     {
-        $this->assertIngredient($id);
+        /** @var Ingredient $ingredient */
+        $ingredient = $this->assertIngredient($id);
         $orgId = AuthUser::organizationId();
         $rows = Recipe::query()
             ->where('ingredient_id', $id)
@@ -138,6 +143,7 @@ class RelatedRecordsController extends Controller
                 'productName' => $r->product?->name,
                 'productNumber' => $r->product?->product_number,
                 'quantityRequired' => (float) $r->quantity_required,
+                'unit' => $ingredient->unit,
             ]);
 
         return $this->success(['list' => $rows]);
@@ -179,6 +185,7 @@ class RelatedRecordsController extends Controller
                 'ingredientId' => $t->ingredient_id,
                 'ingredientName' => $t->ingredient?->name,
                 'quantity' => (float) $t->quantity,
+                'unit' => $t->ingredient?->unit,
                 'referenceNote' => $t->reference_note,
                 'createdAt' => optional($t->created_at)?->format('Y-m-d H:i:s'),
             ]);
@@ -204,7 +211,11 @@ class RelatedRecordsController extends Controller
 
     public function branchTransferHistory(Request $request, string $id)
     {
-        $this->assertBranch($id);
+        try {
+            $this->assertBranch($id);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
+        }
         $rows = BranchTransfer::with('creator')
             ->where('organization_id', AuthUser::organizationId())
             ->where('branch_id', $id)
@@ -231,7 +242,11 @@ class RelatedRecordsController extends Controller
 
     public function branchInventory(Request $request, string $id)
     {
-        $this->assertBranch($id);
+        try {
+            $this->assertBranch($id);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
+        }
         $rows = BranchStock::with('product')
             ->where('organization_id', AuthUser::organizationId())
             ->where('branch_id', $id)
@@ -324,6 +339,7 @@ class RelatedRecordsController extends Controller
                     'branchName' => $t->branch?->name,
                     'transferDate' => optional($t->transfer_date)?->format('Y-m-d'),
                     'quantity' => (float) $qty,
+                    'unit' => $batch->product?->unit,
                     'status' => $t->status,
                 ];
             });
@@ -348,6 +364,9 @@ class RelatedRecordsController extends Controller
 
     private function assertBranch(string $id)
     {
-        return RecordObject::make('Branch', $id, [], 'DetailView');
+        $branch = RecordObject::make('Branch', $id, [], 'DetailView');
+        BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $id);
+
+        return $branch;
     }
 }

@@ -261,10 +261,16 @@ class AuthTest extends TestCase
         ]);
 
         $salesUser = User::where('email', 'premnath@atomlines.com')->firstOrFail();
-        $allowedModules = collect($salesUser->getAllowedModules())->pluck('value');
-        $this->assertContains('branchtransfer', $allowedModules);
-        $this->assertContains('branchstock', $allowedModules);
-        $this->assertContains('branchdailyreport', $allowedModules);
+        $allowedModules = collect($salesUser->getAllowedModules());
+        $this->assertContains('branchtransfer', $allowedModules->pluck('value'));
+        $this->assertContains('branchstock', $allowedModules->pluck('value'));
+        $this->assertContains('branchdailyreport', $allowedModules->pluck('value'));
+
+        $transferModule = $allowedModules->firstWhere('value', 'branchtransfer');
+        $this->assertIsArray($transferModule);
+        $this->assertEquals(1, (int) ($transferModule['actions']['view'] ?? 0));
+        $this->assertEquals(0, (int) ($transferModule['actions']['edit'] ?? 1));
+        $this->assertEquals(0, (int) ($transferModule['actions']['create'] ?? 1));
     }
 
     public function test_can_get_user_by_id()

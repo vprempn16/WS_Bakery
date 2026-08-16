@@ -27,12 +27,16 @@ class BranchController extends Controller
         $organizationId = AuthUser::organizationId();
         $query = Branch::where('organization_id', $organizationId);
 
-        // Non-admins only see their assigned branch
+        // Non-admins: warehouse staff may list all org branches (needed for transfer destinations);
+        // retail/sales staff only see their assigned branch.
         if (! $user->isFullAdmin()) {
             if (! $user->branch_id) {
                 return $this->error('No branch assigned to this user.', null, null, null, 403);
             }
-            $query->where('id', $user->branch_id);
+            if (! \App\Services\BranchAccess::isWarehouseUser($user)) {
+                $query->where('id', $user->branch_id);
+            }
+            // Warehouse users: no id filter — they need retail destinations for transfers.
         }
 
         $query->when($request->query('search'), function ($q, $search) {

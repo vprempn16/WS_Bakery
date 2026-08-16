@@ -12,10 +12,16 @@
 # - Lead, Contact, Quotation, Invoice, Checklist modules
 # - Generating stub Controllers over existing bakery modules
 #
+# Transfer access (do not regress):
+# - Warehouse staff create transfers TO retail branches (destination ≠ their warehouse).
+# - Never gate BranchTransfer store/show/update on assertCanAccessBranch(destination).
+# - Use BranchAccess::assertCanAccessTransferDestination / applyTransferListBranchScope.
+#
 # Usage:
 #   ./setup.sh                 Full install
 #   ./setup.sh --fields-only   Re-sync field metadata only
 #   ./setup.sh --skip-db       Skip interactive DB / migrate / seed
+#   ./setup.sh --verify-only   Repair warehouse assignments + run transfer access checks
 #
 # Optional password:
 #   export BK_INSTALLER_PASSWORD="YourSecurePassword" && ./setup.sh
@@ -39,12 +45,14 @@ log_error()   { echo -e "${RED}❌${NC} $1" >&2; }
 
 FIELDS_ONLY=0
 SKIP_DB=0
+VERIFY_ONLY=0
 for arg in "$@"; do
   case "$arg" in
     --fields-only) FIELDS_ONLY=1 ;;
     --skip-db)     SKIP_DB=1 ;;
+    --verify-only) VERIFY_ONLY=1 ;;
     -h|--help)
-      sed -n '2,16p' "$0"
+      sed -n '2,22p' "$0"
       exit 0
       ;;
   esac
@@ -385,6 +393,12 @@ if (! $branchId) {
         'created_at' => now(),
         'updated_at' => now(),
     ]);
+} else {
+    // Keep Main as warehouse so warehouse→retail transfer rules stay valid.
+    DB::table('branches')->where('id', $branchId)->update([
+        'type' => 'warehouse',
+        'updated_at' => now(),
+    ]);
 }
 
 $existing = DB::table('users')->where('email', 'superadmin@example.com')->first();
@@ -446,9 +460,183 @@ PHP
   log_success "Default Warehouse + Sales profiles ready"
 }
 
+repair_warehouse_transfer_access() {
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "🚚  Warehouse → retail transfer access"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  cd "$LARAVEL_ROOT"
+  php <<'PHP'
+<?php
+require __DIR__ . '/vendor/autoload.php';
+$app = require __DIR__ . '/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+use App\Services\BranchAccess;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+
+if (! Schema::hasTable('branches') || ! Schema::hasTable('users')) {
+    echo "   ↪ branches/users missing — skip\n";
+    exit(0);
+}
+
+$repairedBranches = 0;
+$repairedUsers = 0;
+
+// Every org needs at least one warehouse branch (source of transfers).
+$orgIds = Schema::hasTable('organizations')
+    ? DB::table('organizations')->pluck('id')
+    : collect();
+
+foreach ($orgIds as $orgId) {
+    $warehouseId = DB::table('branches')
+        ->where('organization_id', $orgId)
+        ->whereRaw('LOWER(type) = ?', ['warehouse'])
+        ->value('id');
+
+    if (! $warehouseId) {
+        $warehouseId = (string) Str::uuid();
+        DB::table('branches')->insert([
+            'id' => $warehouseId,
+            'organization_id' => $orgId,
+            'name' => 'Central Warehouse',
+            'type' => 'warehouse',
+            'address' => null,
+            'phone' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $repairedBranches++;
+        echo "   ✅ Created warehouse branch for org {$orgId}\n";
+    }
+
+    // Admins without a branch → attach to warehouse (transfer UI expects warehouse context).
+    $adminFixed = DB::table('users')
+        ->where('organization_id', $orgId)
+        ->whereIn('role', ['admin', 'superadmin', 'owner'])
+        ->where(function ($q) {
+            $q->whereNull('branch_id')->orWhere('branch_id', '');
+        })
+        ->update(['branch_id' => $warehouseId, 'updated_at' => now()]);
+    $repairedUsers += (int) $adminFixed;
+
+    // Users assigned the Warehouse role must sit on a warehouse branch.
+    if (Schema::hasTable('roles') && Schema::hasTable('role_user_rel')) {
+        $warehouseRoleIds = DB::table('roles')
+            ->where('organization_id', $orgId)
+            ->where('deleted', 0)
+            ->whereRaw('LOWER(name) = ?', ['warehouse'])
+            ->pluck('id');
+
+        if ($warehouseRoleIds->isNotEmpty()) {
+            $userIds = DB::table('role_user_rel')
+                ->where('organization_id', $orgId)
+                ->whereIn('role_id', $warehouseRoleIds)
+                ->pluck('user_id');
+
+            foreach ($userIds as $userId) {
+                $user = DB::table('users')->where('id', $userId)->first();
+                if (! $user) {
+                    continue;
+                }
+                $onWarehouse = $user->branch_id
+                    && DB::table('branches')
+                        ->where('id', $user->branch_id)
+                        ->whereRaw('LOWER(type) = ?', ['warehouse'])
+                        ->exists();
+                if (! $onWarehouse) {
+                    DB::table('users')->where('id', $userId)->update([
+                        'branch_id' => $warehouseId,
+                        'role' => 'warehouse',
+                        'updated_at' => now(),
+                    ]);
+                    $repairedUsers++;
+                    echo "   ✅ Reassigned warehouse-role user {$user->email} → warehouse branch\n";
+                } elseif (strtolower((string) ($user->role ?? '')) !== 'warehouse'
+                    && ! in_array(strtolower((string) ($user->role ?? '')), ['admin', 'superadmin', 'owner'], true)
+                ) {
+                    DB::table('users')->where('id', $userId)->update([
+                        'role' => 'warehouse',
+                        'updated_at' => now(),
+                    ]);
+                    $repairedUsers++;
+                }
+            }
+        }
+    }
+}
+
+// Smoke-check access rules (prevents regressing to assertCanAccessBranch on destination).
+$warehouse = DB::table('branches')->whereRaw('LOWER(type) = ?', ['warehouse'])->first();
+$retail = DB::table('branches')->whereRaw('LOWER(type) != ?', ['warehouse'])->first();
+if ($warehouse && $retail) {
+    $whUser = new \App\Modules\Api\V1\User\Models\User();
+    $whUser->forceFill([
+        'id' => (string) Str::uuid(),
+        'organization_id' => $warehouse->organization_id,
+        'branch_id' => $warehouse->id,
+        'role' => 'staff',
+        'email' => 'setup-warehouse-check@local.test',
+    ]);
+
+    if (! BranchAccess::isWarehouseUser($whUser)) {
+        fwrite(STDERR, "   ❌ BranchAccess::isWarehouseUser failed for warehouse branch user\n");
+        exit(1);
+    }
+    if (! BranchAccess::canAccessTransferDestination($whUser, (string) $retail->id)) {
+        fwrite(STDERR, "   ❌ Warehouse user cannot access retail transfer destination — check BranchAccess\n");
+        exit(1);
+    }
+    if (BranchAccess::canAccessBranch($whUser, (string) $retail->id)) {
+        fwrite(STDERR, "   ❌ Warehouse user should NOT pass canAccessBranch(retail) — transfer must use canAccessTransferDestination\n");
+        exit(1);
+    }
+    echo "   ✅ BranchAccess warehouse→retail transfer rules OK\n";
+} else {
+    echo "   ⚠ Need both warehouse + retail branches to smoke-test transfer access (skipped)\n";
+}
+
+echo "   Repaired branches: {$repairedBranches} | users: {$repairedUsers}\n";
+PHP
+  if [ $? -ne 0 ]; then
+    log_error "Warehouse transfer access repair/verify failed"
+    exit 1
+  fi
+  log_success "Warehouse transfer access verified"
+}
+
+verify_warehouse_transfer_tests() {
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "🧪  Transfer access regression test"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  cd "$LARAVEL_ROOT"
+  if [ ! -f vendor/bin/phpunit ] && [ ! -f vendor/autoload.php ]; then
+    log_warning "Skipping tests (vendor missing)"
+    return 0
+  fi
+  if php artisan test --filter='warehouse_staff_can_create_transfer_to_retail_branch|destination_branch_staff_can_receive' >/tmp/bk_transfer_access_test.log 2>&1; then
+    log_success "Warehouse dispatch + destination branch receive tests passed"
+  else
+    log_error "Transfer access regression test failed — see /tmp/bk_transfer_access_test.log"
+    tail -n 40 /tmp/bk_transfer_access_test.log || true
+    exit 1
+  fi
+}
+
 main() {
   verify_installer_password
   cd "$LARAVEL_ROOT"
+
+  if [ "$VERIFY_ONLY" -eq 1 ]; then
+    install_dependencies
+    repair_warehouse_transfer_access
+    verify_warehouse_transfer_tests
+    log_success "Verify-only finished"
+    exit 0
+  fi
 
   if [ "$FIELDS_ONLY" -eq 1 ]; then
     install_dependencies
@@ -470,6 +658,8 @@ main() {
   seed_portal_modules
   seed_superadmin
   seed_default_staff_profiles
+  repair_warehouse_transfer_access
+  verify_warehouse_transfer_tests
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -477,7 +667,9 @@ main() {
   echo "  php artisan serve"
   echo "  Superadmin (dev only): superadmin@example.com / Admin@123"
   echo "  Default staff: Warehouse + Sales profiles/roles per org (including branch receiving/reporting)"
+  echo "  Warehouse staff may transfer TO any retail branch (not blocked by destination branch check)"
   echo "  Re-sync fields anytime: ./setup.sh --fields-only"
+  echo "  Re-check transfer access: ./setup.sh --verify-only"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 

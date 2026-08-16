@@ -87,7 +87,7 @@ class PlaywrightSeeder extends Seeder
                 'first_name' => 'E2E',
                 'last_name' => 'Warehouse',
                 'phone' => '+913333333333',
-                'role' => 'staff',
+                'role' => 'warehouse',
                 'is_active' => 1,
                 'password' => Hash::make(self::PASSWORD),
             ]
@@ -109,6 +109,10 @@ class PlaywrightSeeder extends Seeder
 
         if ((string) $warehouseUser->branch_id !== (string) $warehouse->id) {
             $warehouseUser->branch_id = $warehouse->id;
+            $warehouseUser->save();
+        }
+        if (strtolower((string) $warehouseUser->role) !== 'warehouse') {
+            $warehouseUser->role = 'warehouse';
             $warehouseUser->save();
         }
         if ((string) $salesUser->branch_id !== (string) $retail->id) {

@@ -12,6 +12,7 @@ class BranchDailyReportItemResource extends JsonResource
             'id' => $this->id,
             'productId' => $this->product_id,
             'productId_label' => $this->product ? $this->product->name : null,
+            'unit' => $this->product ? $this->product->unit : null,
             'quantitySold' => (float) $this->quantity_sold,
             'quantityReturned' => (float) $this->quantity_returned,
             'unitPrice' => (float) $this->unit_price,
