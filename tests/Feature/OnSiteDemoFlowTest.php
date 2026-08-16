@@ -270,7 +270,7 @@ class OnSiteDemoFlowTest extends TestCase
                     ],
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'onsitedemoflowtest-paid-2']);
         $paid->assertSuccessful();
         $billId = $paid->json('data.id') ?? $paid->json('data.values.id');
         $this->assertNotEmpty($billId);

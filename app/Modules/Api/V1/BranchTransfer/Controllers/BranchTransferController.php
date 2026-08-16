@@ -89,7 +89,7 @@ class BranchTransferController extends Controller
                 try {
                     RecordObject::make('Branch', $branchId, [], 'DetailView');
                 } catch (\Exception $e) {
-                    return $this->error('The selected branch does not exist or access is denied.');
+                    throw new \RuntimeException('The selected branch does not exist or access is denied.');
                 }
 
                 // Transfers originate from warehouse; destination branch access for non-admins
@@ -99,7 +99,7 @@ class BranchTransferController extends Controller
                     try {
                         RecordObject::make('Product', $itemData['productId'], [], 'DetailView');
                     } catch (\Exception $e) {
-                        return $this->error('A selected product does not exist or access is denied.');
+                        throw new \RuntimeException('A selected product does not exist or access is denied.');
                     }
                 }
 
@@ -217,25 +217,34 @@ class BranchTransferController extends Controller
     {
         try {
             $values = $request->input('data.values') ?? [];
+            $orgId = AuthUser::organizationId();
             /** @var BranchTransfer $transfer */
             $transfer = RecordObject::make('BranchTransfer', $id, $values, 'EditView');
-            try {
-                BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $transfer->branch_id);
-            } catch (\RuntimeException $e) {
-                return $this->error($e->getMessage(), null, null, null, 403);
-            }
+            BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $transfer->branch_id);
 
             if (strtolower((string) $transfer->status) === 'cancelled') {
-                return $this->error('Cancelled transfers cannot be edited.', null, null, null, 400);
+                throw new \RuntimeException('Cancelled transfers cannot be edited.');
             }
 
             if (isset($values['status']) && strtolower((string) $values['status']) === 'cancelled') {
-                return DB::transaction(function () use ($transfer) {
-                    $this->reverseTransferStock($transfer);
-                    $transfer->status = 'cancelled';
-                    $transfer->save();
-                    $transfer->load(['branch', 'items.product']);
-                    return $this->success(new BranchTransferResource($transfer), 'Transfer cancelled and stock reversed.');
+                return DB::transaction(function () use ($id, $orgId) {
+                    /** @var BranchTransfer $locked */
+                    $locked = BranchTransfer::where('organization_id', $orgId)
+                        ->where('id', $id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                    BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $locked->branch_id);
+
+                    if (strtolower((string) $locked->status) === 'cancelled') {
+                        throw new \RuntimeException('Transfer is already cancelled.');
+                    }
+
+                    $this->reverseTransferStock($locked);
+                    $locked->status = 'cancelled';
+                    $locked->save();
+                    $locked->load(['branch', 'items.product']);
+
+                    return $this->success(new BranchTransferResource($locked), 'Transfer cancelled and stock reversed.');
                 });
             }
 
@@ -264,18 +273,22 @@ class BranchTransferController extends Controller
     public function destroy($id, Request $request)
     {
         try {
-            return DB::transaction(function () use ($id) {
+            $orgId = AuthUser::organizationId();
+
+            return DB::transaction(function () use ($id, $orgId) {
+                // Permission check first, then row-lock for concurrency-safe cancel.
+                RecordObject::make('BranchTransfer', $id, [], 'EditView');
                 /** @var BranchTransfer $transfer */
-                $transfer = RecordObject::make('BranchTransfer', $id, [], 'EditView');
-                try {
-                    BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $transfer->branch_id);
-                } catch (\RuntimeException $e) {
-                    return $this->error($e->getMessage(), null, null, null, 403);
-                }
+                $transfer = BranchTransfer::where('organization_id', $orgId)
+                    ->where('id', $id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $transfer->branch_id);
                 $transfer->load('items');
 
                 if (strtolower((string) $transfer->status) === 'cancelled') {
-                    return $this->error('Transfer is already cancelled.', null, null, null, 400);
+                    throw new \RuntimeException('Transfer is already cancelled.');
                 }
 
                 $this->reverseTransferStock($transfer);

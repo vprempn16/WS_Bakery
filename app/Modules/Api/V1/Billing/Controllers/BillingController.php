@@ -180,7 +180,15 @@ class BillingController extends Controller
     public function store(StoreBillingRequest $request)
     {
         try {
+            $dataPreview = $request->input('data.values') ?? [];
+            $paymentStatusPreview = strtolower((string) ($dataPreview['paymentStatus'] ?? 'paid'));
             $idempotencyKey = $request->header('Idempotency-Key');
+
+            // Paid creates must be idempotent — retries must not double-deduct stock.
+            if ($paymentStatusPreview === 'paid' && (! is_string($idempotencyKey) || $idempotencyKey === '')) {
+                return $this->error('Idempotency-Key header is required for paid bills.', null, null, null, 422);
+            }
+
             $cacheKey = $idempotencyKey
                 ? 'idempotency:billing:create:' . AuthUser::id() . ':' . hash('sha256', $idempotencyKey)
                 : null;
@@ -235,7 +243,7 @@ class BillingController extends Controller
                         ->where('id', $data['branchId'])
                         ->first();
                     if (! $branch) {
-                        return $this->error('The selected branch does not exist or access is denied.', null, null, null, 403);
+                        throw new \RuntimeException('The selected branch does not exist or access is denied.');
                     }
 
                     BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $data['branchId']);
@@ -371,12 +379,25 @@ class BillingController extends Controller
                     ])->all();
 
                     if ($oldStatus === 'cancelled') {
-                        return $this->error('Cancelled bills cannot be edited.', null, null, null, 400);
+                        throw new \RuntimeException('Cancelled bills cannot be edited.');
                     }
 
                     $newStatus = isset($data['paymentStatus'])
                         ? strtolower((string) $data['paymentStatus'])
                         : $oldStatus;
+
+                    // Resolve / authorize target branch BEFORE any stock mutation.
+                    $newBranchId = $billing->branch_id;
+                    if (! empty($data['branchId']) && (string) $data['branchId'] !== (string) $billing->branch_id) {
+                        $targetBranch = \App\Modules\Api\V1\Branch\Models\Branch::where('organization_id', $orgId)
+                            ->where('id', $data['branchId'])
+                            ->first();
+                        if (! $targetBranch) {
+                            throw new \RuntimeException('The selected branch does not exist or access is denied.');
+                        }
+                        BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $data['branchId']);
+                        $newBranchId = $data['branchId'];
+                    }
 
                     // Cancel paid bill → restore stock
                     if ($newStatus === 'cancelled' && $oldStatus === 'paid') {
@@ -403,15 +424,19 @@ class BillingController extends Controller
                         $this->stockService->restoreForSale($orgId, $billing->branch_id, $restoreItems);
                     }
 
-                    // Pending → paid: deduct stock once (row lock prevents concurrent double deduct)
+                    // Pending → paid: always deduct from the bill's current branch (never trust client branchId alone).
+                    // If branch is changing in the same request, stock moves on the authorized target branch.
                     if ($oldStatus === 'pending' && $newStatus === 'paid') {
-                        $itemsForDeduct = is_array($itemsData)
+                        $itemsForDeduct = (! empty($itemsData) && is_array($itemsData))
                             ? $this->resolveCatalogPrices($orgId, $itemsData)
                             : $billing->items->map(fn ($item) => [
                                 'productId' => $item->product_id,
                                 'quantity' => $item->quantity,
                             ])->all();
-                        $this->stockService->deductForSale($orgId, $data['branchId'] ?? $billing->branch_id, $itemsForDeduct);
+                        if ($itemsForDeduct === []) {
+                            throw new \RuntimeException('Cannot mark bill as paid without line items.');
+                        }
+                        $this->stockService->deductForSale($orgId, $newBranchId, $itemsForDeduct);
                     }
 
                     if (! empty($data)) {
@@ -423,15 +448,8 @@ class BillingController extends Controller
                         }
                     }
 
-                    $newBranchId = $data['branchId'] ?? $billing->branch_id;
-                    if (! empty($data['branchId'])) {
-                        try {
-                            RecordObject::make('Branch', $data['branchId'], [], 'DetailView');
-                        } catch (\Exception $e) {
-                            return $this->error('The selected branch does not exist or access is denied.');
-                        }
-                        BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $data['branchId']);
-                        $billing->branch_id = $data['branchId'];
+                    if ((string) $newBranchId !== (string) $billing->branch_id) {
+                        $billing->branch_id = $newBranchId;
                     }
 
                     $subTotal = (float) $billing->sub_total;

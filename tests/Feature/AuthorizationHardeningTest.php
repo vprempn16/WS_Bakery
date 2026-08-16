@@ -123,7 +123,7 @@ class AuthorizationHardeningTest extends TestCase
                     ],
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'staff-bill-other-branch-1']);
 
         $response->assertStatus(400);
         $this->assertStringContainsString('branch', strtolower($response->json('message') ?? ''));
@@ -325,5 +325,59 @@ class AuthorizationHardeningTest extends TestCase
         $idsB = collect($resB->json('data.list') ?? [])->pluck('id')->all();
         $this->assertContains($billB->id, $idsB);
         $this->assertNotContains($billA->id, $idsB);
+    }
+
+    public function test_pending_to_paid_cannot_drain_other_branch_stock(): void
+    {
+        Sanctum::actingAs($this->staff);
+
+        BranchStock::create([
+            'organization_id' => $this->org->id,
+            'branch_id' => $this->branchA->id,
+            'product_id' => $this->product->id,
+            'current_stock' => 10,
+        ]);
+        BranchStock::create([
+            'organization_id' => $this->org->id,
+            'branch_id' => $this->branchB->id,
+            'product_id' => $this->product->id,
+            'current_stock' => 10,
+        ]);
+
+        $pending = new Billing();
+        $pending->organization_id = $this->org->id;
+        $pending->branch_id = $this->branchA->id;
+        $pending->bill_number = 'BILL-HOLD-A';
+        $pending->payment_status = 'Pending';
+        $pending->payment_method = 'Cash';
+        $pending->billing_date = now();
+        $pending->sub_total = 20;
+        $pending->grand_total = 20;
+        $pending->save();
+
+        \App\Modules\Api\V1\Billing\Models\BillingItem::create([
+            'billing_id' => $pending->id,
+            'product_id' => $this->product->id,
+            'quantity' => 1,
+            'unit_price' => 20,
+            'total_price' => 20,
+            'unit' => 'pcs',
+            'category' => 'bakery',
+        ]);
+
+        $response = $this->postJson('/api/v1/Billing/' . $pending->id, [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->branchB->id,
+                    'paymentStatus' => 'paid',
+                    'paymentMethod' => 'cash',
+                ],
+            ],
+        ], ['Idempotency-Key' => 'cross-branch-pay-attack-1']);
+
+        $response->assertStatus(400);
+        $this->assertEquals(10.0, (float) BranchStock::where('branch_id', $this->branchB->id)->value('current_stock'));
+        $this->assertEquals(10.0, (float) BranchStock::where('branch_id', $this->branchA->id)->value('current_stock'));
+        $this->assertEquals('Pending', Billing::find($pending->id)->payment_status);
     }
 }

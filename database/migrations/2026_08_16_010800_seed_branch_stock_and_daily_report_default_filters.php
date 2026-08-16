@@ -17,7 +17,8 @@ return new class extends Migration
                 ['fieldname' => 'branchId', 'fieldlabel' => 'Branch'],
                 ['fieldname' => 'productId', 'fieldlabel' => 'Product'],
                 ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock'],
-                ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At'],
+                ['fieldname' => 'updatedDate', 'fieldlabel' => 'Date'],
+                ['fieldname' => 'updatedTime', 'fieldlabel' => 'Time'],
             ],
             'branch_daily_reports' => [
                 ['fieldname' => 'branchId', 'fieldlabel' => 'Branch'],

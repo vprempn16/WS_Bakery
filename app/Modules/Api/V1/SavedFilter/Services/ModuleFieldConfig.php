@@ -251,6 +251,8 @@ class ModuleFieldConfig
             ['fieldname' => 'branchId', 'fieldlabel' => 'Branch', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'productId', 'fieldlabel' => 'Product', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock', 'fieldtype' => 'number', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'updatedDate', 'fieldlabel' => 'Date', 'fieldtype' => 'date', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'updatedTime', 'fieldlabel' => 'Time', 'fieldtype' => 'time', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
         ],

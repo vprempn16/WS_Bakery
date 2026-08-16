@@ -8,6 +8,8 @@ class BranchStockResource extends JsonResource
 {
     public function toArray($request)
     {
+        $updatedAt = $this->updated_at;
+
         return [
             'id' => $this->id,
             'organizationId' => $this->organization_id,
@@ -16,7 +18,11 @@ class BranchStockResource extends JsonResource
             'productId' => $this->product_id,
             'productId_label' => $this->product ? $this->product->name : null,
             'currentStock' => (float) $this->current_stock,
-            'updatedAt' => $this->updated_at ? $this->updated_at->format('Y-m-d H:i:s') : null,
+            'createdAt' => $this->created_at ? $this->created_at->format('Y-m-d H:i:s') : null,
+            'updatedAt' => $updatedAt ? $updatedAt->format('Y-m-d H:i:s') : null,
+            // Split for BranchStock list columns (date filter scopes on updated_at).
+            'updatedDate' => $updatedAt ? $updatedAt->format('Y-m-d') : null,
+            'updatedTime' => $updatedAt ? $updatedAt->format('H:i') : null,
         ];
     }
 }
