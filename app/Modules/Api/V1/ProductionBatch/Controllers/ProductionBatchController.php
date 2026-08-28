@@ -3,8 +3,6 @@
 namespace App\Modules\Api\V1\ProductionBatch\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Api\V1\Ingredient\Models\Ingredient;
-use App\Modules\Api\V1\InventoryTransaction\Models\InventoryTransaction;
 use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch;
 use App\Modules\Api\V1\ProductionBatch\Requests\StoreProductionBatchRequest;
@@ -83,18 +81,12 @@ class ProductionBatchController extends Controller
                 DB::rollBack();
                 return $this->error('The selected product does not exist or access is denied.');
             }
-            $product->load('recipes');
-
             if (! $product->isSellable()) {
                 DB::rollBack();
                 return $this->error('Cannot produce: product is inactive. Activate it first.', null, null, null, 400);
             }
 
-            if ($product->recipes->isEmpty()) {
-                DB::rollBack();
-                return $this->error('Cannot produce: product has no recipe ingredients. Add a recipe first.', null, null, null, 400);
-            }
-
+            // Ingredients are deducted when master takes raw material (Material Issue), not here.
             $quantityProduced = (float) $values['quantityProduced'];
             $productionDate = Carbon::parse($values['productionDate']);
             $expiryTimestamp = $this->resolveExpiryTimestamp($product, $productionDate);
@@ -119,43 +111,6 @@ class ProductionBatchController extends Controller
             $batch->notes = $values['notes'] ?? null;
             $batch->created_by = $userId;
             $batch->save();
-
-            foreach ($product->recipes as $recipe) {
-                $totalIngredientNeeded = (float) $recipe->quantity_required * $quantityProduced;
-
-                $ingredient = Ingredient::where('organization_id', $orgId)
-                    ->where('id', $recipe->ingredient_id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$ingredient) {
-                    DB::rollBack();
-                    return $this->error('Recipe ingredient not found in your organization.', null, null, null, 400);
-                }
-
-                if ((float) $ingredient->current_stock < $totalIngredientNeeded) {
-                    DB::rollBack();
-                    return $this->error(
-                        "Insufficient stock for ingredient: {$ingredient->name}. Needed: {$totalIngredientNeeded}, Available: {$ingredient->current_stock}",
-                        null,
-                        null,
-                        null,
-                        400
-                    );
-                }
-
-                $ingredient->current_stock = (float) $ingredient->current_stock - $totalIngredientNeeded;
-                $ingredient->save();
-
-                InventoryTransaction::create([
-                    'organization_id' => $orgId,
-                    'ingredient_id' => $ingredient->id,
-                    'type' => 'out',
-                    'quantity' => $totalIngredientNeeded,
-                    'reference_note' => "Consumed for Production Batch: {$batch->batch_number}",
-                    'created_by' => $userId,
-                ]);
-            }
 
             $product = Product::where('organization_id', $orgId)->where('id', $product->id)->lockForUpdate()->firstOrFail();
             $product->current_stock = (float) $product->current_stock + $quantityProduced;
@@ -192,7 +147,6 @@ class ProductionBatchController extends Controller
     public function update(Request $request, $id)
     {
         $orgId = AuthUser::organizationId();
-        $userId = AuthUser::id();
         $values = $request->input('data.values') ?? [];
 
         try {
@@ -218,11 +172,11 @@ class ProductionBatchController extends Controller
 
             // Explicit cancel via status
             if (isset($values['status']) && strtolower((string) $values['status']) === 'cancelled') {
-                $this->reverseProductionStock($batch, $orgId, $userId);
+                $this->reverseProductionStock($batch, $orgId);
                 $batch->status = 'cancelled';
                 $batch->save();
                 DB::commit();
-                return $this->success(new ProductionBatchResource($batch), 'Production batch cancelled and stock reversed.');
+                return $this->success(new ProductionBatchResource($batch), 'Production batch cancelled and finished-goods stock reversed.');
             }
 
             if (isset($values['quantityProduced']) && (float) $values['quantityProduced'] != (float) $batch->quantity_produced) {
@@ -234,57 +188,11 @@ class ProductionBatchController extends Controller
 
                 $difference = $newQuantity - (float) $batch->quantity_produced;
 
-                /** @var Product $product */
-                $product = RecordObject::make('Product', $batch->product_id, [], 'DetailView');
-                $product->load('recipes');
+                $product = Product::where('organization_id', $orgId)
+                    ->where('id', $batch->product_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-                if ($product->recipes->isEmpty()) {
-                    DB::rollBack();
-                    return $this->error('Cannot adjust production: product has no recipe.', null, null, null, 400);
-                }
-
-                foreach ($product->recipes as $recipe) {
-                    $totalIngredientDifference = (float) $recipe->quantity_required * $difference;
-
-                    $ingredient = Ingredient::where('organization_id', $orgId)
-                        ->where('id', $recipe->ingredient_id)
-                        ->lockForUpdate()
-                        ->first();
-
-                    if (!$ingredient) {
-                        DB::rollBack();
-                        return $this->error('Recipe ingredient not found.', null, null, null, 400);
-                    }
-
-                    if ($difference > 0 && (float) $ingredient->current_stock < $totalIngredientDifference) {
-                        DB::rollBack();
-                        return $this->error(
-                            "Insufficient stock for ingredient: {$ingredient->name}. Needed: {$totalIngredientDifference}, Available: {$ingredient->current_stock}",
-                            null,
-                            null,
-                            null,
-                            400
-                        );
-                    }
-
-                    $ingredient->current_stock = (float) $ingredient->current_stock - $totalIngredientDifference;
-                    if ((float) $ingredient->current_stock < 0) {
-                        DB::rollBack();
-                        return $this->error("Ingredient stock would go negative for {$ingredient->name}.", null, null, null, 400);
-                    }
-                    $ingredient->save();
-
-                    InventoryTransaction::create([
-                        'organization_id' => $orgId,
-                        'ingredient_id' => $ingredient->id,
-                        'type' => $difference > 0 ? 'out' : 'in',
-                        'quantity' => abs($totalIngredientDifference),
-                        'reference_note' => "Adjustment for Production Batch Update: {$batch->batch_number}",
-                        'created_by' => $userId,
-                    ]);
-                }
-
-                $product = Product::where('organization_id', $orgId)->where('id', $product->id)->lockForUpdate()->firstOrFail();
                 if ($difference < 0 && (float) $product->current_stock < abs($difference)) {
                     DB::rollBack();
                     return $this->error(
@@ -330,16 +238,16 @@ class ProductionBatchController extends Controller
     }
 
     /**
-     * Cancel/reverse: restore ingredients and remove finished goods from warehouse stock.
+     * Cancel/reverse: remove finished goods from warehouse stock only.
+     * Raw materials are managed via Material Issue (not reversed here).
      * Hard delete of posted batches is not allowed.
      */
     public function destroy($id)
     {
         $orgId = AuthUser::organizationId();
-        $userId = AuthUser::id();
 
         try {
-            return DB::transaction(function () use ($id, $orgId, $userId) {
+            return DB::transaction(function () use ($id, $orgId) {
                 /** @var ProductionBatch $batch */
                 $batch = RecordObject::make('ProductionBatch', $id, [], 'EditView');
 
@@ -347,11 +255,11 @@ class ProductionBatchController extends Controller
                     return $this->error('Production batch is already cancelled.', null, null, null, 400);
                 }
 
-                $this->reverseProductionStock($batch, $orgId, $userId);
+                $this->reverseProductionStock($batch, $orgId);
                 $batch->status = 'cancelled';
                 $batch->save();
 
-                return $this->success(new ProductionBatchResource($batch), 'Production batch cancelled and stock reversed.');
+                return $this->success(new ProductionBatchResource($batch), 'Production batch cancelled and finished-goods stock reversed.');
             });
         } catch (ModelNotFoundException $e) {
             return $this->error('Production Batch not found.', null, null, null, 404);
@@ -373,7 +281,7 @@ class ProductionBatchController extends Controller
         return $productionDate->copy()->addHours($hours);
     }
 
-    private function reverseProductionStock(ProductionBatch $batch, string $orgId, ?string $userId): void
+    private function reverseProductionStock(ProductionBatch $batch, string $orgId): void
     {
         $product = Product::where('organization_id', $orgId)
             ->where('id', $batch->product_id)
@@ -385,29 +293,6 @@ class ProductionBatchController extends Controller
             throw new \RuntimeException(
                 'Cannot reverse production: warehouse finished-goods stock is insufficient (already transferred or sold).'
             );
-        }
-
-        $product->load('recipes');
-        foreach ($product->recipes as $recipe) {
-            $restoreQty = (float) $recipe->quantity_required * $qty;
-            $ingredient = Ingredient::where('organization_id', $orgId)
-                ->where('id', $recipe->ingredient_id)
-                ->lockForUpdate()
-                ->first();
-            if (!$ingredient) {
-                continue;
-            }
-            $ingredient->current_stock = (float) $ingredient->current_stock + $restoreQty;
-            $ingredient->save();
-
-            InventoryTransaction::create([
-                'organization_id' => $orgId,
-                'ingredient_id' => $ingredient->id,
-                'type' => 'in',
-                'quantity' => $restoreQty,
-                'reference_note' => "Reversed Production Batch: {$batch->batch_number}",
-                'created_by' => $userId,
-            ]);
         }
 
         $product->current_stock = (float) $product->current_stock - $qty;

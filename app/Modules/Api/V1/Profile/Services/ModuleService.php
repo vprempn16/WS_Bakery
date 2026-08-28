@@ -15,6 +15,7 @@ class ModuleService
     private const FRONTEND_MODULES = [
         'Vendor',
         'Ingredient',
+        'MaterialIssue',
         'Product',
         'Branch',
         'User',
@@ -24,6 +25,7 @@ class ModuleService
         'BranchStock',
         'InventoryTransaction',
         'ProductionBatch',
+        'ProductionPlan',
         'Recipe',
     ];
 
@@ -35,6 +37,7 @@ class ModuleService
         $map = [
             'Vendors'               => 'Vendor',
             'Ingredients'           => 'Ingredient',
+            'MaterialIssues'        => 'MaterialIssue',
             'Products'              => 'Product',
             'Branches'              => 'Branch',
             'Users'                 => 'User',
@@ -44,6 +47,7 @@ class ModuleService
             'BranchStocks'          => 'BranchStock',
             'InventoryTransactions' => 'InventoryTransaction',
             'ProductionBatches'     => 'ProductionBatch',
+            'ProductionPlans'       => 'ProductionPlan',
             'Recipes'               => 'Recipe',
         ];
 
