@@ -20,11 +20,13 @@ class DefaultStaffProfilesService
             'description' => 'Default warehouse profile — ingredients, production, transfers, stock.',
             'modules' => [
                 'Ingredient' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+                'MaterialIssue' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'Vendor' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'InventoryTransaction' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'Product' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'Recipe' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'ProductionBatch' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+                'ProductionPlan' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 // BranchStock is a derived ledger (transfers/billing); view only.
                 'BranchStock' => ['view' => 1, 'create' => 0, 'edit' => 0, 'delete' => 0],
                 'BranchTransfer' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],

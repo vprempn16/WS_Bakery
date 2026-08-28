@@ -66,6 +66,18 @@ Route::prefix('v1')->group(function () {
                 ->middleware('throttle:writes');
         });
 
+        // Material Issue (master takes raw materials → stock OUT)
+        Route::prefix('MaterialIssue')->group(function () {
+            Route::get('', [\App\Modules\Api\V1\MaterialIssue\Controllers\MaterialIssueController::class, 'index']);
+            Route::post('new', [\App\Modules\Api\V1\MaterialIssue\Controllers\MaterialIssueController::class, 'store'])
+                ->middleware('throttle:writes');
+            Route::get('{id}', [\App\Modules\Api\V1\MaterialIssue\Controllers\MaterialIssueController::class, 'show']);
+            Route::post('{id}', [\App\Modules\Api\V1\MaterialIssue\Controllers\MaterialIssueController::class, 'update'])
+                ->middleware('throttle:writes');
+            Route::delete('{id}', [\App\Modules\Api\V1\MaterialIssue\Controllers\MaterialIssueController::class, 'destroy'])
+                ->middleware('throttle:writes');
+        });
+
         // Branch Transfer endpoints
         Route::prefix('BranchTransfer')->group(function () {
             Route::get('', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchTransferController::class, 'index']);
@@ -85,6 +97,7 @@ Route::prefix('v1')->group(function () {
         // Reports endpoints
         Route::prefix('Reports')->middleware('throttle:expensive')->group(function () {
             Route::get('ExpiringBatches', [\App\Modules\Api\V1\Reports\Controllers\ExpiryReportController::class, 'expiringBatches']);
+            Route::get('MaterialUsage', [\App\Modules\Api\V1\Reports\Controllers\MaterialUsageReportController::class, 'index']);
         });
 
         // Dashboard endpoint
@@ -183,6 +196,19 @@ Route::prefix('v1')->group(function () {
             Route::get('{id}', [\App\Modules\Api\V1\ProductionBatch\Controllers\ProductionBatchController::class, 'show']);
             Route::post('{id}', [\App\Modules\Api\V1\ProductionBatch\Controllers\ProductionBatchController::class, 'update']);
             Route::delete('{id}', [\App\Modules\Api\V1\ProductionBatch\Controllers\ProductionBatchController::class, 'destroy']);
+        });
+
+        // Production Plan (day-before pre-batch; materials preview only — no stock change)
+        Route::prefix('ProductionPlan')->group(function () {
+            Route::get('', [\App\Modules\Api\V1\ProductionPlan\Controllers\ProductionPlanController::class, 'index']);
+            Route::post('new', [\App\Modules\Api\V1\ProductionPlan\Controllers\ProductionPlanController::class, 'store'])
+                ->middleware('throttle:writes');
+            Route::get('{id}/materials', [\App\Modules\Api\V1\ProductionPlan\Controllers\ProductionPlanController::class, 'materials']);
+            Route::get('{id}', [\App\Modules\Api\V1\ProductionPlan\Controllers\ProductionPlanController::class, 'show']);
+            Route::post('{id}', [\App\Modules\Api\V1\ProductionPlan\Controllers\ProductionPlanController::class, 'update'])
+                ->middleware('throttle:writes');
+            Route::delete('{id}', [\App\Modules\Api\V1\ProductionPlan\Controllers\ProductionPlanController::class, 'destroy'])
+                ->middleware('throttle:writes');
         });
 
         /*

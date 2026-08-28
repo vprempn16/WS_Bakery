@@ -2,7 +2,7 @@
 
 This file contains the strict architectural rules and guidelines for this codebase. Any AI agent or developer modifying this system MUST adhere to these rules.
 
-> **BkPortal** — Bakery WMS + multi-branch POS. Use bakery modules (`Ingredient`, `Product`, `Recipe`, `ProductionBatch`, `Branch`, `Billing`, etc.). Do not add sales-CRM modules (Lead / Contact / Quotation / Invoice) or Member portal unless explicitly requested.
+> **BkPortal** — Bakery WMS + multi-branch POS. Use bakery modules (`Ingredient`, `MaterialIssue`, `Product`, `Recipe`, `ProductionBatch`, `Branch`, `Billing`, etc.). Do not add sales-CRM modules (Lead / Contact / Quotation / Invoice) or Member portal unless explicitly requested.
 
 ## 1. Architectural Pattern (HMVC / Modular Design)
 This application uses a Modular Architecture (HMVC).
@@ -12,7 +12,7 @@ Features are strictly encapsulated within their own module folders rather than g
 - **Rule**: Do NOT place new feature logic in the global `app/Http/Controllers` or `app/Models` directories. Always build within the specific `app/Modules/Api/V1/{Feature}` directory.
 
 ### Bakery modules (current)
-Organization, User, Vendor, Ingredient, InventoryTransaction, Product, Recipe, ProductionBatch, Branch, BranchTransfer / BranchStock, BranchSales (BranchDailyReport), Billing, Reports, SavedFilter, Profile, Role, Settings, GlobalSearch, AuditLog.
+Organization, User, Vendor, Ingredient, MaterialIssue, InventoryTransaction, Product, Recipe, ProductionBatch, Branch, BranchTransfer / BranchStock, BranchSales (BranchDailyReport), Billing, Reports, SavedFilter, Profile, Role, Settings, GlobalSearch, AuditLog.
 
 ## 2. Fat Models, Skinny Controllers
 - **Controllers** should only be responsible for handling the HTTP request, delegating to the Model or a Service, and returning the response.
@@ -26,7 +26,7 @@ Organization, User, Vendor, Ingredient, InventoryTransaction, Product, Recipe, P
 - Triggering `beforeSave`, `afterSave`, `beforeDelete`, and `afterDelete` hooks (when `HookManager` is available).
 - Custom values / org isolation patterns used by BkPortal record engine.
 
-> **Current bakery note:** Many bakery controllers still use direct Eloquent (`Product::where(...)`, `$request->user()->organization_id`). Prefer moving **single-record** create/update/delete paths onto `RecordObject` over time. Keep **list/search** on efficient Eloquent queries (see §7). Domain side-effects (stock deduct, recipe consume) stay in dedicated controller/service transactions — do not invent CRM Lead/Invoice logic.
+> **Current bakery note:** Many bakery controllers still use direct Eloquent (`Product::where(...)`, `$request->user()->organization_id`). Prefer moving **single-record** create/update/delete paths onto `RecordObject` over time. Keep **list/search** on efficient Eloquent queries (see §7). Domain side-effects (Material Issue stock out, production finished-goods stock) stay in dedicated controller/service transactions — do not invent CRM Lead/Invoice logic.
 
 Base model class is **`BKModel`** (not `AtomModel`).
 
@@ -183,9 +183,10 @@ When changing `\Log::` to `Log::`, never touch already-qualified names like `\Il
 Agents MUST preserve this stock flow. Do not invent CRM Lead→Invoice conversion here.
 
 ```
-Vendor → Ingredient (stock in via InventoryTransaction)
-    → Recipe on Product
-    → ProductionBatch (consume ingredients → increase Product.current_stock + expiry)
+Vendor → Ingredient (stock in via InventoryTransaction / Adjust Stock)
+    → MaterialIssue (master takes raw materials → Ingredient stock OUT + ledger)
+    → Recipe on Product (BOM for planning / usage analysis only)
+    → ProductionBatch (increase Product.current_stock + expiry; does NOT deduct ingredients)
     → BranchTransfer (warehouse Product stock → BranchStock)
     → Sell:
          • POS Billing  → MUST deduct BranchStock for that branch
@@ -194,11 +195,12 @@ Vendor → Ingredient (stock in via InventoryTransaction)
 ```
 
 ### Stock rules
-1. **ProductionBatch**: deduct ingredient stock + log `InventoryTransaction`; increase finished-goods `Product.current_stock`.
-2. **BranchTransfer**: deduct warehouse `Product.current_stock`; increase `BranchStock`.
-3. **Billing (POS)**: deduct `BranchStock` for `branch_id` + product lines (same org). Never leave POS as “bill only” without stock movement.
-4. **BranchDailyReport**: deduct sold + returned quantities from `BranchStock`.
-5. Always scope by `organization_id`. Use `lockForUpdate()` inside stock transactions.
+1. **MaterialIssue**: deduct ingredient stock + log `InventoryTransaction` (`out`) when master takes raw materials. Cancel restores stock.
+2. **ProductionBatch**: increase finished-goods `Product.current_stock` only. Do **not** deduct ingredients (already issued via MaterialIssue).
+3. **BranchTransfer**: deduct warehouse `Product.current_stock`; increase `BranchStock`.
+4. **Billing (POS)**: deduct `BranchStock` for `branch_id` + product lines (same org). Never leave POS as “bill only” without stock movement.
+5. **BranchDailyReport**: deduct sold + returned quantities from `BranchStock`.
+6. Always scope by `organization_id`. Use `lockForUpdate()` inside stock transactions.
 
 ### Multi-tenant
 - Middleware: `auth:sanctum` + `check.org`
