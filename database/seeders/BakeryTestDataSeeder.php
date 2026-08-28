@@ -71,7 +71,7 @@ class BakeryTestDataSeeder extends Seeder
                 "first_name" => "Suresh",
                 "last_name" => "Kumar",
                 "password" => Hash::make("password"),
-                "role" => "staff",
+                "role" => "warehouse",
                 "is_active" => 1,
             ]
         );

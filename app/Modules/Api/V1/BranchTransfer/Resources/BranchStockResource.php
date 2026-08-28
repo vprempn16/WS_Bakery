@@ -17,6 +17,8 @@ class BranchStockResource extends JsonResource
             'branchId_label' => $this->branch ? $this->branch->name : null,
             'productId' => $this->product_id,
             'productId_label' => $this->product ? $this->product->name : null,
+            // Product's configured unit for list display (e.g. "100 pcs", "1 kg").
+            'unit' => $this->product ? $this->product->unit : null,
             'currentStock' => (float) $this->current_stock,
             'createdAt' => $this->created_at ? $this->created_at->format('Y-m-d H:i:s') : null,
             'updatedAt' => $updatedAt ? $updatedAt->format('Y-m-d H:i:s') : null,

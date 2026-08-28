@@ -64,7 +64,12 @@ class GlobalSearchController extends Controller
                 'module' => 'Branch',
                 'model' => \App\Modules\Api\V1\Branch\Models\Branch::class,
                 'searchColumns' => ['name', 'address', 'phone'],
-                'label' => function ($r) { return $r->name; },
+                'label' => function ($r) {
+                    $type = strtolower((string) ($r->type ?? ''));
+                    $suffix = $type === 'warehouse' ? ' (Warehouse)' : ($type === 'retail' ? ' (Retail)' : '');
+
+                    return ($r->name ?? 'Branch') . $suffix;
+                },
                 'searchText' => function ($r) { return $r->name . ',' . $r->phone; },
             ],
         ];
@@ -116,6 +121,20 @@ class GlobalSearchController extends Controller
             $query->where('organization_id', $user->organization_id);
         } else {
             $query->where('id', $user->organization_id);
+        }
+
+        // Branch picker scoping:
+        // - Warehouse staff pick transfer destinations → retail branches only
+        // - Retail/sales staff → their assigned branch only
+        // - Full admins → all org branches
+        if ($module === 'Branch' && $user && method_exists($user, 'isFullAdmin') && ! $user->isFullAdmin()) {
+            if (\App\Services\BranchAccess::isWarehouseUser($user)) {
+                $query->whereRaw('LOWER(type) != ?', ['warehouse']);
+            } elseif ($user->branch_id) {
+                $query->where('id', $user->branch_id);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
         }
 
         // Empty / whitespace: browse first records (so Main branch appears without typing).

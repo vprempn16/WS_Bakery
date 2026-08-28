@@ -180,8 +180,8 @@ class OnSiteDemoFlowTest extends TestCase
 
         $this->assertEquals(20.0, (float) DB::table('products')->where('id', $breadId)->value('current_stock'));
 
-        // --- B7–B8: Transfer to retail branch ---
-        $this->postJson('/api/v1/BranchTransfer/new', [
+        // --- B7–B8: Transfer to retail branch (pending → dispatched → received) ---
+        $breadTransferId = $this->postJson('/api/v1/BranchTransfer/new', [
             'data' => [
                 'values' => [
                     'branchId' => $retailBranchId,
@@ -194,7 +194,22 @@ class OnSiteDemoFlowTest extends TestCase
                     ],
                 ],
             ],
-        ])->assertStatus(201);
+        ], ['Idempotency-Key' => 'onsitedemoflowtest-transfer-1'])->assertStatus(201)
+            ->json('data.id');
+
+        $this->assertEquals(20.0, (float) DB::table('products')->where('id', $breadId)->value('current_stock'));
+        $this->assertNull(
+            BranchStock::where('branch_id', $retailBranchId)->where('product_id', $breadId)->first()
+        );
+
+        $this->postJson("/api/v1/BranchTransfer/{$breadTransferId}", [
+            'data' => ['values' => ['status' => 'dispatched']],
+        ])->assertSuccessful();
+        $this->assertEquals(5.0, (float) DB::table('products')->where('id', $breadId)->value('current_stock'));
+
+        $this->postJson("/api/v1/BranchTransfer/{$breadTransferId}", [
+            'data' => ['values' => ['status' => 'received']],
+        ])->assertSuccessful();
 
         $retailStock = BranchStock::where('branch_id', $retailBranchId)
             ->where('product_id', $breadId)
@@ -204,7 +219,7 @@ class OnSiteDemoFlowTest extends TestCase
 
         // Seed weight product on retail for POS (transfer laddu too)
         DB::table('products')->where('id', $ladduId)->update(['current_stock' => 5000]);
-        $this->postJson('/api/v1/BranchTransfer/new', [
+        $ladduTransferId = $this->postJson('/api/v1/BranchTransfer/new', [
             'data' => [
                 'values' => [
                     'branchId' => $retailBranchId,
@@ -212,11 +227,20 @@ class OnSiteDemoFlowTest extends TestCase
                 ],
                 'relatedRecords' => [
                     'items' => [
-                        ['productId' => $ladduId, 'quantity' => 2000, 'unit' => 'gm', 'pieces' => 8],
+                        // gm products do not require pieces
+                        ['productId' => $ladduId, 'quantity' => 2000, 'unit' => 'gm'],
                     ],
                 ],
             ],
-        ])->assertStatus(201);
+        ], ['Idempotency-Key' => 'onsitedemoflowtest-transfer-2'])->assertStatus(201)
+            ->json('data.id');
+
+        $this->postJson("/api/v1/BranchTransfer/{$ladduTransferId}", [
+            'data' => ['values' => ['status' => 'dispatched']],
+        ])->assertSuccessful();
+        $this->postJson("/api/v1/BranchTransfer/{$ladduTransferId}", [
+            'data' => ['values' => ['status' => 'received']],
+        ])->assertSuccessful();
 
         // --- C3: Pending bill — no stock deduct ---
         $pending = $this->postJson('/api/v1/Billing/new', [

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\BranchAccess;
 use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -54,6 +55,14 @@ class GlobalInlineEditController extends Controller
         'status',
     ];
 
+    /** Modules whose records are scoped to a branch_id column. */
+    private array $branchScopedModules = [
+        'BranchTransfer',
+        'BranchStock',
+        'BranchDailyReport',
+        'Billing',
+    ];
+
     public function update(Request $request, string $module, string $id)
     {
         $request->validate([
@@ -101,6 +110,28 @@ class GlobalInlineEditController extends Controller
             $record = $modelClass::where('organization_id', $orgId)->findOrFail($id);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error("Record not found in module '{$resolvedModule}'.", null, null, null, 404);
+        }
+
+        if (in_array($resolvedModule, $this->branchScopedModules, true) && ! empty($record->branch_id)) {
+            try {
+                if ($resolvedModule === 'BranchTransfer') {
+                    BranchAccess::assertCanAccessTransferDestination($user, (string) $record->branch_id);
+                    $status = strtolower(trim((string) ($record->status ?? '')));
+                    if ($status !== 'pending') {
+                        return $this->error(
+                            'Only pending transfers can be edited. Dispatch or receive to move stock.',
+                            null,
+                            null,
+                            null,
+                            400
+                        );
+                    }
+                } else {
+                    BranchAccess::assertCanAccessBranch($user, (string) $record->branch_id);
+                }
+            } catch (\RuntimeException $e) {
+                return $this->error($e->getMessage(), null, null, null, 403);
+            }
         }
 
         if (! $record->isFillable($column) && ! empty($record->getGuarded()) && $record->isGuarded($column)) {

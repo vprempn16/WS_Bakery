@@ -42,6 +42,80 @@ class BranchAccess
     }
 
     /**
+     * True when the user operates from a warehouse (source of outbound transfers).
+     * Detects warehouse branch assignment and/or the org "Warehouse" role.
+     */
+    public static function isWarehouseUser(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->branch_id) {
+            $onWarehouse = Branch::where('organization_id', $user->organization_id)
+                ->where('id', $user->branch_id)
+                ->whereRaw('LOWER(type) = ?', ['warehouse'])
+                ->exists();
+            if ($onWarehouse) {
+                return true;
+            }
+        }
+
+        $role = strtolower((string) ($user->role ?? ''));
+        if (in_array($role, ['warehouse', 'warehouse_manager'], true)) {
+            return true;
+        }
+
+        if (! \Illuminate\Support\Facades\Schema::hasTable('roles')
+            || ! \Illuminate\Support\Facades\Schema::hasTable('role_user_rel')
+            || ! $user->id
+            || ! $user->organization_id
+        ) {
+            return false;
+        }
+
+        return \Illuminate\Support\Facades\DB::table('roles')
+            ->join('role_user_rel', 'roles.id', '=', 'role_user_rel.role_id')
+            ->where('role_user_rel.user_id', $user->id)
+            ->where('role_user_rel.organization_id', $user->organization_id)
+            ->where('roles.organization_id', $user->organization_id)
+            ->where('roles.deleted', 0)
+            ->whereRaw('LOWER(roles.name) = ?', ['warehouse'])
+            ->exists();
+    }
+
+    /**
+     * Branch transfers are warehouse → retail.
+     * Warehouse staff and full admins may create/view transfers to any retail branch in the org.
+     * Retail staff may only access transfers destined for their own branch.
+     */
+    public static function canAccessTransferDestination(?User $user, string $destinationBranchId): bool
+    {
+        if (! $user || $destinationBranchId === '') {
+            return false;
+        }
+
+        if ($user->isFullAdmin() || self::isWarehouseUser($user)) {
+            return Branch::where('organization_id', $user->organization_id)
+                ->where('id', $destinationBranchId)
+                ->whereRaw('LOWER(type) != ?', ['warehouse'])
+                ->exists();
+        }
+
+        return self::canAccessBranch($user, $destinationBranchId);
+    }
+
+    /**
+     * @throws \RuntimeException
+     */
+    public static function assertCanAccessTransferDestination(?User $user, string $destinationBranchId): void
+    {
+        if (! self::canAccessTransferDestination($user, $destinationBranchId)) {
+            throw new \RuntimeException('You are not allowed to access this branch.');
+        }
+    }
+
+    /**
      * Resolve active branch from X-Branch-Id header or query (branchId / branch_id).
      * Staff are always locked to their assigned branch when one exists.
      */
@@ -60,6 +134,55 @@ class BranchAccess
         }
 
         return (string) $raw;
+    }
+
+    /**
+     * Optional destination filter for BranchTransfer lists.
+     * Warehouse context (assigned warehouse or admin header = warehouse) shows all outgoing transfers.
+     * Retail context filters to that destination branch.
+     *
+     * @throws \RuntimeException
+     */
+    public static function applyTransferListBranchScope($query, Request $request, ?User $user, string $column = 'branch_id')
+    {
+        if (! $user) {
+            throw new \RuntimeException('Unauthenticated.');
+        }
+
+        if (self::isWarehouseUser($user) || $user->isFullAdmin()) {
+            $raw = $request->header('X-Branch-Id')
+                ?: $request->query('branchId')
+                ?: $request->query('branch_id');
+
+            if ($raw === null || $raw === '') {
+                return $query;
+            }
+
+            $branchId = (string) $raw;
+            self::assertCanAccessBranch($user, $branchId);
+
+            $isWarehouseHeader = Branch::where('organization_id', $user->organization_id)
+                ->where('id', $branchId)
+                ->whereRaw('LOWER(type) = ?', ['warehouse'])
+                ->exists();
+
+            // Warehouse switcher context = source, not destination — do not empty the list.
+            if ($isWarehouseHeader) {
+                return $query;
+            }
+
+            $query->where($column, $branchId);
+
+            return $query;
+        }
+
+        if (! $user->branch_id) {
+            throw new \RuntimeException('No branch assigned to this user.');
+        }
+
+        $query->where($column, $user->branch_id);
+
+        return $query;
     }
 
     /**

@@ -15,6 +15,7 @@ class InventoryTransactionResource extends JsonResource
             'organizationId_label' => $this->organization ? $this->organization->name : null,
             'ingredientId' => $this->ingredient_id,
             'ingredientId_label' => $this->ingredient ? $this->ingredient->name : null,
+            'unit' => $this->ingredient ? $this->ingredient->unit : null,
             'type' => $this->type,
             'quantity' => (float) $this->quantity,
             'referenceNote' => $this->reference_note,

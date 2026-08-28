@@ -23,8 +23,8 @@ class StoreBranchTransferRequest extends FormRequest
             'data.relatedRecords.items' => ['required', 'array', 'min:1'],
             'data.relatedRecords.items.*.productId' => ['required', 'string', 'exists:products,id', 'distinct'],
             'data.relatedRecords.items.*.quantity' => ['required', 'numeric', 'min:0.01'],
-            'data.relatedRecords.items.*.unit' => ['required', 'string'],
-            'data.relatedRecords.items.*.pieces' => ['nullable', 'numeric', 'min:0.01'],
+            'data.relatedRecords.items.*.unit' => ['nullable', 'string'],
+            'data.relatedRecords.items.*.pieces' => ['nullable', 'numeric', 'min:1'],
         ];
     }
 
@@ -49,14 +49,32 @@ class StoreBranchTransferRequest extends FormRequest
                     continue;
                 }
 
-                $unit = strtolower((string) ($product->unit ?? ''));
-                $needsPieces = in_array($unit, ['gm', 'ml', 'pcs'], true);
+                $unit = strtolower(trim((string) ($product->unit ?? '')));
+                $isPieceUnit = in_array($unit, ['pcs', 'pc', 'piece', 'pieces'], true);
+                $piecesProvided = array_key_exists('pieces', $item)
+                    && $item['pieces'] !== null
+                    && $item['pieces'] !== '';
 
-                if ($needsPieces && (!isset($item['pieces']) || $item['pieces'] === '' || $item['pieces'] === null)) {
-                    $validator->errors()->add(
-                        "data.relatedRecords.items.{$index}.pieces",
-                        'Pieces is required when product unit is gm, ml, or pcs.'
-                    );
+                if ($isPieceUnit) {
+                    if (! $piecesProvided) {
+                        $validator->errors()->add(
+                            "data.relatedRecords.items.{$index}.pieces",
+                            'Pieces is required when product unit is pcs.'
+                        );
+                    } elseif (! is_numeric($item['pieces']) || (float) $item['pieces'] < 1 || floor((float) $item['pieces']) != (float) $item['pieces']) {
+                        $validator->errors()->add(
+                            "data.relatedRecords.items.{$index}.pieces",
+                            'Pieces must be a whole number of at least 1.'
+                        );
+                    }
+                } elseif ($piecesProvided) {
+                    // Optional for gm/ml — if provided, still must be a valid whole number ≥ 1
+                    if (! is_numeric($item['pieces']) || (float) $item['pieces'] < 1 || floor((float) $item['pieces']) != (float) $item['pieces']) {
+                        $validator->errors()->add(
+                            "data.relatedRecords.items.{$index}.pieces",
+                            'Pieces must be a whole number of at least 1.'
+                        );
+                    }
                 }
             }
         });

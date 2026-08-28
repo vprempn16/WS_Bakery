@@ -110,6 +110,8 @@ class ModuleFieldConfig
                 ],
             ],
             ['fieldname' => 'quantity', 'fieldlabel' => 'Quantity', 'fieldtype' => 'decimal', 'displaytype' => 1, 'mandatory' => 1],
+            // Resolved from ingredient for quantity formatting (not a list column).
+            ['fieldname' => 'unit', 'fieldlabel' => 'Unit', 'fieldtype' => 'text', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'referenceNote', 'fieldlabel' => 'Reference Note', 'fieldtype' => 'textarea', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
@@ -200,6 +202,7 @@ class ModuleFieldConfig
             ['fieldname' => 'productId', 'fieldlabel' => 'Product', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'ingredientId', 'fieldlabel' => 'Ingredient', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'quantityRequired', 'fieldlabel' => 'Quantity Required', 'fieldtype' => 'decimal', 'displaytype' => 1, 'mandatory' => 1],
+            ['fieldname' => 'unit', 'fieldlabel' => 'Unit', 'fieldtype' => 'text', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
         ],
@@ -250,6 +253,8 @@ class ModuleFieldConfig
             ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization', 'fieldtype' => 'relationPickList', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'branchId', 'fieldlabel' => 'Branch', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'productId', 'fieldlabel' => 'Product', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
+            // Product unit for stock formatting (embedded in Current Stock column).
+            ['fieldname' => 'unit', 'fieldlabel' => 'Unit', 'fieldtype' => 'text', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock', 'fieldtype' => 'number', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'updatedDate', 'fieldlabel' => 'Date', 'fieldtype' => 'date', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'updatedTime', 'fieldlabel' => 'Time', 'fieldtype' => 'time', 'displaytype' => 3, 'mandatory' => 0],
@@ -265,9 +270,17 @@ class ModuleFieldConfig
             [
                 'fieldname' => 'status',
                 'fieldlabel' => 'Status',
-                'fieldtype' => 'text',
+                'fieldtype' => 'picklist',
                 'displaytype' => 3,
                 'mandatory' => 0,
+                'options' => [
+                    ['value' => 'pending', 'label' => 'Pending'],
+                    ['value' => 'dispatched', 'label' => 'Dispatched'],
+                    ['value' => 'received', 'label' => 'Received'],
+                    ['value' => 'cancelled', 'label' => 'Cancelled'],
+                    // Legacy rows created before lifecycle; treated as received for stock.
+                    ['value' => 'completed', 'label' => 'Completed'],
+                ],
             ],
             ['fieldname' => 'notes', 'fieldlabel' => 'Notes', 'fieldtype' => 'textarea', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'createdBy', 'fieldlabel' => 'Transferred By', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
@@ -279,7 +292,7 @@ class ModuleFieldConfig
             ['fieldname' => 'productId', 'fieldlabel' => 'Product', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'quantity', 'fieldlabel' => 'Quantity', 'fieldtype' => 'number', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'unit', 'fieldlabel' => 'Unit', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
-            ['fieldname' => 'pieces', 'fieldlabel' => 'Pieces', 'fieldtype' => 'number', 'displaytype' => 1, 'mandatory' => 1],
+            ['fieldname' => 'pieces', 'fieldlabel' => 'Pieces', 'fieldtype' => 'number', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
         ],

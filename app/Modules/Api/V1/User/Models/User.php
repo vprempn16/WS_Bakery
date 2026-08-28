@@ -69,45 +69,85 @@ class User extends Authenticatable
         ];
 
         $role = strtolower((string) ($this->role ?? ''));
+        $fullActions = ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 1];
 
         if (in_array($role, ['admin', 'superadmin', 'owner'], true)) {
-            return $allModules;
+            return array_map(function (array $module) use ($fullActions) {
+                $module['actions'] = $fullActions;
+
+                return $module;
+            }, $allModules);
         }
 
-        // Prefer modules from assigned Settings Roles → Profiles
-        $fromProfiles = $this->modulesFromAssignedRoles();
+        // Prefer modules + actions from assigned Settings Roles → Profiles
+        $fromProfiles = $this->moduleActionsFromAssignedRoles();
         if ($fromProfiles !== null) {
-            return array_values(array_filter($allModules, function ($module) use ($fromProfiles) {
-                return in_array($module['value'], $fromProfiles, true);
-            }));
+            return array_values(array_filter(array_map(function ($module) use ($fromProfiles) {
+                $key = $module['value'];
+                if (! isset($fromProfiles[$key])) {
+                    return null;
+                }
+                $module['actions'] = $fromProfiles[$key];
+
+                return $module;
+            }, $allModules)));
         }
 
         // Legacy fallback by users.role string
         if (in_array($role, ['warehouse', 'warehouse_manager', 'manager'], true)) {
-            $warehouseModules = [
-                'product', 'ingredient', 'branchtransfer', 'branchstock',
-                'inventorytransaction', 'productionbatch', 'recipe', 'vendor', 'branch',
+            $warehouseActions = [
+                'product' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+                'ingredient' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+                'branchtransfer' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+                'branchstock' => ['view' => 1, 'create' => 0, 'edit' => 0, 'delete' => 0],
+                'inventorytransaction' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+                'productionbatch' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+                'recipe' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+                'vendor' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+                'branch' => ['view' => 1, 'create' => 0, 'edit' => 0, 'delete' => 0],
             ];
 
-            return array_values(array_filter($allModules, function ($module) use ($warehouseModules) {
-                return in_array($module['value'], $warehouseModules, true);
-            }));
+            return array_values(array_filter(array_map(function ($module) use ($warehouseActions) {
+                $key = $module['value'];
+                if (! isset($warehouseActions[$key])) {
+                    return null;
+                }
+                $module['actions'] = $warehouseActions[$key];
+
+                return $module;
+            }, $allModules)));
         }
 
-        $branchModules = ['billing', 'branchdailyreport', 'product', 'branchstock'];
+        // Legacy branch staff fallback mirrors the default Sales Staff profile.
+        // BranchTransfer is view-only here; receiving is authorized separately
+        // as a destination-branch workflow action.
+        $branchActions = [
+            'billing' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+            'branchdailyreport' => ['view' => 1, 'create' => 1, 'edit' => 0, 'delete' => 0],
+            'product' => ['view' => 1, 'create' => 0, 'edit' => 0, 'delete' => 0],
+            'branchstock' => ['view' => 1, 'create' => 0, 'edit' => 0, 'delete' => 0],
+            'branchtransfer' => ['view' => 1, 'create' => 0, 'edit' => 0, 'delete' => 0],
+        ];
 
-        return array_values(array_filter($allModules, function ($module) use ($branchModules) {
-            return in_array($module['value'], $branchModules, true);
-        }));
+        return array_values(array_filter(array_map(function ($module) use ($branchActions) {
+            $key = $module['value'];
+            if (! isset($branchActions[$key])) {
+                return null;
+            }
+            $module['actions'] = $branchActions[$key];
+
+            return $module;
+        }, $allModules)));
     }
 
     /**
-     * @return list<string>|null  lowercase module values with view permission, or null if no roles
+     * @return array<string, array{view:int, create:int, edit:int, delete:int}>|null
+     *         lowercase module value => action bits, or null if no roles/profiles
      */
-    private function modulesFromAssignedRoles(): ?array
+    private function moduleActionsFromAssignedRoles(): ?array
     {
         $orgId = $this->organization_id;
-        if (!$orgId) {
+        if (! $orgId) {
             return null;
         }
 
@@ -135,25 +175,54 @@ class User extends Authenticatable
             return null;
         }
 
-        $allowed = [];
+        $merged = [];
         foreach ($profileIds as $profileId) {
             $profileFile = base_path("Profiles/{$orgId}/{$profileId}_Profile.php");
-            if (!file_exists($profileFile)) {
+            if (! file_exists($profileFile)) {
                 continue;
             }
             $data = include $profileFile;
-            if (!is_array($data) || !isset($data['modules']) || !is_array($data['modules'])) {
+            if (! is_array($data) || ! isset($data['modules']) || ! is_array($data['modules'])) {
                 continue;
             }
             foreach ($data['modules'] as $moduleName => $modData) {
-                $view = (int) ($modData['permissions']['view'] ?? 0);
-                if ($view === 1) {
-                    $allowed[] = strtolower((string) $moduleName);
+                $perms = $modData['permissions'] ?? [];
+                $view = (int) ($perms['view'] ?? 0);
+                if ($view !== 1) {
+                    continue;
+                }
+                $key = strtolower((string) $moduleName);
+                $incoming = [
+                    'view' => 1,
+                    'create' => (int) ($perms['create'] ?? 0) === 1 ? 1 : 0,
+                    'edit' => (int) ($perms['edit'] ?? 0) === 1 ? 1 : 0,
+                    'delete' => (int) ($perms['delete'] ?? 0) === 1 ? 1 : 0,
+                ];
+                if (! isset($merged[$key])) {
+                    $merged[$key] = $incoming;
+                    continue;
+                }
+                foreach (['view', 'create', 'edit', 'delete'] as $action) {
+                    $merged[$key][$action] = max((int) $merged[$key][$action], (int) $incoming[$action]);
                 }
             }
         }
 
-        return $allowed === [] ? null : array_values(array_unique($allowed));
+        return $merged === [] ? null : $merged;
+    }
+
+    /**
+     * @deprecated Prefer moduleActionsFromAssignedRoles via getAllowedModules() actions.
+     * @return list<string>|null  lowercase module values with view permission, or null if no roles
+     */
+    private function modulesFromAssignedRoles(): ?array
+    {
+        $actions = $this->moduleActionsFromAssignedRoles();
+        if ($actions === null) {
+            return null;
+        }
+
+        return array_keys($actions);
     }
 
     public function isFullAdmin(): bool

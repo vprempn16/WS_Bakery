@@ -25,7 +25,8 @@ class InventoryTransactionController extends Controller
         $orgId = $user->organization_id;
         $perPage = \App\Support\ApiPagination::perPage($request);
 
-        $query = InventoryTransaction::where('organization_id', $orgId);
+        $query = InventoryTransaction::with(['ingredient', 'organization'])
+            ->where('organization_id', $orgId);
 
         $query->when($request->query('ingredientId'), function ($q, $ingredientId) {
             $q->where('ingredient_id', $ingredientId);

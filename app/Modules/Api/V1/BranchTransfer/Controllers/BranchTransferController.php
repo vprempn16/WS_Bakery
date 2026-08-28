@@ -5,12 +5,12 @@ namespace App\Modules\Api\V1\BranchTransfer\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Api\V1\Branch\Models\Branch;
 use App\Modules\Api\V1\Organization\Models\Organization;
-use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchTransferItem;
 use App\Modules\Api\V1\BranchTransfer\Requests\StoreBranchTransferRequest;
 use App\Modules\Api\V1\BranchTransfer\Requests\UpdateBranchTransferRequest;
 use App\Modules\Api\V1\BranchTransfer\Resources\BranchTransferResource;
+use App\Modules\Api\V1\BranchTransfer\Services\BranchTransferStockService;
 use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\SavedFilter\Models\SavedFilter;
 use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
@@ -20,10 +20,15 @@ use App\Services\BranchAccess;
 use App\Services\CRM\RecordObject;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class BranchTransferController extends Controller
 {
+    public function __construct(
+        private readonly BranchTransferStockService $stockService
+    ) {}
+
     public function index(Request $request)
     {
         $user = AuthUser::requireUser();
@@ -40,7 +45,7 @@ class BranchTransferController extends Controller
             ->where('organization_id', $orgId);
 
         try {
-            BranchAccess::applyListBranchScope($query, $request, $user);
+            BranchAccess::applyTransferListBranchScope($query, $request, $user);
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), null, null, null, 403);
         }
@@ -80,12 +85,41 @@ class BranchTransferController extends Controller
 
     public function store(StoreBranchTransferRequest $request)
     {
-        $values = $request->input('data.values');
-        $itemsData = $request->input('data.relatedRecords.items', []);
-        $orgId = AuthUser::organizationId();
+        $idempotencyKey = $request->header('Idempotency-Key');
+        if (! is_string($idempotencyKey) || $idempotencyKey === '') {
+            return $this->error('Idempotency-Key header is required for branch transfers.', null, null, null, 422);
+        }
+
+        $cacheKey = 'idempotency:branch-transfer:create:' . AuthUser::id() . ':' . hash('sha256', $idempotencyKey);
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached) && isset($cached['body'], $cached['status'])) {
+            return response()->json($cached['body'], $cached['status']);
+        }
+
+        $lock = Cache::lock($cacheKey . ':lock', 30);
+        if (! $lock->get()) {
+            for ($i = 0; $i < 20; $i++) {
+                usleep(100000);
+                $cached = Cache::get($cacheKey);
+                if (is_array($cached) && isset($cached['body'], $cached['status'])) {
+                    return response()->json($cached['body'], $cached['status']);
+                }
+            }
+
+            return $this->error('A matching transfer request is already being processed. Please wait.', null, null, null, 409);
+        }
 
         try {
-            return DB::transaction(function () use ($values, $itemsData, $orgId) {
+            $cached = Cache::get($cacheKey);
+            if (is_array($cached) && isset($cached['body'], $cached['status'])) {
+                return response()->json($cached['body'], $cached['status']);
+            }
+
+            $values = $request->input('data.values');
+            $itemsData = $request->input('data.relatedRecords.items', []);
+            $orgId = AuthUser::organizationId();
+
+            $response = DB::transaction(function () use ($values, $itemsData, $orgId) {
                 $branchId = $values['branchId'];
 
                 try {
@@ -94,8 +128,17 @@ class BranchTransferController extends Controller
                     throw new \RuntimeException('The selected branch does not exist or access is denied.');
                 }
 
-                // Transfers originate from warehouse; destination branch access for non-admins
-                BranchAccess::assertCanAccessBranch(AuthUser::user(), $branchId);
+                $destination = Branch::where('organization_id', $orgId)->where('id', $branchId)->first();
+                if (! $destination) {
+                    throw new \RuntimeException('The selected branch does not exist or access is denied.');
+                }
+                if (strtolower((string) ($destination->type ?? '')) === 'warehouse') {
+                    throw new \RuntimeException('Transfers must target a retail branch, not the warehouse.');
+                }
+
+                // IMPORTANT: use transfer-destination rules — NOT assertCanAccessBranch().
+                // Warehouse staff are assigned to the warehouse, but destinations are retail.
+                BranchAccess::assertCanAccessTransferDestination(AuthUser::user(), $branchId);
 
                 foreach ($itemsData as $itemData) {
                     try {
@@ -104,6 +147,8 @@ class BranchTransferController extends Controller
                         throw new \RuntimeException('A selected product does not exist or access is denied.');
                     }
                 }
+
+                $this->stockService->assertWarehouseAvailability($orgId, $itemsData);
 
                 /** @var BranchTransfer $transfer */
                 $transfer = RecordObject::make('BranchTransfer', null, [
@@ -116,7 +161,7 @@ class BranchTransferController extends Controller
                 $transfer->transfer_date = $values['transferDate'];
                 $transfer->notes = $values['notes'] ?? null;
                 $transfer->created_by = AuthUser::id();
-                $transfer->status = 'completed';
+                $transfer->status = BranchTransferStockService::STATUS_PENDING;
                 $transfer->save();
 
                 foreach ($itemsData as $itemData) {
@@ -125,53 +170,22 @@ class BranchTransferController extends Controller
 
                     $product = Product::where('organization_id', $orgId)
                         ->where('id', $productId)
-                        ->lockForUpdate()
                         ->firstOrFail();
 
-                    if (! $product->isSellable()) {
-                        throw new \RuntimeException(
-                            "Product \"{$product->name}\" is inactive and cannot be transferred."
-                        );
+                    $piecesRaw = $itemData['pieces'] ?? null;
+                    $pieces = null;
+                    if ($piecesRaw !== null && $piecesRaw !== '') {
+                        $pieces = (float) $piecesRaw;
                     }
-
-                    if ((float) $product->current_stock < $quantity) {
-                        throw new \RuntimeException(
-                            "Insufficient warehouse stock for {$product->name}. Available: {$product->current_stock}, requested: {$quantity}."
-                        );
-                    }
-
-                    $product->current_stock = (float) $product->current_stock - $quantity;
-                    $product->save();
-
-                    $branchStock = BranchStock::where('organization_id', $orgId)
-                        ->where('branch_id', $branchId)
-                        ->where('product_id', $productId)
-                        ->lockForUpdate()
-                        ->first();
-
-                    if (!$branchStock) {
-                        $branchStock = BranchStock::create([
-                            'organization_id' => $orgId,
-                            'branch_id' => $branchId,
-                            'product_id' => $productId,
-                            'current_stock' => 0,
-                        ]);
-                        $branchStock = BranchStock::where('id', $branchStock->id)->lockForUpdate()->first();
-                    }
-
-                    $branchStock->current_stock = (float) $branchStock->current_stock + $quantity;
-                    $branchStock->save();
-
-                    $unit = strtolower((string) ($product->unit ?? ($itemData['unit'] ?? '')));
-                    $needsPieces = in_array($unit, ['gm', 'ml', 'pcs'], true);
 
                     $item = new BranchTransferItem();
                     $item->organization_id = $orgId;
                     $item->branch_transfer_id = $transfer->id;
                     $item->product_id = $productId;
                     $item->quantity = $quantity;
-                    $item->unit = $itemData['unit'] ?? $product->unit;
-                    $item->pieces = $needsPieces ? ($itemData['pieces'] ?? null) : null;
+                    // Always bind unit from product — never trust client unit for ledger rows.
+                    $item->unit = $product->unit;
+                    $item->pieces = $pieces;
                     $item->save();
                 }
 
@@ -179,14 +193,23 @@ class BranchTransferController extends Controller
 
                 return $this->success(
                     new BranchTransferResource($transfer),
-                    'Transfer logged successfully.',
+                    'Transfer created as pending. Dispatch to deduct warehouse stock, then receive to credit the branch.',
                     201
                 );
             });
+
+            Cache::put($cacheKey, [
+                'status' => $response->getStatusCode(),
+                'body' => $response->getData(true),
+            ], now()->addHours(24));
+
+            return $response;
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Exception $e) {
             return $this->error('Failed to log transfer: ' . $e->getMessage(), null, null, null, 500);
+        } finally {
+            optional($lock)->release();
         }
     }
 
@@ -196,7 +219,7 @@ class BranchTransferController extends Controller
             /** @var BranchTransfer $transfer */
             $transfer = RecordObject::make('BranchTransfer', $id, [], 'DetailView');
             try {
-                BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $transfer->branch_id);
+                BranchAccess::assertCanAccessTransferDestination(AuthUser::user(), (string) $transfer->branch_id);
             } catch (\RuntimeException $e) {
                 return $this->error($e->getMessage(), null, null, null, 403);
             }
@@ -218,54 +241,179 @@ class BranchTransferController extends Controller
     public function update(UpdateBranchTransferRequest $request, $id)
     {
         try {
-            $values = $request->input('data.values') ?? [];
+            $values = $request->safeValues();
+            $itemsData = $request->safeItems();
             $orgId = AuthUser::organizationId();
-            /** @var BranchTransfer $transfer */
-            $transfer = RecordObject::make('BranchTransfer', $id, $values, 'EditView');
-            BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $transfer->branch_id);
+            $user = AuthUser::user();
 
-            if (strtolower((string) $transfer->status) === 'cancelled') {
+            /** @var BranchTransfer $transfer */
+            $transfer = BranchTransfer::where('organization_id', $orgId)->findOrFail($id);
+            $permissionService = new \App\Services\PermissionService($user);
+            $currentStatus = $this->stockService->normalizeStatus($transfer->status);
+            $toStatus = isset($values['status'])
+                ? $this->stockService->normalizeStatus($values['status'])
+                : null;
+            $hasItemsPayload = $itemsData !== null;
+            $hasFieldEdits = isset($values['transferDate']) || array_key_exists('notes', $values);
+            $isReceiveOnly = $toStatus === BranchTransferStockService::STATUS_RECEIVED
+                && count($values) === 1
+                && ! $hasItemsPayload;
+
+            if ($isReceiveOnly) {
+                // Destination branch staff receive incoming stock. This is a workflow
+                // action, not permission to edit transfer dates/notes or dispatch.
+                if (! $permissionService->hasPermission('BranchTransfer', 'view')) {
+                    return $this->error("You don't have permission to view BranchTransfer.", null, null, null, 403);
+                }
+                BranchAccess::assertCanAccessBranch($user, (string) $transfer->branch_id);
+            } else {
+                if (! $permissionService->hasPermission('BranchTransfer', 'edit')) {
+                    return $this->error("You don't have permission to edit BranchTransfer.", null, null, null, 403);
+                }
+                BranchAccess::assertCanAccessTransferDestination($user, (string) $transfer->branch_id);
+
+                if (
+                    $toStatus === BranchTransferStockService::STATUS_DISPATCHED
+                    && ! $user->isFullAdmin()
+                    && ! BranchAccess::isWarehouseUser($user)
+                ) {
+                    return $this->error('Only warehouse staff may dispatch transfers.', null, null, null, 403);
+                }
+            }
+
+            if ($currentStatus === BranchTransferStockService::STATUS_CANCELLED) {
                 throw new \RuntimeException('Cancelled transfers cannot be edited.');
             }
 
-            if (isset($values['status']) && strtolower((string) $values['status']) === 'cancelled') {
-                return DB::transaction(function () use ($id, $orgId) {
+            // Status transitions are exclusive — do not mix with item/field edits.
+            if ($toStatus !== null && ($hasItemsPayload || $hasFieldEdits)) {
+                throw new \RuntimeException('Status changes cannot be combined with field or item edits.');
+            }
+
+            if ($toStatus !== null) {
+                return DB::transaction(function () use ($id, $orgId, $toStatus, $user, $isReceiveOnly) {
                     /** @var BranchTransfer $locked */
                     $locked = BranchTransfer::where('organization_id', $orgId)
                         ->where('id', $id)
                         ->lockForUpdate()
                         ->firstOrFail();
-                    BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $locked->branch_id);
-
-                    if (strtolower((string) $locked->status) === 'cancelled') {
-                        throw new \RuntimeException('Transfer is already cancelled.');
+                    if ($isReceiveOnly) {
+                        BranchAccess::assertCanAccessBranch($user, (string) $locked->branch_id);
+                    } else {
+                        BranchAccess::assertCanAccessTransferDestination($user, (string) $locked->branch_id);
                     }
+                    $locked->load('items');
 
-                    $this->reverseTransferStock($locked);
-                    $locked->status = 'cancelled';
-                    $locked->save();
+                    $message = $this->stockService->transition($locked, $toStatus);
                     $locked->load(['branch', 'items.product']);
 
-                    return $this->success(new BranchTransferResource($locked), 'Transfer cancelled and stock reversed.');
+                    return $this->success(new BranchTransferResource($locked), $message);
                 });
             }
 
-            if (isset($values['transferDate'])) {
-                $transfer->transfer_date = $values['transferDate'];
+            // Header/item edits are only allowed while pending (before stock moves).
+            if ($hasFieldEdits || $hasItemsPayload) {
+                if ($currentStatus !== BranchTransferStockService::STATUS_PENDING) {
+                    throw new \RuntimeException('Only pending transfers can be edited. Dispatch or receive to move stock.');
+                }
+
+                return DB::transaction(function () use ($id, $orgId, $values, $itemsData, $hasItemsPayload) {
+                    /** @var BranchTransfer $locked */
+                    $locked = BranchTransfer::where('organization_id', $orgId)
+                        ->where('id', $id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
+                    if ($this->stockService->normalizeStatus($locked->status) !== BranchTransferStockService::STATUS_PENDING) {
+                        throw new \RuntimeException('Only pending transfers can be edited. Dispatch or receive to move stock.');
+                    }
+
+                    if (isset($values['transferDate'])) {
+                        $locked->transfer_date = $values['transferDate'];
+                    }
+                    if (array_key_exists('notes', $values)) {
+                        $locked->notes = $values['notes'];
+                    }
+                    $locked->save();
+
+                    if ($hasItemsPayload) {
+                        $this->syncPendingItems($locked, $itemsData ?? []);
+                    }
+
+                    $locked->load(['branch', 'items.product']);
+
+                    return $this->success(
+                        new BranchTransferResource($locked),
+                        $hasItemsPayload
+                            ? 'Transfer items updated. Stock is unchanged until dispatch.'
+                            : 'Transfer log updated successfully.'
+                    );
+                });
             }
-            if (array_key_exists('notes', $values)) {
-                $transfer->notes = $values['notes'];
-            }
-            $transfer->save();
+
             $transfer->load(['branch', 'items.product']);
 
             return $this->success(new BranchTransferResource($transfer), 'Transfer log updated successfully.');
         } catch (ModelNotFoundException $e) {
             return $this->error('Transfer log not found.', null, null, null, 404);
         } catch (\RuntimeException $e) {
-            return $this->error($e->getMessage(), null, null, null, 400);
+            $message = $e->getMessage();
+            $status = str_contains(strtolower($message), 'not allowed')
+                || str_contains(strtolower($message), 'permission')
+                ? 403
+                : 400;
+
+            return $this->error($message, null, null, null, $status);
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
+        }
+    }
+
+    /**
+     * Replace transfer line items while pending. Does not mutate warehouse or branch stock.
+     *
+     * @param  array<int, array{productId:string, quantity:float|int|string, unit?:string|null, pieces?:float|int|string|null}>  $itemsData
+     */
+    private function syncPendingItems(BranchTransfer $transfer, array $itemsData): void
+    {
+        $orgId = (string) $transfer->organization_id;
+
+        foreach ($itemsData as $itemData) {
+            try {
+                RecordObject::make('Product', $itemData['productId'], [], 'DetailView');
+            } catch (\Exception $e) {
+                throw new \RuntimeException('A selected product does not exist or access is denied.');
+            }
+        }
+
+        $this->stockService->assertWarehouseAvailability($orgId, $itemsData);
+
+        BranchTransferItem::where('organization_id', $orgId)
+            ->where('branch_transfer_id', $transfer->id)
+            ->delete();
+
+        foreach ($itemsData as $itemData) {
+            $productId = $itemData['productId'];
+            $quantity = (float) $itemData['quantity'];
+
+            $product = Product::where('organization_id', $orgId)
+                ->where('id', $productId)
+                ->firstOrFail();
+
+            $piecesRaw = $itemData['pieces'] ?? null;
+            $pieces = null;
+            if ($piecesRaw !== null && $piecesRaw !== '') {
+                $pieces = (float) $piecesRaw;
+            }
+
+            $item = new BranchTransferItem();
+            $item->organization_id = $orgId;
+            $item->branch_transfer_id = $transfer->id;
+            $item->product_id = $productId;
+            $item->quantity = $quantity;
+            $item->unit = $product->unit;
+            $item->pieces = $pieces;
+            $item->save();
         }
     }
 
@@ -286,18 +434,15 @@ class BranchTransferController extends Controller
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $transfer->branch_id);
+                BranchAccess::assertCanAccessTransferDestination(AuthUser::user(), (string) $transfer->branch_id);
                 $transfer->load('items');
 
-                if (strtolower((string) $transfer->status) === 'cancelled') {
-                    throw new \RuntimeException('Transfer is already cancelled.');
-                }
+                $this->stockService->cancel($transfer);
 
-                $this->reverseTransferStock($transfer);
-                $transfer->status = 'cancelled';
-                $transfer->save();
-
-                return $this->success(new BranchTransferResource($transfer->load(['branch', 'items.product'])), 'Transfer cancelled and stock reversed.');
+                return $this->success(
+                    new BranchTransferResource($transfer->load(['branch', 'items.product'])),
+                    'Transfer cancelled and stock reversed.'
+                );
             });
         } catch (ModelNotFoundException $e) {
             return $this->error('Transfer log not found.', null, null, null, 404);
@@ -308,12 +453,17 @@ class BranchTransferController extends Controller
         }
     }
 
-    
     public function invoice($id, Request $request)
     {
         try {
             /** @var BranchTransfer $transfer */
             $transfer = RecordObject::make('BranchTransfer', $id, [], 'DetailView');
+            try {
+                BranchAccess::assertCanAccessTransferDestination(AuthUser::user(), (string) $transfer->branch_id);
+            } catch (\RuntimeException $e) {
+                return $this->error($e->getMessage(), null, null, null, 403);
+            }
+
             $transfer->load(['branch', 'items.product', 'createdBy']);
 
             $orgId = $transfer->organization_id;
@@ -355,11 +505,11 @@ class BranchTransferController extends Controller
                     'address' => $org?->address ?? '123 Main Bazaar Road, Bangalore, Karnataka',
                 ],
                 'fromBranch' => [
-                    'id' => $sourceBranch->id ?? null,
-                    'name' => $sourceBranch->name ?? 'Central Kitchen & Warehouse',
+                    'id' => $sourceBranch?->id ?? null,
+                    'name' => $sourceBranch?->name ?? 'Central Kitchen & Warehouse',
                     'type' => 'warehouse',
-                    'address' => $sourceBranch->address ?? 'Plot 45 Industrial Area, Bangalore',
-                    'phone' => $sourceBranch->phone ?? '+919876543211',
+                    'address' => $sourceBranch?->address ?? 'Plot 45 Industrial Area, Bangalore',
+                    'phone' => $sourceBranch?->phone ?? '+919876543211',
                 ],
                 'toBranch' => [
                     'id' => $transfer->branch?->id ?? null,
@@ -377,41 +527,16 @@ class BranchTransferController extends Controller
             return $this->success($data, 'Invoice generated successfully.');
         } catch (ModelNotFoundException $e) {
             return $this->error('Transfer record not found.', null, null, null, 404);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
         } catch (\Exception $e) {
-            return $this->error('Failed to generate invoice: ' . $e->getMessage(), null, null, null, 500);
-        }
-    }
+            $message = $e->getMessage();
+            $status = str_contains(strtolower($message), 'permission') || str_contains(strtolower($message), 'not allowed')
+                ? 403
+                : 500;
+            $prefix = $status === 403 ? '' : 'Failed to generate invoice: ';
 
-    private function reverseTransferStock(BranchTransfer $transfer): void
-    {
-        $orgId = $transfer->organization_id;
-        $branchId = $transfer->branch_id;
-        $transfer->loadMissing('items');
-
-        foreach ($transfer->items as $item) {
-            $qty = (float) $item->quantity;
-
-            $branchStock = BranchStock::where('organization_id', $orgId)
-                ->where('branch_id', $branchId)
-                ->where('product_id', $item->product_id)
-                ->lockForUpdate()
-                ->first();
-
-            if (!$branchStock || (float) $branchStock->current_stock < $qty) {
-                throw new \RuntimeException(
-                    'Cannot reverse transfer: branch stock is insufficient (already sold).'
-                );
-            }
-
-            $branchStock->current_stock = (float) $branchStock->current_stock - $qty;
-            $branchStock->save();
-
-            $product = Product::where('organization_id', $orgId)
-                ->where('id', $item->product_id)
-                ->lockForUpdate()
-                ->firstOrFail();
-            $product->current_stock = (float) $product->current_stock + $qty;
-            $product->save();
+            return $this->error($prefix . $message, null, null, null, $status);
         }
     }
 }
