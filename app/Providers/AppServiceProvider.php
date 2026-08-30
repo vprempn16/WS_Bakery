@@ -3,8 +3,12 @@
 namespace App\Providers;
 
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -49,6 +53,18 @@ class AppServiceProvider extends ServiceProvider
             $userKey = optional($request->user())->id ?: $request->ip();
 
             return Limit::perMinute(20)->by('expensive:' . $userKey);
+        });
+
+        Event::listen(MigrationsEnded::class, function () {
+            if (app()->runningUnitTests()) {
+                return;
+            }
+
+            if (! Schema::hasTable('crm_fields')) {
+                return;
+            }
+
+            Artisan::call('migrate:module-fields');
         });
     }
 }
