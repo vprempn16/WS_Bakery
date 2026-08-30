@@ -369,8 +369,22 @@ protected function validateBeforeSave(): void
             // update → only changed fields
             $fieldManager->validatePartial($data, array_values(array_unique($onlyFields)));
         } else {
-            // create → validate all fields
-            $fieldManager->validate($data);
+            // create → validate all fields; include model defaults for non-dirty fields
+            $createData = $data;
+            foreach ($fieldManager->getFields() as $fieldModel) {
+                $apiField = $fieldModel->getAPIName();
+                if (array_key_exists($apiField, $createData)) {
+                    continue;
+                }
+                $dbField = $fieldModel->getFieldName();
+                if ($fieldModel->isCustomField()) {
+                    $createData[$apiField] = ($this->customAttributes ?? [])[$dbField] ?? null;
+                } else {
+                    $createData[$apiField] = $this->getAttribute($dbField);
+                }
+            }
+            $fieldManager->validate($createData);
+            $data = $createData;
         }
 
         /*

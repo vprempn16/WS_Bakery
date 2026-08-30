@@ -41,6 +41,7 @@ class BillingController extends Controller
         $perPage = \App\Support\ApiPagination::perPage($request);
 
         $query = Billing::with('branch')
+            ->withCount('items')
             ->where('organization_id', $orgId);
 
         try {

@@ -8,8 +8,8 @@
 return [
     ['id' => null, 'modulename' => 'Vendor', 'modulelabel' => 'Vendor', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 1],
     ['id' => null, 'modulename' => 'Ingredient', 'modulelabel' => 'Ingredient', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 2],
-    ['id' => null, 'modulename' => 'MaterialIssue', 'modulelabel' => 'Material Issue', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 2],
-    ['id' => null, 'modulename' => 'MaterialIssueItem', 'modulelabel' => 'Material Issue Item', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 2, 'parent_modulename' => 'MaterialIssue'],
+    ['id' => null, 'modulename' => 'MaterialIssue', 'modulelabel' => 'Material Withdrawal', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 2],
+    ['id' => null, 'modulename' => 'MaterialIssueItem', 'modulelabel' => 'Material Withdrawal Item', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 2, 'parent_modulename' => 'MaterialIssue'],
     ['id' => null, 'modulename' => 'Product', 'modulelabel' => 'Product', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 3],
     ['id' => null, 'modulename' => 'Branch', 'modulelabel' => 'Branch', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 4],
     ['id' => null, 'modulename' => 'User', 'modulelabel' => 'User', 'is_entity' => 1, 'status' => 'Active', 'sort_order' => 5],

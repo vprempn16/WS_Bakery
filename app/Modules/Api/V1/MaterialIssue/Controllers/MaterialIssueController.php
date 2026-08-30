@@ -121,7 +121,7 @@ class MaterialIssueController extends Controller
                         'ingredient_id' => $ingredient->id,
                         'type' => 'out',
                         'quantity' => $quantity,
-                        'reference_note' => "Material Issue: {$issue->issue_number}",
+                        'reference_note' => "Material Withdrawal: {$issue->issue_number}",
                     ]);
 
                     $item = new MaterialIssueItem();
@@ -137,14 +137,14 @@ class MaterialIssueController extends Controller
 
                 return $this->success(
                     new MaterialIssueResource($issue),
-                    'Material issue posted. Raw material stock reduced.',
+                    'Material withdrawal posted. Raw material stock reduced.',
                     201
                 );
             });
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Exception $e) {
-            return $this->error('Failed to post material issue: ' . $e->getMessage(), null, null, null, 500);
+            return $this->error('Failed to post material withdrawal: ' . $e->getMessage(), null, null, null, 500);
         }
     }
 
@@ -162,7 +162,7 @@ class MaterialIssueController extends Controller
                 'values' => $resource->toArray(request()),
             ]);
         } catch (ModelNotFoundException $e) {
-            return $this->error('Material issue not found.', null, null, null, 404);
+            return $this->error('Material withdrawal not found.', null, null, null, 404);
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), null, null, null, 403);
         }
@@ -178,7 +178,7 @@ class MaterialIssueController extends Controller
             $issue = RecordObject::make('MaterialIssue', $id, [], 'EditView');
 
             if (strtolower((string) $issue->status) === 'cancelled') {
-                throw new \RuntimeException('Cancelled material issues cannot be edited.');
+                throw new \RuntimeException('Cancelled material withdrawals cannot be edited.');
             }
 
             if (isset($values['status']) && strtolower((string) $values['status']) === 'cancelled') {
@@ -190,7 +190,7 @@ class MaterialIssueController extends Controller
                         ->firstOrFail();
 
                     if (strtolower((string) $locked->status) === 'cancelled') {
-                        throw new \RuntimeException('Material issue is already cancelled.');
+                        throw new \RuntimeException('Material withdrawal is already cancelled.');
                     }
 
                     $this->reverseIssueStock($locked, $orgId);
@@ -198,7 +198,7 @@ class MaterialIssueController extends Controller
                     $locked->save();
                     $locked->load(['creator', 'items.ingredient']);
 
-                    return $this->success(new MaterialIssueResource($locked), 'Material issue cancelled and stock restored.');
+                    return $this->success(new MaterialIssueResource($locked), 'Material withdrawal cancelled and stock restored.');
                 });
             }
 
@@ -211,9 +211,9 @@ class MaterialIssueController extends Controller
             $issue->save();
             $issue->load(['creator', 'items.ingredient']);
 
-            return $this->success(new MaterialIssueResource($issue), 'Material issue updated.');
+            return $this->success(new MaterialIssueResource($issue), 'Material withdrawal updated.');
         } catch (ModelNotFoundException $e) {
-            return $this->error('Material issue not found.', null, null, null, 404);
+            return $this->error('Material withdrawal not found.', null, null, null, 404);
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Exception $e) {
@@ -231,7 +231,7 @@ class MaterialIssueController extends Controller
                 $issue = RecordObject::make('MaterialIssue', $id, [], 'EditView');
 
                 if (strtolower((string) $issue->status) === 'cancelled') {
-                    return $this->error('Material issue is already cancelled.', null, null, null, 400);
+                    return $this->error('Material withdrawal is already cancelled.', null, null, null, 400);
                 }
 
                 $locked = MaterialIssue::where('organization_id', $orgId)
@@ -244,10 +244,10 @@ class MaterialIssueController extends Controller
                 $locked->save();
                 $locked->load(['creator', 'items.ingredient']);
 
-                return $this->success(new MaterialIssueResource($locked), 'Material issue cancelled and stock restored.');
+                return $this->success(new MaterialIssueResource($locked), 'Material withdrawal cancelled and stock restored.');
             });
         } catch (ModelNotFoundException $e) {
-            return $this->error('Material issue not found.', null, null, null, 404);
+            return $this->error('Material withdrawal not found.', null, null, null, 404);
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Exception $e) {
@@ -278,7 +278,7 @@ class MaterialIssueController extends Controller
                 'ingredient_id' => $ingredient->id,
                 'type' => 'in',
                 'quantity' => $qty,
-                'reference_note' => "Reversed Material Issue: {$issue->issue_number}",
+                'reference_note' => "Reversed Material Withdrawal: {$issue->issue_number}",
             ]);
         }
     }

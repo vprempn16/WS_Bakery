@@ -264,8 +264,8 @@ class ModuleFieldConfig
         'material_issues' => [
             ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'uuid', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization', 'fieldtype' => 'relationPickList', 'displaytype' => 2, 'mandatory' => 0],
-            ['fieldname' => 'issueNumber', 'fieldlabel' => 'Issue Number', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
-            ['fieldname' => 'issueDate', 'fieldlabel' => 'Issue Date', 'fieldtype' => 'date', 'displaytype' => 1, 'mandatory' => 1],
+            ['fieldname' => 'issueNumber', 'fieldlabel' => 'Withdrawal Number', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'issueDate', 'fieldlabel' => 'Withdrawal Date', 'fieldtype' => 'date', 'displaytype' => 1, 'mandatory' => 1],
             [
                 'fieldname' => 'status',
                 'fieldlabel' => 'Status',
@@ -274,7 +274,7 @@ class ModuleFieldConfig
                 'mandatory' => 0,
             ],
             ['fieldname' => 'notes', 'fieldlabel' => 'Notes', 'fieldtype' => 'textarea', 'displaytype' => 1, 'mandatory' => 0],
-            ['fieldname' => 'createdBy', 'fieldlabel' => 'Issued By', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'createdBy', 'fieldlabel' => 'Withdrawn By', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
         ],
@@ -372,6 +372,7 @@ class ModuleFieldConfig
             ['fieldname' => 'discountAmount', 'fieldlabel' => 'Discount', 'fieldtype' => 'number', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'taxAmount', 'fieldlabel' => 'Tax', 'fieldtype' => 'number', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'grandTotal', 'fieldlabel' => 'Grand Total', 'fieldtype' => 'number', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'itemCount', 'fieldlabel' => 'Items', 'fieldtype' => 'integer', 'displaytype' => 1, 'mandatory' => 0],
             [
                 'fieldname' => 'paymentMethod',
                 'fieldlabel' => 'Payment Method',

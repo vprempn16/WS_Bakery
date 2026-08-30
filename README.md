@@ -35,6 +35,15 @@ See [`docs/ON_SITE_DEMO.md`](../../docs/ON_SITE_DEMO.md) and run from repo root:
 ./scripts/demo-start.sh       # at client site
 ```
 
+### Recent changes (2026-08-30)
+
+- **Material Withdrawal labels** — User-facing rename from Material Issue (module key/API remain `MaterialIssue`). Migration: `2026_08_30_200000_update_material_withdrawal_labels.php`. Updated `PortalModuleSeed`, `ModuleFieldConfig`, and `MaterialIssueController` messages/ledger notes.
+- **Billing list** — `withCount('items')` on list endpoint; `itemCount` exposed on `BillingResource` and in `ModuleFieldConfig` for the Bills history list.
+- **Product number validation** — Frontend must send `productNumber` as a string (supports leading zeros); backend validates as string per org-scoped uniqueness.
+- **Agent docs** — See [`.agents/AGENTS.md`](./.agents/AGENTS.md) §13 for full changelog.
+
+After deploy: `php artisan migrate --force` (includes Material Withdrawal label migration).
+
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">
