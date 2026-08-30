@@ -75,6 +75,8 @@ class FieldModel
         if (in_array($type, ['picklist', 'multiselect'], true)) {
             if (($value === null || $value === '') && !$this->isMandatory()) {
                 // allowed
+            } elseif (($value === null || $value === '') && $this->isMandatory()) {
+                // let required rule below produce "{label} is required."
             } else {
                 $options = \DB::table('picklist_values')
                     ->where('field_id', $this->getId())

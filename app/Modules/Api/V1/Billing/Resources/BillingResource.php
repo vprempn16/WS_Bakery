@@ -19,6 +19,11 @@ class BillingResource extends JsonResource
             $data['paymentMethod'] = strtolower((string) $data['paymentMethod']);
         }
         
+        $data['itemCount'] = $this->when(
+            isset($this->items_count) || $this->relationLoaded('items'),
+            fn () => $this->items_count ?? $this->items->count()
+        );
+
         $data['items'] = $this->whenLoaded('items', function () {
             return $this->items->map(function ($item) {
                 return [

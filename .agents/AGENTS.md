@@ -3,6 +3,8 @@
 This file contains the strict architectural rules and guidelines for this codebase. Any AI agent or developer modifying this system MUST adhere to these rules.
 
 > **BkPortal** — Bakery WMS + multi-branch POS. Use bakery modules (`Ingredient`, `MaterialIssue`, `Product`, `Recipe`, `ProductionBatch`, `Branch`, `Billing`, etc.). Do not add sales-CRM modules (Lead / Contact / Quotation / Invoice) or Member portal unless explicitly requested.
+>
+> **User-facing label (2026-08-30):** The `MaterialIssue` module is displayed as **Material Withdrawal** in the UI (sidebar, field labels, API messages). Keep the internal module key, routes, and table names as `MaterialIssue`.
 
 ## 1. Architectural Pattern (HMVC / Modular Design)
 This application uses a Modular Architecture (HMVC).
@@ -183,8 +185,8 @@ When changing `\Log::` to `Log::`, never touch already-qualified names like `\Il
 Agents MUST preserve this stock flow. Do not invent CRM Lead→Invoice conversion here.
 
 ```
-Vendor → Ingredient (stock in via InventoryTransaction / Adjust Stock)
-    → MaterialIssue (master takes raw materials → Ingredient stock OUT + ledger)
+Vendor → Ingredient (stock in via InventoryTransaction / Adjust Stock — UI: stock IN only)
+    → MaterialIssue / Material Withdrawal (master takes raw materials → Ingredient stock OUT + ledger)
     → Recipe on Product (BOM for planning / usage analysis only)
     → ProductionBatch (increase Product.current_stock + expiry; does NOT deduct ingredients)
     → BranchTransfer (warehouse Product stock → BranchStock)
@@ -195,7 +197,7 @@ Vendor → Ingredient (stock in via InventoryTransaction / Adjust Stock)
 ```
 
 ### Stock rules
-1. **MaterialIssue**: deduct ingredient stock + log `InventoryTransaction` (`out`) when master takes raw materials. Cancel restores stock.
+1. **MaterialIssue (Material Withdrawal)**: deduct ingredient stock + log `InventoryTransaction` (`out`) when master takes raw materials. Ledger notes use `Material Withdrawal: …`. Cancel restores stock. Do not use Adjust Stock UI for this path.
 2. **ProductionBatch**: increase finished-goods `Product.current_stock` only. Do **not** deduct ingredients (already issued via MaterialIssue).
 3. **BranchTransfer**: deduct warehouse `Product.current_stock`; increase `BranchStock`.
 4. **Billing (POS)**: deduct `BranchStock` for `branch_id` + product lines (same org). Never leave POS as “bill only” without stock movement.
@@ -227,3 +229,16 @@ String roles on users (`admin` / `superadmin`, `warehouse`, branch) plus Profile
 
 ## 12. Response Contract
 Prefer existing bakery helpers (`success`, `error`, `paginated` via `ResultTrait`). Keep HTTP/status conventions consistent with surrounding controllers. Do not invent a second response shape.
+
+## 13. Changelog (agent reference)
+
+### 2026-08-30
+
+| Area | Change |
+|------|--------|
+| **Material Withdrawal** | User-facing labels renamed from Material Issue. Migration `2026_08_30_200000_update_material_withdrawal_labels.php`. Field labels: Withdrawal Number/Date/By. Controller success messages and ledger notes updated. |
+| **Billing** | List endpoint uses `withCount('items')`; `BillingResource` adds `itemCount`. `ModuleFieldConfig` billings module includes `itemCount` (label **Items**). |
+| **Product number** | Validated as string in create/update requests (frontend must stringify numeric input from `InputNumber`). Uniqueness remains per `organization_id`. |
+| **Adjust Stock vs Withdrawal** | Frontend Adjust Stock modal is stock-in only; operational stock-out is Material Withdrawal. Backend `InventoryTransaction` still accepts `out` via API. |
+
+Frontend companion doc: [`bk-frontend/agent/RECENT_UPDATES_2026-08-30.md`](../../../bk-frontend/agent/RECENT_UPDATES_2026-08-30.md).

@@ -30,6 +30,7 @@ Route::prefix('v1')->group(function () {
         Route::get('search/{fieldname}', [\App\Modules\Api\V1\GlobalSearch\Controllers\GlobalSearchController::class, 'searchByField']);
 
         // Header endpoints (filter field definitions)
+        Route::get('Product/new', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'createForm']);
         Route::get('{module}/new', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'getCreateFields']);
         Route::get('{module}/headers', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);
 	    Route::get('{module}/headers/default', [\App\Modules\Api\V1\SavedFilter\Controllers\HeaderController::class, 'show']);

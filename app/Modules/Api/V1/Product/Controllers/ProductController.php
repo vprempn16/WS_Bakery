@@ -11,6 +11,7 @@ use App\Modules\Api\V1\Product\Requests\UpdateProductRequest;
 use App\Modules\Api\V1\Product\Resources\ProductResource;
 use App\Modules\Api\V1\Product\Services\ProductNumberService;
 use App\Modules\Api\V1\SavedFilter\Models\SavedFilter;
+use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Modules\Api\V1\SavedFilter\Services\QueryFilterService;
 use App\Services\AuthUser;
 use App\Services\CRM\RecordObject;
@@ -21,6 +22,21 @@ use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
 {
+    /**
+     * GET Product/new — create-view fields with defaults.
+     */
+    public function createForm()
+    {
+        $fields = ModuleFieldConfig::getApiFieldsForView('Product', 'CreateView');
+
+        return $this->success([
+            'fields' => $fields,
+            'values' => [
+                'status' => 'active',
+            ],
+        ]);
+    }
+
     public function index(Request $request)
     {
         $user = AuthUser::requireUser();
