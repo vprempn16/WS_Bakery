@@ -27,6 +27,8 @@ Route::prefix('v1')->group(function () {
         Route::get('allowed_modules', [\App\Modules\Api\V1\Settings\Controllers\ModuleController::class, 'allowedModules']);
 
         // Global Search endpoint
+        Route::get('GlobalSearch', [\App\Modules\Api\V1\GlobalSearch\Controllers\GlobalSearchController::class, 'index']);
+        Route::get('globalsearch', [\App\Modules\Api\V1\GlobalSearch\Controllers\GlobalSearchController::class, 'index']);
         Route::get('search/{fieldname}', [\App\Modules\Api\V1\GlobalSearch\Controllers\GlobalSearchController::class, 'searchByField']);
 
         // Header endpoints (filter field definitions)
