@@ -12,6 +12,191 @@ use Illuminate\Support\Str;
 class GlobalSearchController extends Controller
 {
     /**
+     * Cross-module global search endpoint for command-palette modal (Ctrl+K).
+     * Route: GET api/v1/GlobalSearch?query=...
+     */
+    public function index(Request $request)
+    {
+        $queryText = trim((string) $request->query('query', ''));
+        if ($queryText === '') {
+            return $this->success(['results' => []]);
+        }
+
+        $user = Auth::user();
+        $orgId = $user->organization_id ?? null;
+        if (!$orgId) {
+            return $this->success(['results' => []]);
+        }
+
+        $like = '%' . addcslashes($queryText, '%_\\') . '%';
+        $results = [];
+
+        // 1. Products
+        if (class_exists(\App\Modules\Api\V1\Product\Models\Product::class)) {
+            $products = \App\Modules\Api\V1\Product\Models\Product::where('organization_id', $orgId)
+                ->where(function ($q) use ($like, $queryText) {
+                    $q->where('name', 'like', $like)
+                      ->orWhere('product_number', 'like', $like);
+                    if (preg_match('/^\d+$/', $queryText)) {
+                        $norm = \App\Modules\Api\V1\Product\Services\ProductNumberService::normalize($queryText);
+                        if ($norm !== null) {
+                            $q->orWhere('product_number', $norm);
+                        }
+                    }
+                })
+                ->limit(8)
+                ->get();
+
+            foreach ($products as $p) {
+                $sub = array_filter(['#' . $p->product_number, $p->unit ? "Unit: {$p->unit}" : null]);
+                $results[] = [
+                    'id' => (string) $p->id,
+                    'module' => 'Product',
+                    'record_id' => (string) $p->id,
+                    'label' => $p->name ?? 'Product',
+                    'subLabel' => implode(' · ', $sub),
+                    'category' => 'Products',
+                ];
+            }
+        }
+
+        // 2. Ingredients
+        if (class_exists(\App\Modules\Api\V1\Ingredient\Models\Ingredient::class)) {
+            $ingredients = \App\Modules\Api\V1\Ingredient\Models\Ingredient::where('organization_id', $orgId)
+                ->where('name', 'like', $like)
+                ->limit(8)
+                ->get();
+
+            foreach ($ingredients as $ing) {
+                $sub = array_filter([$ing->unit ? "Unit: {$ing->unit}" : null]);
+                $results[] = [
+                    'id' => (string) $ing->id,
+                    'module' => 'Ingredient',
+                    'record_id' => (string) $ing->id,
+                    'label' => $ing->name ?? 'Ingredient',
+                    'subLabel' => implode(' · ', $sub),
+                    'category' => 'Ingredients',
+                ];
+            }
+        }
+
+        // 3. Branch Transfers
+        if (class_exists(\App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer::class)) {
+            $transfers = \App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer::where('organization_id', $orgId)
+                ->where(function ($q) use ($like) {
+                    $q->where('transfer_number', 'like', $like)
+                      ->orWhere('status', 'like', $like);
+                })
+                ->limit(8)
+                ->get();
+
+            foreach ($transfers as $t) {
+                $results[] = [
+                    'id' => (string) $t->id,
+                    'module' => 'BranchTransfer',
+                    'record_id' => (string) $t->id,
+                    'label' => $t->transfer_number ?? 'Transfer',
+                    'subLabel' => 'Status: ' . ($t->status ?? 'Draft'),
+                    'category' => 'Transfers',
+                ];
+            }
+        }
+
+        // 4. Production Batches
+        if (class_exists(\App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch::class)) {
+            $batches = \App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch::where('organization_id', $orgId)
+                ->where(function ($q) use ($like) {
+                    $q->where('batch_number', 'like', $like)
+                      ->orWhere('status', 'like', $like);
+                })
+                ->limit(8)
+                ->get();
+
+            foreach ($batches as $b) {
+                $results[] = [
+                    'id' => (string) $b->id,
+                    'module' => 'ProductionBatch',
+                    'record_id' => (string) $b->id,
+                    'label' => $b->batch_number ?? 'Batch',
+                    'subLabel' => 'Status: ' . ($b->status ?? 'In Progress'),
+                    'category' => 'Production Batches',
+                ];
+            }
+        }
+
+        // 5. Material Issues
+        if (class_exists(\App\Modules\Api\V1\MaterialIssue\Models\MaterialIssue::class)) {
+            $issues = \App\Modules\Api\V1\MaterialIssue\Models\MaterialIssue::where('organization_id', $orgId)
+                ->where('issue_number', 'like', $like)
+                ->limit(8)
+                ->get();
+
+            foreach ($issues as $mi) {
+                $results[] = [
+                    'id' => (string) $mi->id,
+                    'module' => 'MaterialIssue',
+                    'record_id' => (string) $mi->id,
+                    'label' => $mi->issue_number ?? 'Issue',
+                    'subLabel' => 'Material Issue',
+                    'category' => 'Material Issues',
+                ];
+            }
+        }
+
+        // 6. Vendors
+        if (class_exists(\App\Modules\Api\V1\Vendor\Models\Vendor::class)) {
+            $vendors = \App\Modules\Api\V1\Vendor\Models\Vendor::where('organization_id', $orgId)
+                ->where(function ($q) use ($like) {
+                    $q->where('name', 'like', $like)
+                      ->orWhere('contact_person', 'like', $like)
+                      ->orWhere('phone', 'like', $like)
+                      ->orWhere('email', 'like', $like);
+                })
+                ->limit(8)
+                ->get();
+
+            foreach ($vendors as $v) {
+                $sub = array_filter([$v->contact_person, $v->phone]);
+                $results[] = [
+                    'id' => (string) $v->id,
+                    'module' => 'Vendor',
+                    'record_id' => (string) $v->id,
+                    'label' => $v->name ?? 'Vendor',
+                    'subLabel' => implode(' · ', $sub),
+                    'category' => 'Vendors',
+                ];
+            }
+        }
+
+        // 7. Branches
+        if (class_exists(\App\Modules\Api\V1\Branch\Models\Branch::class)) {
+            $branches = \App\Modules\Api\V1\Branch\Models\Branch::where('organization_id', $orgId)
+                ->where(function ($q) use ($like) {
+                    $q->where('name', 'like', $like)
+                      ->orWhere('address', 'like', $like)
+                      ->orWhere('phone', 'like', $like);
+                })
+                ->limit(8)
+                ->get();
+
+            foreach ($branches as $br) {
+                $results[] = [
+                    'id' => (string) $br->id,
+                    'module' => 'Branch',
+                    'record_id' => (string) $br->id,
+                    'label' => $br->name ?? 'Branch',
+                    'subLabel' => ucfirst($br->type ?? 'branch'),
+                    'category' => 'Branches',
+                ];
+            }
+        }
+
+        return $this->success([
+            'results' => $results,
+        ]);
+    }
+
+    /**
      * Map field names to their target module and configuration.
      */
     protected function getFieldMapping(): array
