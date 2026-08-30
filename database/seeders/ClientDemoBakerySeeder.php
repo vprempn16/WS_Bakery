@@ -12,9 +12,13 @@ use App\Modules\Api\V1\BranchTransfer\Models\BranchTransferItem;
 use App\Modules\Api\V1\BranchTransfer\Services\BranchTransferStockService;
 use App\Modules\Api\V1\Ingredient\Models\Ingredient;
 use App\Modules\Api\V1\InventoryTransaction\Models\InventoryTransaction;
+use App\Modules\Api\V1\MaterialIssue\Models\MaterialIssue;
+use App\Modules\Api\V1\MaterialIssue\Models\MaterialIssueItem;
 use App\Modules\Api\V1\Organization\Models\Organization;
 use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch;
+use App\Modules\Api\V1\ProductionPlan\Models\ProductionPlan;
+use App\Modules\Api\V1\ProductionPlan\Models\ProductionPlanItem;
 use App\Modules\Api\V1\Recipe\Models\Recipe;
 use App\Modules\Api\V1\User\Models\User;
 use App\Modules\Api\V1\Vendor\Models\Vendor;
@@ -121,6 +125,8 @@ class ClientDemoBakerySeeder extends Seeder
             $this->ensureIngredientStock($org->id, $ingredients, $ingredientTargets);
             [$products, $productTargets] = $this->seedProducts($org->id);
             $this->seedRecipes($products, $ingredients);
+            $this->seedDemoMaterialIssue($org->id, $ingredients, $admin->id);
+            $this->seedDemoProductionPlan($org->id, $products, $admin->id);
             $this->ensureWarehouseFinishedGoods($org->id, $products, $productTargets, $admin->id);
 
             // Transfers (lifecycle via stock service)
@@ -436,10 +442,12 @@ class ClientDemoBakerySeeder extends Seeder
 
         foreach ($map as $productName => $rows) {
             $product = $products[$productName];
+            $expectedIngredientIds = [];
             foreach ($rows as [$ingName, $qty]) {
                 if ($qty < 0.01) {
                     $qty = 0.01;
                 }
+                $expectedIngredientIds[] = $ingredients[$ingName]->id;
                 Recipe::updateOrCreate(
                     [
                         'product_id' => $product->id,
@@ -448,6 +456,121 @@ class ClientDemoBakerySeeder extends Seeder
                     ['quantity_required' => $qty]
                 );
             }
+
+            Recipe::where('product_id', $product->id)
+                ->whereNotIn('ingredient_id', $expectedIngredientIds)
+                ->delete();
+        }
+    }
+
+    /**
+     * Morning bulk raw-material take (stock OUT) — matches live Material Issue flow.
+     *
+     * @param  array<string, Ingredient>  $ingredients
+     */
+    private function seedDemoMaterialIssue(string $orgId, array $ingredients, string $adminId): void
+    {
+        $notes = 'DEMO-BAKERY morning material take';
+        $existing = MaterialIssue::withoutGlobalScopes()
+            ->where('organization_id', $orgId)
+            ->where('notes', $notes)
+            ->first();
+        if ($existing) {
+            return;
+        }
+
+        $take = [
+            'Maida' => 30000,
+            'Sugar' => 15000,
+            'Besan' => 8000,
+            'Ghee' => 5000,
+            'Butter' => 6000,
+            'Milk' => 10000,
+            'Rava' => 3000,
+            'Cocoa Powder' => 2000,
+        ];
+
+        $issue = new MaterialIssue();
+        $issue->organization_id = $orgId;
+        $issue->issue_number = 'DEMO-ISSUE-001';
+        $issue->issue_date = Carbon::now()->toDateString();
+        $issue->notes = $notes;
+        $issue->created_by = $adminId;
+        $issue->status = 'posted';
+        $issue->save();
+
+        foreach ($take as $name => $quantity) {
+            $ingredient = Ingredient::withoutGlobalScopes()
+                ->where('organization_id', $orgId)
+                ->where('id', $ingredients[$name]->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ((float) $ingredient->current_stock < $quantity) {
+                throw new \RuntimeException(
+                    "Insufficient {$name} for demo material issue. Needed {$quantity}, have {$ingredient->current_stock}."
+                );
+            }
+
+            $ingredient->current_stock = (float) $ingredient->current_stock - $quantity;
+            $ingredient->save();
+
+            InventoryTransaction::create([
+                'organization_id' => $orgId,
+                'ingredient_id' => $ingredient->id,
+                'type' => 'out',
+                'quantity' => $quantity,
+                'reference_note' => "Material Issue: {$issue->issue_number}",
+            ]);
+
+            MaterialIssueItem::create([
+                'organization_id' => $orgId,
+                'material_issue_id' => $issue->id,
+                'ingredient_id' => $ingredient->id,
+                'quantity' => $quantity,
+                'unit' => $ingredient->unit,
+            ]);
+        }
+    }
+
+    /**
+     * Tomorrow's plan (preview only — no stock writes).
+     *
+     * @param  array<string, Product>  $products
+     */
+    private function seedDemoProductionPlan(string $orgId, array $products, string $adminId): void
+    {
+        $notes = 'DEMO-BAKERY tomorrow production plan';
+        $existing = ProductionPlan::withoutGlobalScopes()
+            ->where('organization_id', $orgId)
+            ->where('notes', $notes)
+            ->first();
+        if ($existing) {
+            return;
+        }
+
+        $plan = new ProductionPlan();
+        $plan->organization_id = $orgId;
+        $plan->plan_date = Carbon::tomorrow()->toDateString();
+        $plan->status = 'approved';
+        $plan->notes = $notes;
+        $plan->created_by = $adminId;
+        $plan->save();
+
+        $items = [
+            ['product' => $products['Veg Puff'], 'qty' => 200],
+            ['product' => $products['Laddu'], 'qty' => 10000],
+            ['product' => $products['Chocolate Cake'], 'qty' => 5000],
+            ['product' => $products['Egg Puff'], 'qty' => 150],
+        ];
+
+        foreach ($items as $row) {
+            ProductionPlanItem::create([
+                'organization_id' => $orgId,
+                'production_plan_id' => $plan->id,
+                'product_id' => $row['product']->id,
+                'planned_quantity' => $row['qty'],
+            ]);
         }
     }
 
@@ -463,27 +586,7 @@ class ClientDemoBakerySeeder extends Seeder
                 continue;
             }
 
-            $recipes = Recipe::where('product_id', $product->id)->get();
-            if ($recipes->isEmpty()) {
-                throw new \RuntimeException("Demo product {$name} has no recipe; cannot produce stock.");
-            }
-
-            foreach ($recipes as $recipe) {
-                $neededIng = (float) $recipe->quantity_required * $need;
-                $ingredient = Ingredient::withoutGlobalScopes()
-                    ->where('organization_id', $orgId)
-                    ->where('id', $recipe->ingredient_id)
-                    ->lockForUpdate()
-                    ->firstOrFail();
-                if ((float) $ingredient->current_stock < $neededIng) {
-                    throw new \RuntimeException(
-                        "Insufficient ingredient {$ingredient->name} to produce {$name}. Needed {$neededIng}, have {$ingredient->current_stock}."
-                    );
-                }
-                $ingredient->current_stock = (float) $ingredient->current_stock - $neededIng;
-                $ingredient->save();
-            }
-
+            // Production batch adds finished goods only; raw materials were taken via Material Issue.
             $product->current_stock = $current + $need;
             $product->save();
 
