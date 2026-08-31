@@ -54,37 +54,35 @@ class Product extends \App\Models\BKModel
                 $product->unit = $u;
             }
 
-            if ($product->product_number === null || trim((string) $product->product_number) === '') {
-                return;
-            }
+            if ($product->isDirty('product_number')) {
+                if ($product->product_number !== null && trim((string) $product->product_number) !== '') {
+                    // Digits only
+                    if (! preg_match('/^\d+$/', trim((string) $product->product_number))) {
+                        throw ValidationException::withMessages([
+                            'data.values.productNumber' => ['Product number must contain digits only (no letters).'],
+                        ]);
+                    }
 
-            // Digits only
-            if (! preg_match('/^\d+$/', trim((string) $product->product_number))) {
-                throw ValidationException::withMessages([
-                    'data.values.productNumber' => ['Product number must contain digits only (no letters).'],
-                ]);
-            }
+                    $normalized = ProductNumberService::normalize((string) $product->product_number);
+                    if ($normalized !== null) {
+                        $product->product_number = $normalized;
+                    }
 
-            $normalized = ProductNumberService::normalize((string) $product->product_number);
-            if ($normalized !== null) {
-                $product->product_number = $normalized;
-            }
+                    $orgId = $product->organization_id;
+                    if ($orgId) {
+                        $check = ProductNumberService::checkAvailability(
+                            (string) $orgId,
+                            (string) $product->product_number,
+                            $product->exists ? (string) $product->id : null
+                        );
 
-            $orgId = $product->organization_id;
-            if (!$orgId) {
-                return;
-            }
-
-            $check = ProductNumberService::checkAvailability(
-                (string) $orgId,
-                (string) $product->product_number,
-                $product->exists ? (string) $product->id : null
-            );
-
-            if (!$check['available']) {
-                throw ValidationException::withMessages([
-                    'data.values.productNumber' => [$check['message'] ?? 'Product number already exists'],
-                ]);
+                        if (!$check['available']) {
+                            throw ValidationException::withMessages([
+                                'data.values.productNumber' => [$check['message'] ?? 'Product number already exists'],
+                            ]);
+                        }
+                    }
+                }
             }
         });
 
