@@ -598,7 +598,7 @@ class BillingController extends Controller
 
         $query = Product::where('organization_id', $orgId)
             ->whereRaw('LOWER(COALESCE(status, ?)) = ?', ['active', 'active'])
-            ->select('id', 'name', 'price', 'unit', 'category', 'status', 'product_number')
+            ->select('id', 'name', 'price', 'unit', 'category', 'status', 'product_number', 'product_image')
             ->orderBy('name');
 
         if ($category && $category !== 'all') {
@@ -643,6 +643,9 @@ class BillingController extends Controller
                 'category' => $item->category,
                 'status' => strtolower((string) ($item->status ?? 'active')) === 'inactive' ? 'inactive' : 'active',
                 'currentStock' => (float) ($stockByProduct[$item->id] ?? 0),
+                'product_image' => $item->product_image,
+                'productImage' => $item->product_image,
+                'image_url' => $item->product_image,
             ];
         });
 
