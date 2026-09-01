@@ -37,7 +37,16 @@ class MaterialIssueController extends Controller
             ->where('organization_id', $orgId);
 
         $query->when($request->query('search'), function ($q, $search) {
-            $q->where('issue_number', 'like', "%{$search}%");
+            $like = "%{$search}%";
+            $q->where(function ($sub) use ($like) {
+                $sub->where('issue_number', 'like', $like)
+                    ->orWhere('status', 'like', $like)
+                    ->orWhere('remarks', 'like', $like)
+                    ->orWhereHas('items.ingredient', function ($ingQuery) use ($like) {
+                        $ingQuery->where('name', 'like', $like)
+                                 ->orWhere('category', 'like', $like);
+                    });
+            });
         });
 
         if ($request->has('savedFilterId')) {
