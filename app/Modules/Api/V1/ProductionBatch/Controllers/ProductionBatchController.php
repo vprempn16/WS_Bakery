@@ -34,7 +34,16 @@ class ProductionBatchController extends Controller
         $query = ProductionBatch::where('organization_id', $orgId);
 
         $query->when($request->query('search'), function ($q, $search) {
-            $q->where('batch_number', 'like', "%{$search}%");
+            $like = "%{$search}%";
+            $q->where(function ($sub) use ($like) {
+                $sub->where('batch_number', 'like', $like)
+                    ->orWhere('status', 'like', $like)
+                    ->orWhere('notes', 'like', $like)
+                    ->orWhereHas('product', function ($pQuery) use ($like) {
+                        $pQuery->where('name', 'like', $like)
+                               ->orWhere('product_number', 'like', $like);
+                    });
+            });
         });
 
         if ($request->has('savedFilterId')) {

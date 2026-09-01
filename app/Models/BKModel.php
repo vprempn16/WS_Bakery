@@ -621,16 +621,20 @@ foreach ($customRows as $row) {
 						}
 						break;
 					case 'image':
-						// Transform stored path (Google Drive file ID) to public URL with metadata
 						if (!empty($value)) {
-							$imageService = app(\App\Services\ImageUploadService::class);
-							$output[$apiField] = [
-								'type' => 'image',
-								'value' => $imageService->transformToUrl($value),
-								'meta' => [
-									'path' => $value,
-								],
-							];
+							if (is_string($value) && (str_starts_with($value, 'data:image/') || str_starts_with($value, 'http://') || str_starts_with($value, 'https://') || str_starts_with($value, '/'))) {
+								$output[$apiField] = $value;
+							} else if (is_array($value) && isset($value['value'])) {
+								$output[$apiField] = $value['value'];
+							} else {
+								try {
+									$imageService = app(\App\Services\ImageUploadService::class);
+									$transformed = $imageService->transformToUrl($value);
+									$output[$apiField] = is_string($transformed) && !empty($transformed) ? $transformed : (string) $value;
+								} catch (\Throwable $e) {
+									$output[$apiField] = (string) $value;
+								}
+							}
 						} else {
 							$output[$apiField] = null;
 						}
