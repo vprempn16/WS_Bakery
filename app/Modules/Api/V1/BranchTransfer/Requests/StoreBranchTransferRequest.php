@@ -22,7 +22,7 @@ class StoreBranchTransferRequest extends FormRequest
             'data.values.notes' => ['nullable', 'string'],
             'data.relatedRecords.items' => ['required', 'array', 'min:1'],
             'data.relatedRecords.items.*.productId' => ['required', 'string', 'exists:products,id', 'distinct'],
-            'data.relatedRecords.items.*.quantity' => ['required', 'numeric', 'min:0.01'],
+            'data.relatedRecords.items.*.quantity' => ['nullable', 'numeric', 'min:0.01'],
             'data.relatedRecords.items.*.unit' => ['nullable', 'string'],
             'data.relatedRecords.items.*.pieces' => ['nullable', 'numeric', 'min:1'],
         ];
@@ -54,6 +54,11 @@ class StoreBranchTransferRequest extends FormRequest
                 $piecesProvided = array_key_exists('pieces', $item)
                     && $item['pieces'] !== null
                     && $item['pieces'] !== '';
+                $quantityProvided = array_key_exists('quantity', $item)
+                    && $item['quantity'] !== null
+                    && $item['quantity'] !== ''
+                    && is_numeric($item['quantity'])
+                    && (float) $item['quantity'] >= 0.01;
 
                 if ($isPieceUnit) {
                     if (! $piecesProvided) {
@@ -67,6 +72,17 @@ class StoreBranchTransferRequest extends FormRequest
                             'Pieces must be a whole number of at least 1.'
                         );
                     }
+                } else {
+                    if (! $quantityProvided) {
+                        $validator->errors()->add(
+                            "data.relatedRecords.items.{$index}.quantity",
+                            'Enter a valid quantity.'
+                        );
+                    }
+                }
+
+                if ($isPieceUnit) {
+                    // quantity optional for pcs — validated above via pieces
                 } elseif ($piecesProvided) {
                     // Optional for gm/ml — if provided, still must be a valid whole number ≥ 1
                     if (! is_numeric($item['pieces']) || (float) $item['pieces'] < 1 || floor((float) $item['pieces']) != (float) $item['pieces']) {

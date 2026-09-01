@@ -226,11 +226,12 @@ class ProductionPlanController extends Controller
         try {
             /** @var ProductionPlan $plan */
             $plan = RecordObject::make('ProductionPlan', $id, [], 'DetailView');
-            $plan->load('items');
+            $plan->load('items.product');
             $orgId = AuthUser::organizationId();
 
             $needed = [];
             $warnings = [];
+            $products = [];
 
             foreach ($plan->items as $item) {
                 $product = Product::where('organization_id', $orgId)->where('id', $item->product_id)->first();
@@ -238,44 +239,57 @@ class ProductionPlanController extends Controller
                     continue;
                 }
 
+                $plannedQty = (float) $item->planned_quantity;
+                $productWarnings = [];
+                $productMaterials = [];
+
                 $recipes = Recipe::where('product_id', $product->id)->get();
                 if ($recipes->isEmpty()) {
-                    $warnings[] = "{$product->name} has no recipe (BOM). Material need cannot be calculated for this product.";
-                    continue;
+                    $msg = "{$product->name} has no recipe (BOM). Material need cannot be calculated for this product.";
+                    $warnings[] = $msg;
+                    $productWarnings[] = $msg;
+                } else {
+                    $perProductNeeded = [];
+                    foreach ($recipes as $recipe) {
+                        $ingredientId = $recipe->ingredient_id;
+                        $qty = (float) $recipe->quantity_required * $plannedQty;
+                        if (!isset($perProductNeeded[$ingredientId])) {
+                            $perProductNeeded[$ingredientId] = 0.0;
+                        }
+                        $perProductNeeded[$ingredientId] += $qty;
+
+                        if (!isset($needed[$ingredientId])) {
+                            $needed[$ingredientId] = 0.0;
+                        }
+                        $needed[$ingredientId] += $qty;
+                    }
+
+                    foreach ($perProductNeeded as $ingredientId => $qtyNeeded) {
+                        $row = $this->buildMaterialRow($orgId, $ingredientId, $qtyNeeded);
+                        if ($row) {
+                            $productMaterials[] = $row;
+                        }
+                    }
+
+                    usort($productMaterials, fn ($a, $b) => strcmp($a['name'], $b['name']));
                 }
 
-                $plannedQty = (float) $item->planned_quantity;
-                foreach ($recipes as $recipe) {
-                    $ingredientId = $recipe->ingredient_id;
-                    $qty = (float) $recipe->quantity_required * $plannedQty;
-                    if (!isset($needed[$ingredientId])) {
-                        $needed[$ingredientId] = 0.0;
-                    }
-                    $needed[$ingredientId] += $qty;
-                }
+                $products[] = [
+                    'productId' => $product->id,
+                    'productName' => $product->name,
+                    'plannedQuantity' => round($plannedQty, 2),
+                    'unit' => $product->unit,
+                    'materials' => $productMaterials,
+                    'warnings' => $productWarnings,
+                ];
             }
 
             $materials = [];
             foreach ($needed as $ingredientId => $qtyNeeded) {
-                $ingredient = Ingredient::where('organization_id', $orgId)->where('id', $ingredientId)->first();
-                if (!$ingredient) {
-                    continue;
+                $row = $this->buildMaterialRow($orgId, $ingredientId, $qtyNeeded);
+                if ($row) {
+                    $materials[] = $row;
                 }
-                $stock = (float) $ingredient->current_stock;
-                $shortfall = max(0, $qtyNeeded - $stock);
-                $status = $shortfall > 0
-                    ? ($stock <= 0 ? 'critical' : 'short')
-                    : 'ok';
-
-                $materials[] = [
-                    'ingredientId' => $ingredient->id,
-                    'name' => $ingredient->name,
-                    'unit' => $ingredient->unit,
-                    'needed' => round($qtyNeeded, 2),
-                    'currentStock' => round($stock, 2),
-                    'shortfall' => round($shortfall, 2),
-                    'status' => $status,
-                ];
             }
 
             usort($materials, fn ($a, $b) => strcmp($a['name'], $b['name']));
@@ -283,6 +297,7 @@ class ProductionPlanController extends Controller
             return $this->success([
                 'planId' => $plan->id,
                 'planDate' => $plan->plan_date ? $plan->plan_date->format('Y-m-d') : null,
+                'products' => $products,
                 'materials' => $materials,
                 'warnings' => $warnings,
             ], 'Material requirement preview calculated.');
@@ -291,6 +306,32 @@ class ProductionPlanController extends Controller
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), null, null, null, 403);
         }
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function buildMaterialRow(string $orgId, string $ingredientId, float $qtyNeeded): ?array
+    {
+        $ingredient = Ingredient::where('organization_id', $orgId)->where('id', $ingredientId)->first();
+        if (!$ingredient) {
+            return null;
+        }
+        $stock = (float) $ingredient->current_stock;
+        $shortfall = max(0, $qtyNeeded - $stock);
+        $status = $shortfall > 0
+            ? ($stock <= 0 ? 'critical' : 'short')
+            : 'ok';
+
+        return [
+            'ingredientId' => $ingredient->id,
+            'name' => $ingredient->name,
+            'unit' => $ingredient->unit,
+            'needed' => round($qtyNeeded, 2),
+            'currentStock' => round($stock, 2),
+            'shortfall' => round($shortfall, 2),
+            'status' => $status,
+        ];
     }
 
     private function replaceItems(ProductionPlan $plan, array $itemsData, string $orgId): void
