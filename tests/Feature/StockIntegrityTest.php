@@ -494,7 +494,7 @@ class StockIntegrityTest extends TestCase
             ->assertJsonPath('data.meta.total', 0);
     }
 
-    public function test_production_with_recipe_consumes_ingredients(): void
+    public function test_production_with_recipe_adds_product_stock_only(): void
     {
         Sanctum::actingAs($this->admin);
 
@@ -515,7 +515,8 @@ class StockIntegrityTest extends TestCase
         ]);
 
         $response->assertSuccessful();
-        $this->assertEquals(80.0, (float) $this->ingredient->fresh()->current_stock);
+        // Raw materials are deducted via Material Issue, not production batch.
+        $this->assertEquals(100.0, (float) $this->ingredient->fresh()->current_stock);
         $this->assertEquals(2.0, (float) $this->product->fresh()->current_stock);
     }
 

@@ -5,6 +5,7 @@ namespace App\Modules\Api\V1\ProductionBatch\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch;
+use App\Modules\Api\V1\Recipe\Models\Recipe;
 use App\Modules\Api\V1\ProductionBatch\Requests\StoreProductionBatchRequest;
 use App\Modules\Api\V1\ProductionBatch\Resources\ProductionBatchResource;
 use App\Modules\Api\V1\SavedFilter\Models\SavedFilter;
@@ -86,7 +87,21 @@ class ProductionBatchController extends Controller
                 return $this->error('Cannot produce: product is inactive. Activate it first.', null, null, null, 400);
             }
 
+            if (! Recipe::where('product_id', $product->id)->exists()) {
+                DB::rollBack();
+
+                return $this->error(
+                    'Cannot log production: this product has no recipe (Bill of Materials). Open the product and add ingredients first.',
+                    null,
+                    null,
+                    null,
+                    400
+                );
+            }
+
             // Ingredients are deducted when master takes raw material (Material Issue), not here.
+            $unit = strtolower(trim((string) ($product->unit ?? '')));
+            $isPieceUnit = in_array($unit, ['pcs', 'pc', 'piece', 'pieces'], true);
             $quantityProduced = (float) $values['quantityProduced'];
             $productionDate = Carbon::parse($values['productionDate']);
             $expiryTimestamp = $this->resolveExpiryTimestamp($product, $productionDate);
@@ -102,9 +117,13 @@ class ProductionBatchController extends Controller
             $batch->organization_id = $orgId;
             $batch->product_id = $product->id;
             $batch->quantity_produced = $quantityProduced;
-            $batch->pieces = isset($values['pieces']) && $values['pieces'] !== ''
-                ? (int) $values['pieces']
-                : null;
+            if ($isPieceUnit) {
+                $batch->pieces = (int) round($quantityProduced);
+            } else {
+                $batch->pieces = isset($values['pieces']) && $values['pieces'] !== ''
+                    ? (int) $values['pieces']
+                    : null;
+            }
             $batch->production_date = $productionDate;
             $batch->expiry_timestamp = $expiryTimestamp;
             $batch->status = 'completed';

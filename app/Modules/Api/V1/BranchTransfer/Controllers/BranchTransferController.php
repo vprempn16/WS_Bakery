@@ -166,11 +166,11 @@ class BranchTransferController extends Controller
 
                 foreach ($itemsData as $itemData) {
                     $productId = $itemData['productId'];
-                    $quantity = (float) $itemData['quantity'];
-
                     $product = Product::where('organization_id', $orgId)
                         ->where('id', $productId)
                         ->firstOrFail();
+
+                    $quantity = $this->resolveTransferItemQuantity($product, $itemData);
 
                     $piecesRaw = $itemData['pieces'] ?? null;
                     $pieces = null;
@@ -394,11 +394,11 @@ class BranchTransferController extends Controller
 
         foreach ($itemsData as $itemData) {
             $productId = $itemData['productId'];
-            $quantity = (float) $itemData['quantity'];
-
             $product = Product::where('organization_id', $orgId)
                 ->where('id', $productId)
                 ->firstOrFail();
+
+            $quantity = $this->resolveTransferItemQuantity($product, $itemData);
 
             $piecesRaw = $itemData['pieces'] ?? null;
             $pieces = null;
@@ -538,5 +538,26 @@ class BranchTransferController extends Controller
 
             return $this->error($prefix . $message, null, null, null, $status);
         }
+    }
+
+    /**
+     * @param  array{quantity?:float|int|string|null, pieces?:float|int|string|null}  $itemData
+     */
+    private function resolveTransferItemQuantity(Product $product, array $itemData): float
+    {
+        $unit = strtolower(trim((string) ($product->unit ?? '')));
+        $isPieceUnit = in_array($unit, ['pcs', 'pc', 'piece', 'pieces'], true);
+        $quantity = isset($itemData['quantity']) && $itemData['quantity'] !== '' && is_numeric($itemData['quantity'])
+            ? (float) $itemData['quantity']
+            : 0.0;
+
+        if ($isPieceUnit && $quantity < 0.01) {
+            $pieces = $itemData['pieces'] ?? null;
+            if ($pieces !== null && $pieces !== '' && is_numeric($pieces)) {
+                return (float) $pieces;
+            }
+        }
+
+        return $quantity;
     }
 }

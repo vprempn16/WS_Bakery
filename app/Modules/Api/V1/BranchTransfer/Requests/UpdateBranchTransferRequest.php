@@ -29,7 +29,7 @@ class UpdateBranchTransferRequest extends FormRequest
             // Line items may be synced while pending (validated further in controller by status).
             'data.relatedRecords.items' => ['sometimes', 'array', 'min:1'],
             'data.relatedRecords.items.*.productId' => ['required_with:data.relatedRecords.items', 'string', 'exists:products,id', 'distinct'],
-            'data.relatedRecords.items.*.quantity' => ['required_with:data.relatedRecords.items', 'numeric', 'min:0.01'],
+            'data.relatedRecords.items.*.quantity' => ['nullable', 'numeric', 'min:0.01'],
             'data.relatedRecords.items.*.unit' => ['nullable', 'string'],
             'data.relatedRecords.items.*.pieces' => ['nullable', 'numeric', 'min:1'],
         ];
@@ -65,6 +65,11 @@ class UpdateBranchTransferRequest extends FormRequest
                 $piecesProvided = array_key_exists('pieces', $item)
                     && $item['pieces'] !== null
                     && $item['pieces'] !== '';
+                $quantityProvided = array_key_exists('quantity', $item)
+                    && $item['quantity'] !== null
+                    && $item['quantity'] !== ''
+                    && is_numeric($item['quantity'])
+                    && (float) $item['quantity'] >= 0.01;
 
                 if ($isPieceUnit) {
                     if (! $piecesProvided) {
@@ -78,6 +83,17 @@ class UpdateBranchTransferRequest extends FormRequest
                             'Pieces must be a whole number of at least 1.'
                         );
                     }
+                } else {
+                    if (! $quantityProvided) {
+                        $validator->errors()->add(
+                            "data.relatedRecords.items.{$index}.quantity",
+                            'Enter a valid quantity.'
+                        );
+                    }
+                }
+
+                if ($isPieceUnit) {
+                    // quantity optional for pcs
                 } elseif ($piecesProvided) {
                     if (! is_numeric($item['pieces']) || (float) $item['pieces'] < 1 || floor((float) $item['pieces']) != (float) $item['pieces']) {
                         $validator->errors()->add(

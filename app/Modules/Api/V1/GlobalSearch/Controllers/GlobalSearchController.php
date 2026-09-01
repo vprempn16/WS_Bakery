@@ -220,7 +220,11 @@ class GlobalSearchController extends Controller
                 'module' => 'Ingredient',
                 'model' => \App\Modules\Api\V1\Ingredient\Models\Ingredient::class,
                 'searchColumns' => ['name'],
-                'label' => function ($r) { return $r->name; },
+                'label' => function ($r) {
+                    $unit = $r->unit ? strtolower((string) $r->unit) : null;
+
+                    return $unit ? "{$r->name} · {$unit}" : $r->name;
+                },
                 'searchText' => function ($r) { return $r->name; },
             ],
             'productId' => [
@@ -365,6 +369,9 @@ class GlobalSearchController extends Controller
             if ($module === 'Product') {
                 $row['unit'] = $record->unit;
                 $row['productNumber'] = $record->product_number;
+            }
+            if ($module === 'Ingredient') {
+                $row['unit'] = $record->unit;
             }
             $valuesList[] = $row;
         }
