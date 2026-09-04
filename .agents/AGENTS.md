@@ -14,7 +14,7 @@ Features are strictly encapsulated within their own module folders rather than g
 - **Rule**: Do NOT place new feature logic in the global `app/Http/Controllers` or `app/Models` directories. Always build within the specific `app/Modules/Api/V1/{Feature}` directory.
 
 ### Bakery modules (current)
-Organization, User, Vendor, Ingredient, MaterialIssue, InventoryTransaction, Product, Recipe, ProductionBatch, Branch, BranchTransfer / BranchStock, BranchSales (BranchDailyReport), Billing, Reports, SavedFilter, Profile, Role, Settings, GlobalSearch, AuditLog.
+Organization, User, Vendor, Ingredient, MaterialIssue, InventoryTransaction, Product, Recipe, ProductionBatch, ProductionPlan, Branch, BranchTransfer / BranchStock, BranchSales (BranchDailyReport), SalesReturn, Billing, Reports, SavedFilter, Profile, Role, Settings, GlobalSearch, AuditLog.
 
 ## 2. Fat Models, Skinny Controllers
 - **Controllers** should only be responsible for handling the HTTP request, delegating to the Model or a Service, and returning the response.
@@ -190,19 +190,37 @@ Vendor → Ingredient (stock in via InventoryTransaction / Adjust Stock — UI: 
     → Recipe on Product (BOM for planning / usage analysis only)
     → ProductionBatch (increase Product.current_stock + expiry; does NOT deduct ingredients)
     → BranchTransfer (warehouse Product stock → BranchStock)
-    → Sell:
+    → Sell / write-off:
          • POS Billing  → MUST deduct BranchStock for that branch
-         • BranchDailyReport → deduct BranchStock (sold + returned/waste)
-    → Reports (Dashboard, ExpiringBatches)
+         • SalesReturn (Returns / wastage) → MUST deduct BranchStock (never add stock back; not a POS refund)
+         • BranchDailyReport → summary waste fields (does not replace SalesReturn)
+    → Reports (Dashboard, ExpiringBatches, BranchShelfLife)
 ```
+
+### Shelf-life warnings (warn only)
+- `ShelfLifeStatusService` + `GET Reports/BranchShelfLife` (active branch via `X-Branch-Id`).
+- Heuristic: product has non-wasted `ProductionBatch` past / within 24h of `expiry_timestamp` **and** `BranchStock.current_stock > 0`. Not FIFO (BranchStock has no batch id).
+- Surfaces: POS tile badge + one toast; BranchStock `shelfStatus` column; Dashboard shelf-life block + toast.
+- **Never** block POS add/pay for expiry. Use Product `status=inactive` to hide from POS.
+
+### Product number
+- `productNumber` is **mandatory** on create/edit (`ModuleFieldConfig` + `crm_fields` + Store/Update requests). Digits only; unique per org. Creating-hook auto-number remains only as a seeder/safety fallback when empty.
 
 ### Stock rules
 1. **MaterialIssue (Material Withdrawal)**: deduct ingredient stock + log `InventoryTransaction` (`out`) when master takes raw materials. Ledger notes use `Material Withdrawal: …`. Cancel restores stock. Do not use Adjust Stock UI for this path.
 2. **ProductionBatch**: increase finished-goods `Product.current_stock` only. Do **not** deduct ingredients (already issued via MaterialIssue).
-3. **BranchTransfer**: deduct warehouse `Product.current_stock`; increase `BranchStock`.
+3. **BranchTransfer**: deduct warehouse `Product.current_stock`; increase `BranchStock` on receive.
 4. **Billing (POS)**: deduct `BranchStock` for `branch_id` + product lines (same org). Never leave POS as “bill only” without stock movement.
-5. **BranchDailyReport**: deduct sold + returned quantities from `BranchStock`.
-6. Always scope by `organization_id`. Use `lockForUpdate()` inside stock transactions.
+5. **SalesReturn (Returns)**: multi-item wastage batch; deduct `BranchStock` via `BillingStockService::deductForSale`. Header + `sales_return_items`. No billing FK.
+6. **BranchDailyReport**: deduct sold + returned quantities from `BranchStock` where that path is enabled; do not treat Daily Report as a substitute for SalesReturn logging.
+7. Always scope by `organization_id`. Use `lockForUpdate()` inside stock transactions.
+
+### Product images (storage)
+- Column / field: `product_image` / `productImage`. Upload via `HandlesImageUploads` + `ImageUploadService` to disk **`public`**, path **`uploads/images/{modulename}/{file}`** (e.g. `uploads/images/product/….jpg`).
+- Serve as **`/storage/uploads/images/{modulename}/{file}`** (prefer root-relative URLs from `transformToUrl`).
+- **Setup requirement:** `./setup.sh` ensures `uploads/images` + `uploads/images/product` writable and `public/storage` link. Migration may relocate legacy flat files into `product/`.
+- Billing POS product list must call `transformToUrl` before returning `productImage` / `image_url`.
+- Frontend companion: `bk-frontend/agent/PRODUCT_IMAGE_AND_STORAGE.md`.
 
 ### Multi-tenant
 - Middleware: `auth:sanctum` + `check.org`
@@ -217,9 +235,10 @@ Vendor → Ingredient (stock in via InventoryTransaction / Adjust Stock — UI: 
 3. Existing production: deploy code → backup DB → `php artisan migrate` on the server (only pending migrations run).
 4. When adding multi-tenant features, double-check unique indexes and auto-number generators are org-scoped.
 5. After a migration that fixes a bug, note it here under Multi-tenant / this section so agents do not regress it.
+6. **SalesReturn batches:** if `sales_returns` still has `product_id` and no `sales_return_items`, run pending `2026_09_03_100000_refactor_sales_returns_to_batches` (or recreate from updated create migration on fresh DBs).
 
 ### Roles (current bakery)
-String roles on users (`admin` / `superadmin`, `warehouse`, branch) plus Profile/Role tables. Branch users typically get Billing, BranchDailyReport, Product. Do not assume Member/technician portal unless it is implemented here.
+String roles on users (`admin` / `superadmin`, `warehouse`, branch) plus Profile/Role tables. Branch/Sales staff typically get Billing, BranchDailyReport, SalesReturn, Product. Warehouse does **not** get SalesReturn or ProductionPlan by default. Do not assume Member/technician portal unless it is implemented here.
 
 ## 11. Legacy Debt — Do Not Expand
 - Brand as **BkPortal**. Do not use third-party CRM product names in new code or docs.
@@ -232,6 +251,14 @@ Prefer existing bakery helpers (`success`, `error`, `paginated` via `ResultTrait
 
 ## 13. Changelog (agent reference)
 
+### 2026-09-03
+
+| Area | Change |
+|------|--------|
+| **SalesReturn** | Multi-item wastage batches (`sales_return_items`); stock **deduct** only; role matrix Admin+Sales. Docs: frontend `RETURNS_AND_ROLES.md`. |
+| **Product images** | Paths under `uploads/images/{modulename}/`; Billing POS transforms URLs; `setup.sh` verifies module folders + `public/storage` link. |
+| **BranchStock** | Read-only detail + Eye; no date-range trap on list. |
+
 ### 2026-08-30
 
 | Area | Change |
@@ -241,4 +268,4 @@ Prefer existing bakery helpers (`success`, `error`, `paginated` via `ResultTrait
 | **Product number** | Validated as string in create/update requests (frontend must stringify numeric input from `InputNumber`). Uniqueness remains per `organization_id`. |
 | **Adjust Stock vs Withdrawal** | Frontend Adjust Stock modal is stock-in only; operational stock-out is Material Withdrawal. Backend `InventoryTransaction` still accepts `out` via API. |
 
-Frontend companion doc: [`bk-frontend/agent/RECENT_UPDATES_2026-08-30.md`](../../../bk-frontend/agent/RECENT_UPDATES_2026-08-30.md).
+Frontend companion docs: [`RETURNS_AND_ROLES.md`](../../../bk-frontend/agent/RETURNS_AND_ROLES.md), [`PRODUCT_IMAGE_AND_STORAGE.md`](../../../bk-frontend/agent/PRODUCT_IMAGE_AND_STORAGE.md), [`RECENT_UPDATES_2026-08-30.md`](../../../bk-frontend/agent/RECENT_UPDATES_2026-08-30.md).

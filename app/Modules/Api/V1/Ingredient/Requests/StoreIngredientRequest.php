@@ -17,6 +17,7 @@ class StoreIngredientRequest extends FormRequest
             'data.values.vendorId' => ['nullable', 'string', 'exists:vendors,id'],
             'data.values.name' => ['required', 'string', 'max:255'],
             'data.values.unit' => ['nullable', 'string', 'max:50'],
+            'data.values.category' => ['nullable', 'string', 'in:raw,packaging,other'],
             'data.values.minimumStockLevel' => ['nullable', 'numeric', 'min:0'],
             'data.values.currentStock' => ['nullable', 'numeric', 'min:0'],
         ];

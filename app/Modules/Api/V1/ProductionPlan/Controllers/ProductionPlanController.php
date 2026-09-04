@@ -35,7 +35,8 @@ class ProductionPlanController extends Controller
 
         $query = ProductionPlan::with(['creator'])
             ->withCount('items')
-            ->where('organization_id', $orgId);
+            ->where('organization_id', $orgId)
+            ->where('status', '!=', 'cancelled');
 
         if ($request->has('savedFilterId')) {
             $savedFilter = SavedFilter::where('organization_id', $orgId)
@@ -72,13 +73,9 @@ class ProductionPlanController extends Controller
         $itemsData = $request->input('data.relatedRecords.items', []);
         $orgId = AuthUser::organizationId();
         $userId = AuthUser::id();
-        $status = strtolower((string) ($values['status'] ?? 'draft'));
-        if (!in_array($status, ['draft', 'approved'], true)) {
-            $status = 'draft';
-        }
 
         try {
-            return DB::transaction(function () use ($values, $itemsData, $orgId, $userId, $status) {
+            return DB::transaction(function () use ($values, $itemsData, $orgId, $userId) {
                 foreach ($itemsData as $itemData) {
                     try {
                         RecordObject::make('Product', $itemData['productId'], [], 'DetailView');
@@ -91,12 +88,12 @@ class ProductionPlanController extends Controller
                 $plan = RecordObject::make('ProductionPlan', null, [
                     'planDate' => $values['planDate'],
                     'notes' => $values['notes'] ?? null,
-                    'status' => $status,
+                    'status' => 'draft',
                 ], 'CreateView');
                 $plan->organization_id = $orgId;
                 $plan->plan_date = $values['planDate'];
                 $plan->notes = $values['notes'] ?? null;
-                $plan->status = $status;
+                $plan->status = 'draft';
                 $plan->created_by = $userId;
                 $plan->save();
 
@@ -151,14 +148,6 @@ class ProductionPlanController extends Controller
                     throw new \RuntimeException('Cancelled production plans cannot be edited.');
                 }
 
-                if (isset($values['status'])) {
-                    $status = strtolower((string) $values['status']);
-                    if (!in_array($status, ['draft', 'approved', 'completed', 'cancelled'], true)) {
-                        throw new \RuntimeException('Invalid status.');
-                    }
-                    $plan->status = $status;
-                }
-
                 if (isset($values['planDate'])) {
                     $plan->plan_date = $values['planDate'];
                 }
@@ -169,9 +158,6 @@ class ProductionPlanController extends Controller
                 $plan->save();
 
                 if (is_array($itemsData)) {
-                    if (in_array(strtolower((string) $plan->status), ['completed', 'cancelled'], true)) {
-                        throw new \RuntimeException('Cannot change plan items when status is completed or cancelled.');
-                    }
                     foreach ($itemsData as $itemData) {
                         try {
                             RecordObject::make('Product', $itemData['productId'], [], 'DetailView');
@@ -244,7 +230,11 @@ class ProductionPlanController extends Controller
                 $productMaterials = [];
 
                 $recipes = Recipe::where('product_id', $product->id)->get();
-                if ($recipes->isEmpty()) {
+                if ($product->isBought()) {
+                    $msg = "{$product->name} is a bought (outside brand) product — no materials needed. Receive stock instead of baking.";
+                    $warnings[] = $msg;
+                    $productWarnings[] = $msg;
+                } elseif ($recipes->isEmpty()) {
                     $msg = "{$product->name} has no recipe (BOM). Material need cannot be calculated for this product.";
                     $warnings[] = $msg;
                     $productWarnings[] = $msg;

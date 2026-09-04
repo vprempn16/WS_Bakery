@@ -103,6 +103,28 @@ class RelatedRecordsController extends Controller
         return $this->success(['list' => $rows]);
     }
 
+    public function productStockHistory(Request $request, string $id)
+    {
+        /** @var Product $product */
+        $product = $this->assertProduct($id);
+        $orgId = AuthUser::organizationId();
+        $rows = \App\Modules\Api\V1\ProductStockTransaction\Models\ProductStockTransaction::where('organization_id', $orgId)
+            ->where('product_id', $id)
+            ->orderByDesc('created_at')
+            ->limit(100)
+            ->get()
+            ->map(fn ($t) => [
+                'id' => $t->id,
+                'type' => $t->type,
+                'quantity' => (float) $t->quantity,
+                'unit' => $product->unit,
+                'referenceNote' => $t->reference_note,
+                'createdAt' => optional($t->created_at)?->format('Y-m-d H:i:s'),
+            ]);
+
+        return $this->success(['list' => $rows]);
+    }
+
     public function ingredientVendors(Request $request, string $id)
     {
         /** @var Ingredient $ingredient */

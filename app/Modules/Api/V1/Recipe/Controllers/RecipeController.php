@@ -52,6 +52,15 @@ class RecipeController extends Controller
         }
 
         $product = Product::findOrFail($productId);
+        if ($product->isBought()) {
+            return $this->error(
+                'Cannot add ingredients: this is a bought (outside brand) product. Bought products are sold as-is without a recipe.',
+                null,
+                null,
+                null,
+                400
+            );
+        }
         $values = $request->input('data.values');
 
         $recipe = Recipe::updateOrCreate(
@@ -99,6 +108,17 @@ class RecipeController extends Controller
 
         try {
             RecordObject::make('Product', $productId, [], 'EditView');
+
+            $product = Product::findOrFail($productId);
+            if ($product->isBought()) {
+                return $this->error(
+                    'Cannot change recipe: this is a bought (outside brand) product.',
+                    null,
+                    null,
+                    null,
+                    400
+                );
+            }
 
             $deleted = Recipe::where('product_id', $productId)
                 ->where('ingredient_id', $ingredientId)

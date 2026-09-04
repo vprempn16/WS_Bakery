@@ -24,7 +24,10 @@ class HeaderController extends Controller
 
         if ($filterId) {
             $filter = SavedFilter::where('id', $filterId)->where('module', $normalizedModule)->firstOrFail();
-            $fields = $this->applyHeaderDetails($allFields, $filter->header_details);
+            // Default "All" always exposes every displaytype 1+3 field (ignore stored header_details).
+            $fields = $filter->is_default
+                ? $allFields
+                : $this->applyHeaderDetails($allFields, $filter->header_details);
 
             return $this->success([
                 'filter_id' => $filter->id,
@@ -38,12 +41,10 @@ class HeaderController extends Controller
             ->first();
 
         if ($defaultFilter) {
-            $fields = $this->applyHeaderDetails($allFields, $defaultFilter->header_details);
-
             return $this->success([
                 'filter_id' => $defaultFilter->id,
                 'is_default' => true,
-                'fields' => $fields,
+                'fields' => $allFields,
             ]);
         }
 

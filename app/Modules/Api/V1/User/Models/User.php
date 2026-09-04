@@ -60,11 +60,15 @@ class User extends Authenticatable
             ['value' => 'branch', 'label' => 'Branch'],
             ['value' => 'user', 'label' => 'User'],
             ['value' => 'billing', 'label' => 'Billing'],
+            ['value' => 'salesreturn', 'label' => 'Returns'],
             ['value' => 'branchdailyreport', 'label' => 'Branch Daily Report'],
             ['value' => 'branchtransfer', 'label' => 'Branch Transfer'],
             ['value' => 'branchstock', 'label' => 'Branch Stock'],
             ['value' => 'inventorytransaction', 'label' => 'Inventory Transaction'],
+            ['value' => 'productstocktransaction', 'label' => 'Product Stock Receipt'],
             ['value' => 'productionbatch', 'label' => 'Production Batch'],
+            ['value' => 'productionplan', 'label' => 'Production Plan'],
+            ['value' => 'materialissue', 'label' => 'Material Withdrawal'],
             ['value' => 'recipe', 'label' => 'Recipe'],
         ];
 
@@ -98,9 +102,11 @@ class User extends Authenticatable
             $warehouseActions = [
                 'product' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'ingredient' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+                'materialissue' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'branchtransfer' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'branchstock' => ['view' => 1, 'create' => 0, 'edit' => 0, 'delete' => 0],
                 'inventorytransaction' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+                'productstocktransaction' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'productionbatch' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'recipe' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
                 'vendor' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
@@ -123,6 +129,7 @@ class User extends Authenticatable
         // as a destination-branch workflow action.
         $branchActions = [
             'billing' => ['view' => 1, 'create' => 1, 'edit' => 1, 'delete' => 0],
+            'salesreturn' => ['view' => 1, 'create' => 1, 'edit' => 0, 'delete' => 0],
             'branchdailyreport' => ['view' => 1, 'create' => 1, 'edit' => 0, 'delete' => 0],
             'product' => ['view' => 1, 'create' => 0, 'edit' => 0, 'delete' => 0],
             'branchstock' => ['view' => 1, 'create' => 0, 'edit' => 0, 'delete' => 0],

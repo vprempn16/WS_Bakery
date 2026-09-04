@@ -4,11 +4,48 @@ namespace App\Modules\Api\V1\Reports\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch;
+use App\Services\BranchAccess;
+use App\Services\PermissionService;
+use App\Services\ShelfLifeStatusService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
 class ExpiryReportController extends Controller
 {
+    /**
+     * Branch-scoped shelf-life warnings for products with stock at the active branch.
+     * Warn-only: does not block POS sales.
+     */
+    public function branchShelfLife(Request $request)
+    {
+        $user = $request->user();
+        $permissionService = new PermissionService($user);
+        $canView = $permissionService->hasPermission('BranchStock', 'view')
+            || $permissionService->hasPermission('Billing', 'view')
+            || $permissionService->hasPermission('Product', 'view');
+
+        if (! $canView) {
+            return $this->error("You don't have permission to view shelf life alerts.", null, null, null, 403);
+        }
+
+        $orgId = (string) $user->organization_id;
+        $branchId = BranchAccess::resolveBranchIdFromRequest($request, $user);
+
+        if (! $branchId) {
+            return $this->error('Select a branch to view shelf life alerts.', null, null, null, 400);
+        }
+
+        try {
+            BranchAccess::assertCanAccessBranch($user, (string) $branchId);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
+        }
+
+        $data = ShelfLifeStatusService::forBranch($orgId, (string) $branchId);
+
+        return $this->success($data, 'Branch shelf life report fetched successfully.');
+    }
+
     public function expiringBatches(Request $request)
     {
         $orgId = $request->user()->organization_id;

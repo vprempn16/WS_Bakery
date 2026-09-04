@@ -5,9 +5,12 @@ namespace App\Modules\Api\V1\BranchTransfer\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\BranchTransfer\Resources\BranchStockResource;
+use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Services\BranchAccess;
 use App\Services\PermissionService;
+use App\Services\ShelfLifeStatusService;
 use App\Support\ApiPagination;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 
 class BranchStockController extends Controller
@@ -52,17 +55,65 @@ class BranchStockController extends Controller
             }
         }
 
-        if ($request->filled('dateFrom')) {
-            $query->whereDate('updated_at', '>=', $request->query('dateFrom'));
-        }
-        if ($request->filled('dateTo')) {
-            $query->whereDate('updated_at', '<=', $request->query('dateTo'));
-        }
+        // BranchStock is a current ledger — do not filter by updated_at date range
+        // (that hid stock after transfers when "today" did not match credit time).
 
-        $stocks = $query->paginate($perPage);
+        $stocks = $query->orderBy('updated_at', 'desc')->paginate($perPage);
 
-        $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getApiFieldsForView('BranchStock', 'DetailView');
+        $productIds = $stocks->getCollection()->pluck('product_id')->filter()->unique()->values()->all();
+        $stockByProduct = $stocks->getCollection()
+            ->mapWithKeys(fn ($row) => [(string) $row->product_id => (float) $row->current_stock])
+            ->all();
+        $shelfMap = ShelfLifeStatusService::statusForProducts((string) $orgId, $productIds, $stockByProduct);
+
+        $stocks->getCollection()->transform(function ($row) use ($shelfMap) {
+            $info = $shelfMap[(string) $row->product_id] ?? null;
+            $row->setAttribute('shelf_status_computed', $info['shelfStatus'] ?? null);
+            $row->setAttribute('earliest_expiry_computed', $info['earliestExpiry'] ?? null);
+
+            return $row;
+        });
+
+        $fieldList = ModuleFieldConfig::getApiFieldsForView('BranchStock', 'DetailView');
 
         return $this->paginated(BranchStockResource::collection($stocks)->resource, $fieldList);
+    }
+
+    public function show(Request $request, $id)
+    {
+        $user = $request->user();
+        $permissionService = new PermissionService($user);
+        if (! $permissionService->hasPermission('BranchStock', 'view')) {
+            return $this->error("You don't have permission to view BranchStock.", null, null, null, 403);
+        }
+
+        try {
+            $stock = BranchStock::with(['branch', 'product'])
+                ->where('organization_id', $user->organization_id)
+                ->findOrFail($id);
+
+            BranchAccess::assertCanAccessBranch($user, (string) $stock->branch_id);
+
+            $shelfMap = ShelfLifeStatusService::statusForProducts(
+                (string) $user->organization_id,
+                [(string) $stock->product_id],
+                [(string) $stock->product_id => (float) $stock->current_stock]
+            );
+            $info = $shelfMap[(string) $stock->product_id] ?? null;
+            $stock->setAttribute('shelf_status_computed', $info['shelfStatus'] ?? null);
+            $stock->setAttribute('earliest_expiry_computed', $info['earliestExpiry'] ?? null);
+
+            $fieldList = ModuleFieldConfig::getApiFieldsForView('BranchStock', 'DetailView');
+            $resource = new BranchStockResource($stock);
+
+            return $this->success([
+                'fields' => $fieldList,
+                'values' => $resource->toArray(request()),
+            ]);
+        } catch (ModelNotFoundException) {
+            return $this->error('Branch stock record not found.', null, null, null, 404);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
+        }
     }
 }

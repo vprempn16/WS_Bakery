@@ -552,7 +552,7 @@ class ClientDemoBakerySeeder extends Seeder
         $plan = new ProductionPlan();
         $plan->organization_id = $orgId;
         $plan->plan_date = Carbon::tomorrow()->toDateString();
-        $plan->status = 'approved';
+        $plan->status = 'draft';
         $plan->notes = $notes;
         $plan->created_by = $adminId;
         $plan->save();

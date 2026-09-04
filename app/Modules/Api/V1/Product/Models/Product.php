@@ -14,11 +14,12 @@ class Product extends \App\Models\BKModel
     use \App\Traits\Auditable;
     use HasFactory, HasUuids;
 
-    // Stock must only change via ProductionBatch / BranchTransfer / Billing flows.
+    // Stock must only change via ProductionBatch / ProductStockTransaction / BranchTransfer / Billing flows.
     protected $guarded = ['id', 'organization_id', 'deleted', 'created_at', 'updated_at', 'created_by', 'current_stock'];
 
     protected $attributes = [
         'status' => 'active',
+        'product_source' => 'own',
     ];
 
     protected $casts = [
@@ -30,11 +31,24 @@ class Product extends \App\Models\BKModel
         return strtolower((string) ($this->status ?? 'active')) === 'active';
     }
 
+    public function isBought(): bool
+    {
+        return strtolower((string) ($this->product_source ?? 'own')) === 'bought';
+    }
+
+    public function isOwn(): bool
+    {
+        return ! $this->isBought();
+    }
+
     protected static function booted()
     {
         static::creating(function ($product) {
             if (empty($product->status)) {
                 $product->status = 'active';
+            }
+            if (empty($product->product_source)) {
+                $product->product_source = 'own';
             }
         });
 
@@ -44,6 +58,11 @@ class Product extends \App\Models\BKModel
                 $product->status = in_array($normalized, ['active', 'inactive'], true)
                     ? $normalized
                     : 'active';
+            }
+
+            if ($product->product_source !== null && $product->product_source !== '') {
+                $src = strtolower(trim((string) $product->product_source));
+                $product->product_source = in_array($src, ['own', 'bought'], true) ? $src : 'own';
             }
 
             if ($product->unit !== null && $product->unit !== '') {
@@ -150,5 +169,10 @@ class Product extends \App\Models\BKModel
     public function dailyReportItems()
     {
         return $this->hasMany(\App\Modules\Api\V1\BranchSales\Models\BranchDailyReportItem::class);
+    }
+
+    public function stockTransactions()
+    {
+        return $this->hasMany(\App\Modules\Api\V1\ProductStockTransaction\Models\ProductStockTransaction::class);
     }
 }

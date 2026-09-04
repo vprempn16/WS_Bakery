@@ -16,11 +16,15 @@ use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Services\AuthUser;
 use App\Services\BranchAccess;
+use App\Services\ImageUploadService;
+use App\Services\ShelfLifeStatusService;
 use App\Services\CRM\RecordObject;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class BillingController extends Controller
@@ -314,9 +318,21 @@ class BillingController extends Controller
             } finally {
                 optional($lock)->release();
             }
+        } catch (QueryException $e) {
+            Log::error('Failed to create bill', [
+                'exception' => $e::class,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->error('Failed to create bill.', null, null, null, 500);
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Exception $e) {
+            Log::error('Failed to create bill', [
+                'exception' => $e::class,
+                'error' => $e->getMessage(),
+            ]);
+
             return $this->error('Failed to create bill.', null, null, null, 500);
         }
     }
@@ -568,9 +584,21 @@ class BillingController extends Controller
             }
         } catch (ModelNotFoundException $e) {
             return $this->error('Bill not found.', null, null, null, 404);
+        } catch (QueryException $e) {
+            Log::error('Failed to update bill', [
+                'exception' => $e::class,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->error('Failed to update bill.', null, null, null, 500);
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Exception $e) {
+            Log::error('Failed to update bill', [
+                'exception' => $e::class,
+                'error' => $e->getMessage(),
+            ]);
+
             return $this->error('Failed to update bill.', null, null, null, 500);
         }
     }
@@ -633,7 +661,20 @@ class BillingController extends Controller
                 ->all();
         }
 
-        $formatted = collect($paginator->items())->map(function ($item) use ($stockByProduct) {
+        $shelfByProduct = [];
+        if ($branchId && ! empty($productIds)) {
+            $shelfByProduct = ShelfLifeStatusService::statusForProducts(
+                (string) $orgId,
+                $productIds,
+                $stockByProduct
+            );
+        }
+
+        $imageService = app(ImageUploadService::class);
+        $formatted = collect($paginator->items())->map(function ($item) use ($stockByProduct, $imageService, $shelfByProduct) {
+            $imageUrl = $imageService->transformToUrl($item->product_image);
+            $shelf = $shelfByProduct[$item->id] ?? null;
+
             return [
                 'id' => $item->id,
                 'name' => $item->name,
@@ -643,9 +684,11 @@ class BillingController extends Controller
                 'category' => $item->category,
                 'status' => strtolower((string) ($item->status ?? 'active')) === 'inactive' ? 'inactive' : 'active',
                 'currentStock' => (float) ($stockByProduct[$item->id] ?? 0),
-                'product_image' => $item->product_image,
-                'productImage' => $item->product_image,
-                'image_url' => $item->product_image,
+                'shelfStatus' => $shelf['shelfStatus'] ?? null,
+                'earliestExpiry' => $shelf['earliestExpiry'] ?? null,
+                'product_image' => $imageUrl,
+                'productImage' => $imageUrl,
+                'image_url' => $imageUrl,
             ];
         });
 
@@ -679,6 +722,9 @@ class BillingController extends Controller
             ['value' => 'sweet', 'label' => 'Sweet'],
             ['value' => 'cake', 'label' => 'Cake'],
             ['value' => 'snack', 'label' => 'Snack'],
+            ['value' => 'biscuit', 'label' => 'Biscuit'],
+            ['value' => 'chocolate', 'label' => 'Chocolate'],
+            ['value' => 'spices', 'label' => 'Spices'],
             ['value' => 'beverage', 'label' => 'Beverage'],
             ['value' => 'other', 'label' => 'Other'],
         ];

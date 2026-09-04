@@ -17,13 +17,15 @@ class StoreProductRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'data.values.productNumber' => ['nullable', 'string', 'max:255', 'regex:/^\d+$/'],
+            'data.values.productNumber' => ['required', 'string', 'max:255', 'regex:/^\d+$/'],
             'data.values.name' => ['required', 'string', 'max:255'],
             'data.values.description' => ['nullable', 'string'],
+            'data.values.productImage' => ['nullable'],
             'data.values.price' => ['nullable', 'numeric', 'min:0'],
             'data.values.unit' => ['required', 'string', 'in:gm,pcs,ml'],
-            'data.values.category' => ['nullable', 'string', 'in:bread,sweet,cake,snack,spices,beverage,other'],
+            'data.values.category' => ['nullable', 'string', 'in:bread,sweet,cake,snack,spices,beverage,biscuit,chocolate,other'],
             'data.values.status' => ['nullable', 'string', 'in:active,inactive'],
+            'data.values.productSource' => ['nullable', 'string', 'in:own,bought'],
             'data.values.shelfLife' => ['nullable', 'integer', 'in:6,12,24,48,72,120,168,336,720'],
             'data.values.tier' => ['nullable', 'string', 'in:tier_1,tier_2,tier_3'],
         ];
@@ -32,6 +34,7 @@ class StoreProductRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'data.values.productNumber.required' => 'Product number is required.',
             'data.values.productNumber.regex' => 'Product number must contain digits only (no letters).',
         ];
     }

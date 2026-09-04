@@ -88,6 +88,18 @@ class ModuleFieldConfig
                     ['value' => 'pcs', 'label' => 'Pieces (pcs)'],
                 ],
             ],
+            [
+                'fieldname' => 'category',
+                'fieldlabel' => 'Category',
+                'fieldtype' => 'picklist',
+                'displaytype' => 1,
+                'mandatory' => 0,
+                'options' => [
+                    ['value' => 'raw', 'label' => 'Raw'],
+                    ['value' => 'packaging', 'label' => 'Packaging'],
+                    ['value' => 'other', 'label' => 'Other'],
+                ],
+            ],
             ['fieldname' => 'vendorId', 'fieldlabel' => 'Vendor', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'minimumStockLevel', 'fieldlabel' => 'Minimum Stock Level', 'fieldtype' => 'decimal', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock', 'fieldtype' => 'decimal', 'displaytype' => 3, 'mandatory' => 0],
@@ -116,12 +128,33 @@ class ModuleFieldConfig
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
         ],
+        'product_stock_transactions' => [
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text', 'displaytype' => 2, 'mandatory' => 0],
+            ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization', 'fieldtype' => 'relationPickList', 'displaytype' => 2, 'mandatory' => 0],
+            ['fieldname' => 'productId', 'fieldlabel' => 'Product', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
+            [
+                'fieldname' => 'type',
+                'fieldlabel' => 'Type',
+                'fieldtype' => 'picklist',
+                'displaytype' => 1,
+                'mandatory' => 1,
+                'options' => [
+                    ['value' => 'in', 'label' => 'Stock In'],
+                ],
+            ],
+            ['fieldname' => 'quantity', 'fieldlabel' => 'Quantity', 'fieldtype' => 'decimal', 'displaytype' => 1, 'mandatory' => 1],
+            ['fieldname' => 'unit', 'fieldlabel' => 'Unit', 'fieldtype' => 'text', 'displaytype' => 2, 'mandatory' => 0],
+            ['fieldname' => 'referenceNote', 'fieldlabel' => 'Reference Note', 'fieldtype' => 'textarea', 'displaytype' => 1, 'mandatory' => 0],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
+            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
+        ],
         'products' => [
             ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'text', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization', 'fieldtype' => 'relationPickList', 'displaytype' => 2, 'mandatory' => 0],
-            ['fieldname' => 'productNumber', 'fieldlabel' => 'Product Number', 'fieldtype' => 'integer/number', 'displaytype' => 1, 'mandatory' => 0],
+            ['fieldname' => 'productNumber', 'fieldlabel' => 'Product Number', 'fieldtype' => 'integer/number', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'name', 'fieldlabel' => 'Name', 'fieldtype' => 'text', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'description', 'fieldlabel' => 'Description', 'fieldtype' => 'textarea', 'displaytype' => 1, 'mandatory' => 0],
+            ['fieldname' => 'productImage', 'fieldlabel' => 'Product Image', 'fieldtype' => 'image', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'price', 'fieldlabel' => 'Price', 'fieldtype' => 'currency', 'displaytype' => 1, 'mandatory' => 1],
             [
                 'fieldname' => 'unit',
@@ -146,9 +179,22 @@ class ModuleFieldConfig
                     ['value' => 'sweet', 'label' => 'Sweet'],
                     ['value' => 'cake', 'label' => 'Cake'],
                     ['value' => 'snack', 'label' => 'Snack'],
+                    ['value' => 'biscuit', 'label' => 'Biscuit'],
+                    ['value' => 'chocolate', 'label' => 'Chocolate'],
                     ['value' => 'spices', 'label' => 'Spices'],
                     ['value' => 'beverage', 'label' => 'Beverage'],
                     ['value' => 'other', 'label' => 'Other'],
+                ],
+            ],
+            [
+                'fieldname' => 'productSource',
+                'fieldlabel' => 'Product Source',
+                'fieldtype' => 'picklist',
+                'displaytype' => 1,
+                'mandatory' => 0,
+                'options' => [
+                    ['value' => 'own', 'label' => 'Own (baked)'],
+                    ['value' => 'bought', 'label' => 'Bought (outside brand)'],
                 ],
             ],
             [
@@ -179,6 +225,14 @@ class ModuleFieldConfig
                     ['value' => '336', 'label' => '14 Days'],
                     ['value' => '720', 'label' => '30 Days'],
                 ],
+            ],
+            [
+                'fieldname' => 'shelfStatus',
+                'fieldlabel' => 'Shelf Status',
+                'fieldtype' => 'text',
+                // API-only: list shows badge beside Shelf Life, not a separate column
+                'displaytype' => 2,
+                'mandatory' => 0,
             ],
             [
                 'fieldname' => 'tier',
@@ -256,6 +310,13 @@ class ModuleFieldConfig
             // Product unit for stock formatting (embedded in Current Stock column).
             ['fieldname' => 'unit', 'fieldlabel' => 'Unit', 'fieldtype' => 'text', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock', 'fieldtype' => 'number', 'displaytype' => 3, 'mandatory' => 0],
+            [
+                'fieldname' => 'shelfStatus',
+                'fieldlabel' => 'Shelf Status',
+                'fieldtype' => 'text',
+                'displaytype' => 3,
+                'mandatory' => 0,
+            ],
             ['fieldname' => 'updatedDate', 'fieldlabel' => 'Date', 'fieldtype' => 'date', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'updatedTime', 'fieldlabel' => 'Time', 'fieldtype' => 'time', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
@@ -275,7 +336,8 @@ class ModuleFieldConfig
             ],
             ['fieldname' => 'notes', 'fieldlabel' => 'Notes', 'fieldtype' => 'textarea', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'createdBy', 'fieldlabel' => 'Withdrawn By', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 3, 'mandatory' => 0],
+            // System timestamp — use issueDate on list; hide createdAt (displaytype 2).
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
         ],
         'material_issue_items' => [
@@ -329,18 +391,17 @@ class ModuleFieldConfig
                 'fieldname' => 'status',
                 'fieldlabel' => 'Status',
                 'fieldtype' => 'picklist',
-                'displaytype' => 1,
+                'displaytype' => 2,
                 'mandatory' => 0,
                 'options' => [
                     ['value' => 'draft', 'label' => 'Draft'],
-                    ['value' => 'approved', 'label' => 'Approved'],
-                    ['value' => 'completed', 'label' => 'Completed'],
                     ['value' => 'cancelled', 'label' => 'Cancelled'],
                 ],
             ],
             ['fieldname' => 'notes', 'fieldlabel' => 'Notes', 'fieldtype' => 'textarea', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'createdBy', 'fieldlabel' => 'Created By', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 3, 'mandatory' => 0],
+            // System timestamp — use planDate on list; hide createdAt (displaytype 2).
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
         ],
         'production_plan_items' => [
@@ -368,11 +429,12 @@ class ModuleFieldConfig
             ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization', 'fieldtype' => 'relationPickList', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'branchId', 'fieldlabel' => 'Branch', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'billNumber', 'fieldlabel' => 'Bill Number', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'customerName', 'fieldlabel' => 'Customer Name', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'subTotal', 'fieldlabel' => 'Sub Total', 'fieldtype' => 'number', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'discountAmount', 'fieldlabel' => 'Discount', 'fieldtype' => 'number', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'taxAmount', 'fieldlabel' => 'Tax', 'fieldtype' => 'number', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'grandTotal', 'fieldlabel' => 'Grand Total', 'fieldtype' => 'number', 'displaytype' => 3, 'mandatory' => 0],
-            ['fieldname' => 'itemCount', 'fieldlabel' => 'Items', 'fieldtype' => 'integer', 'displaytype' => 1, 'mandatory' => 0],
+            ['fieldname' => 'itemCount', 'fieldlabel' => 'Items', 'fieldtype' => 'integer', 'displaytype' => 3, 'mandatory' => 0],
             [
                 'fieldname' => 'paymentMethod',
                 'fieldlabel' => 'Payment Method',
@@ -411,6 +473,29 @@ class ModuleFieldConfig
             ['fieldname' => 'unit', 'fieldlabel' => 'Unit', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'category', 'fieldlabel' => 'Category', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
         ],
+        'sales_returns' => [
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'uuid', 'displaytype' => 2, 'mandatory' => 0],
+            ['fieldname' => 'organizationId', 'fieldlabel' => 'Organization', 'fieldtype' => 'relationPickList', 'displaytype' => 2, 'mandatory' => 0],
+            ['fieldname' => 'returnNumber', 'fieldlabel' => 'Return #', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'branchId', 'fieldlabel' => 'Branch', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
+            ['fieldname' => 'returnDate', 'fieldlabel' => 'Return Date', 'fieldtype' => 'date', 'displaytype' => 1, 'mandatory' => 1],
+            ['fieldname' => 'totalReturnValue', 'fieldlabel' => 'Total Loss', 'fieldtype' => 'currency', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'itemCount', 'fieldlabel' => 'Items', 'fieldtype' => 'integer', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'notes', 'fieldlabel' => 'Notes', 'fieldtype' => 'textarea', 'displaytype' => 1, 'mandatory' => 0],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
+        ],
+        'sales_return_items' => [
+            ['fieldname' => 'id', 'fieldlabel' => 'ID', 'fieldtype' => 'uuid', 'displaytype' => 2, 'mandatory' => 0],
+            ['fieldname' => 'productId', 'fieldlabel' => 'Product', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
+            ['fieldname' => 'quantity', 'fieldlabel' => 'Quantity', 'fieldtype' => 'number', 'displaytype' => 1, 'mandatory' => 1],
+            ['fieldname' => 'unit', 'fieldlabel' => 'Unit', 'fieldtype' => 'text', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'pieces', 'fieldlabel' => 'Pieces', 'fieldtype' => 'number', 'displaytype' => 1, 'mandatory' => 0],
+            ['fieldname' => 'unitPrice', 'fieldlabel' => 'Unit Price', 'fieldtype' => 'currency', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'returnValue', 'fieldlabel' => 'Line Loss', 'fieldtype' => 'currency', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
+            ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
+        ],
     ];
 
     private static array $moduleAliases = [
@@ -421,6 +506,7 @@ class ModuleFieldConfig
         'MaterialIssue' => 'material_issues',
         'MaterialIssueItem' => 'material_issue_items',
         'InventoryTransaction' => 'inventory_transactions',
+        'ProductStockTransaction' => 'product_stock_transactions',
         'Product' => 'products',
         'Recipe' => 'recipes',
         'Branch' => 'branches',
@@ -431,6 +517,8 @@ class ModuleFieldConfig
         'BranchTransfer' => 'branch_transfers',
         'BranchTransferItem' => 'branch_transfer_items',
         'BranchDailyReport' => 'branch_daily_reports',
+        'SalesReturn' => 'sales_returns',
+        'SalesReturnItem' => 'sales_return_items',
         'Billing' => 'billings',
         'BillingItem' => 'billing_items',
     ];
@@ -505,21 +593,41 @@ class ModuleFieldConfig
     {
         $moduleName = self::resolveModuleName($module);
 
-        try {
-            return \App\Models\FieldModelManager::make($moduleName, $viewType, false)->getApiFormFields();
-        } catch (\Throwable $e) {
-            $mapped = self::getMappedFields($moduleName) ?? [];
-            $allowed = match ($viewType) {
-                'CreateView', 'EditView' => [1],
-                'ProfileView' => [1, 2, 3],
-                default => [1, 3],
-            };
+        $allowed = match ($viewType) {
+            'CreateView', 'EditView' => [1],
+            'ProfileView' => [1, 2, 3],
+            default => [1, 3],
+        };
 
-            return array_values(array_filter(
-                $mapped,
-                fn ($f) => in_array((int) ($f['displaytype'] ?? 1), $allowed, true)
-            ));
+        $mapped = array_values(array_filter(
+            self::getMappedFields($moduleName) ?? [],
+            fn ($f) => in_array((int) ($f['displaytype'] ?? 1), $allowed, true)
+        ));
+
+        try {
+            $fromCrm = \App\Models\FieldModelManager::make($moduleName, $viewType, false)->getApiFormFields();
+        } catch (\Throwable $e) {
+            return $mapped;
         }
+
+        if ($fromCrm === []) {
+            return $mapped;
+        }
+
+        // Merge: static module config as base, CRM fields override / add (covers partial CRM seeds).
+        $byName = [];
+        foreach ($mapped as $field) {
+            $byName[$field['fieldname']] = $field;
+        }
+        foreach ($fromCrm as $field) {
+            $byName[$field['fieldname']] = $field;
+        }
+
+        // Re-apply view filter after merge so CRM overrides cannot leak displaytype 2/3 onto CreateView.
+        return array_values(array_filter(
+            $byName,
+            fn ($f) => in_array((int) ($f['displaytype'] ?? 1), $allowed, true)
+        ));
     }
 
     public static function getModuleNames(): array

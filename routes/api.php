@@ -96,10 +96,12 @@ Route::prefix('v1')->group(function () {
 
         // Branch Stock endpoint
         Route::get('BranchStock', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchStockController::class, 'index']);
+        Route::get('BranchStock/{id}', [\App\Modules\Api\V1\BranchTransfer\Controllers\BranchStockController::class, 'show']);
 
         // Reports endpoints
         Route::prefix('Reports')->middleware('throttle:expensive')->group(function () {
             Route::get('ExpiringBatches', [\App\Modules\Api\V1\Reports\Controllers\ExpiryReportController::class, 'expiringBatches']);
+            Route::get('BranchShelfLife', [\App\Modules\Api\V1\Reports\Controllers\ExpiryReportController::class, 'branchShelfLife']);
             Route::get('MaterialUsage', [\App\Modules\Api\V1\Reports\Controllers\MaterialUsageReportController::class, 'index']);
         });
 
@@ -129,10 +131,19 @@ Route::prefix('v1')->group(function () {
             Route::get('{id}', [\App\Modules\Api\V1\BranchSales\Controllers\BranchDailyReportController::class, 'show']);
         });
 
+        // Sales returns (retail branch unsold / returned products)
+        Route::prefix('SalesReturn')->group(function () {
+            Route::get('', [\App\Modules\Api\V1\SalesReturn\Controllers\SalesReturnController::class, 'index']);
+            Route::post('new', [\App\Modules\Api\V1\SalesReturn\Controllers\SalesReturnController::class, 'store'])
+                ->middleware('throttle:writes');
+            Route::get('{id}', [\App\Modules\Api\V1\SalesReturn\Controllers\SalesReturnController::class, 'show']);
+        });
+
         // Saved Filter endpoints
         Route::prefix('filters')->group(function () {
             Route::get('', [\App\Modules\Api\V1\SavedFilter\Controllers\SavedFilterController::class, 'index']);
             Route::post('new', [\App\Modules\Api\V1\SavedFilter\Controllers\SavedFilterController::class, 'store']);
+            Route::post('{id}', [\App\Modules\Api\V1\SavedFilter\Controllers\SavedFilterController::class, 'update']);
             Route::delete('{id}', [\App\Modules\Api\V1\SavedFilter\Controllers\SavedFilterController::class, 'destroy']);
         });
 
@@ -170,6 +181,13 @@ Route::prefix('v1')->group(function () {
             Route::get('{id}', [\App\Modules\Api\V1\InventoryTransaction\Controllers\InventoryTransactionController::class, 'show']);
         });
 
+        // Bought-product warehouse receipts (stock in only)
+        Route::prefix('ProductStockTransaction')->group(function () {
+            Route::get('', [\App\Modules\Api\V1\ProductStockTransaction\Controllers\ProductStockTransactionController::class, 'index']);
+            Route::post('new', [\App\Modules\Api\V1\ProductStockTransaction\Controllers\ProductStockTransactionController::class, 'store']);
+            Route::get('{id}', [\App\Modules\Api\V1\ProductStockTransaction\Controllers\ProductStockTransactionController::class, 'show']);
+        });
+
         // Product and Recipe endpoints
         Route::prefix('Product')->group(function () {
             Route::get('', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'index']);
@@ -178,6 +196,7 @@ Route::prefix('v1')->group(function () {
             Route::get('{id}/sales-trend', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'salesTrend']);
             Route::get('{id}/production-history', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'productProductionHistory']);
             Route::get('{id}/sales-history', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'productSalesHistory']);
+            Route::get('{id}/stock-history', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'productStockHistory']);
             Route::get('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'show']);
             Route::post('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'update']);
             Route::delete('{id}', [\App\Modules\Api\V1\Product\Controllers\ProductController::class, 'destroy']);

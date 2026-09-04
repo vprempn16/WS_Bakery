@@ -416,7 +416,7 @@ protected function validateBeforeSave(): void
 
             if (array_key_exists($dbField, $customFieldNames)) {
                 $this->customAttributes[$dbField] = $value;
-            } else {
+            } elseif (Schema::hasColumn($this->getTable(), $dbField)) {
                 $this->setAttribute($dbField, $value);
             }
         }

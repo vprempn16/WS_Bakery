@@ -337,6 +337,10 @@ class FilterTest extends TestCase
                     'module' => 'Product',
                     'isPublic' => true,
                     'rules' => $rules,
+                    'headerDetails' => [
+                        ['fieldname' => 'name', 'fieldlabel' => 'Name'],
+                        ['fieldname' => 'price', 'fieldlabel' => 'Price'],
+                    ],
                 ],
             ],
         ]);
@@ -470,5 +474,173 @@ class FilterTest extends TestCase
 
         $res->assertStatus(422)
             ->assertJsonValidationErrors(['rules']);
+    }
+
+    public function test_product_default_headers_include_all_displaytype_1_and_3_fields()
+    {
+        \Laravel\Sanctum\Sanctum::actingAs($this->userA);
+
+        \App\Modules\Api\V1\SavedFilter\Models\SavedFilter::create([
+            'organization_id' => null,
+            'user_id' => null,
+            'name' => 'All',
+            'module' => 'products',
+            'rules' => [],
+            'is_public' => true,
+            'is_default' => true,
+            'header_details' => [
+                ['fieldname' => 'name', 'fieldlabel' => 'Name'],
+                ['fieldname' => 'shelfLifeDays', 'fieldlabel' => 'Shelf Life Days'],
+                ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At'],
+            ],
+        ]);
+
+        $res = $this->getJson('/api/v1/Product/headers/default');
+        $res->assertStatus(200);
+        $this->assertTrue($res->json('data.is_default'));
+
+        $names = collect($res->json('data.fields'))->pluck('fieldname')->all();
+        $this->assertContains('shelfLife', $names);
+        $this->assertContains('productImage', $names);
+        $this->assertContains('currentStock', $names);
+        $this->assertNotContains('createdAt', $names);
+        $this->assertNotContains('updatedAt', $names);
+        $this->assertNotContains('shelfLifeDays', $names);
+
+        $defaultId = $res->json('data.filter_id');
+        $this->assertNotEmpty($defaultId);
+
+        $resById = $this->getJson('/api/v1/Product/headers/' . $defaultId);
+        $resById->assertStatus(200);
+        $namesById = collect($resById->json('data.fields'))->pluck('fieldname')->all();
+        $this->assertContains('shelfLife', $namesById);
+        $this->assertContains('productImage', $namesById);
+        $this->assertNotContains('createdAt', $namesById);
+    }
+
+    public function test_custom_filter_headers_respect_header_details()
+    {
+        \Laravel\Sanctum\Sanctum::actingAs($this->userA);
+
+        $filter = \App\Modules\Api\V1\SavedFilter\Models\SavedFilter::create([
+            'organization_id' => $this->orgA->id,
+            'user_id' => $this->userA->id,
+            'name' => 'Minimal',
+            'module' => 'products',
+            'rules' => ['logical_operator' => 'AND', 'conditions' => []],
+            'is_public' => false,
+            'is_default' => false,
+            'header_details' => [
+                ['fieldname' => 'name', 'fieldlabel' => 'Name'],
+                ['fieldname' => 'price', 'fieldlabel' => 'Price'],
+            ],
+        ]);
+
+        $res = $this->getJson('/api/v1/Product/headers/' . $filter->id);
+        $res->assertStatus(200);
+        $names = collect($res->json('data.fields'))->pluck('fieldname')->all();
+        $this->assertEquals(['name', 'price'], $names);
+    }
+
+    public function test_column_only_saved_filter_can_be_created()
+    {
+        \Laravel\Sanctum\Sanctum::actingAs($this->userA);
+
+        $res = $this->postJson('/api/v1/filters/new', [
+            'data' => [
+                'values' => [
+                    'name' => 'Name And Image',
+                    'module' => 'Product',
+                    'isPublic' => false,
+                    'rules' => [
+                        'logical_operator' => 'AND',
+                        'conditions' => [],
+                    ],
+                    'headerDetails' => [
+                        ['fieldname' => 'name', 'fieldlabel' => 'Name'],
+                        ['fieldname' => 'productImage', 'fieldlabel' => 'Product Image'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $res->assertStatus(201);
+        $this->assertEquals('Name And Image', $res->json('data.name'));
+        $this->assertEquals([], $res->json('data.rules.conditions'));
+        $this->assertCount(2, $res->json('data.headerDetails'));
+    }
+
+    public function test_custom_saved_filter_can_be_updated()
+    {
+        \Laravel\Sanctum\Sanctum::actingAs($this->userA);
+
+        $filter = \App\Modules\Api\V1\SavedFilter\Models\SavedFilter::create([
+            'organization_id' => $this->orgA->id,
+            'user_id' => $this->userA->id,
+            'name' => 'Minimal',
+            'module' => 'products',
+            'rules' => ['logical_operator' => 'AND', 'conditions' => []],
+            'is_public' => false,
+            'is_default' => false,
+            'header_details' => [
+                ['fieldname' => 'name', 'fieldlabel' => 'Name'],
+            ],
+        ]);
+
+        $res = $this->postJson('/api/v1/filters/' . $filter->id, [
+            'data' => [
+                'values' => [
+                    'name' => 'Name And Price',
+                    'headerDetails' => [
+                        ['fieldname' => 'name', 'fieldlabel' => 'Name'],
+                        ['fieldname' => 'price', 'fieldlabel' => 'Price'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $res->assertStatus(200);
+        $this->assertEquals('Name And Price', $res->json('data.name'));
+        $this->assertCount(2, $res->json('data.headerDetails'));
+
+        $headers = $this->getJson('/api/v1/Product/headers/' . $filter->id);
+        $headers->assertStatus(200);
+        $this->assertEquals(
+            ['name', 'price'],
+            collect($headers->json('data.fields'))->pluck('fieldname')->all()
+        );
+    }
+
+    public function test_default_saved_filter_cannot_be_updated_or_deleted()
+    {
+        \Laravel\Sanctum\Sanctum::actingAs($this->userA);
+
+        $default = \App\Modules\Api\V1\SavedFilter\Models\SavedFilter::create([
+            'organization_id' => $this->orgA->id,
+            'user_id' => $this->userA->id,
+            'name' => 'All',
+            'module' => 'products',
+            'rules' => [],
+            'is_public' => true,
+            'is_default' => true,
+            'header_details' => [
+                ['fieldname' => 'name', 'fieldlabel' => 'Name'],
+            ],
+        ]);
+
+        $update = $this->postJson('/api/v1/filters/' . $default->id, [
+            'data' => [
+                'values' => [
+                    'name' => 'Hacked',
+                    'headerDetails' => [
+                        ['fieldname' => 'name', 'fieldlabel' => 'Name'],
+                    ],
+                ],
+            ],
+        ]);
+        $update->assertStatus(403);
+
+        $delete = $this->deleteJson('/api/v1/filters/' . $default->id);
+        $delete->assertStatus(403);
     }
 }

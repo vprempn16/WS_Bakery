@@ -39,6 +39,13 @@ class IngredientController extends Controller
             $q->where('vendor_id', $vendorId);
         });
 
+        $query->when($request->query('category'), function ($q, $category) {
+            $normalized = strtolower(trim((string) $category));
+            if ($normalized !== '' && $normalized !== 'all') {
+                $q->whereRaw('LOWER(COALESCE(category, ?)) = ?', ['raw', $normalized]);
+            }
+        });
+
         $query->when($request->query('stockStatus'), function ($q, $stockStatus) {
             if ($stockStatus === 'low') {
                 // At or below minimum (still has stock) — yellow threshold

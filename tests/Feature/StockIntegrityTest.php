@@ -12,6 +12,7 @@ use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\Recipe\Models\Recipe;
 use App\Modules\Api\V1\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
@@ -31,6 +32,7 @@ class StockIntegrityTest extends TestCase
     {
         parent::setUp();
         Cache::flush();
+        Artisan::call('migrate:module-fields', ['module' => 'Billing']);
 
         $this->org = Organization::create(['name' => 'Test Bakery']);
         $this->admin = User::create([
