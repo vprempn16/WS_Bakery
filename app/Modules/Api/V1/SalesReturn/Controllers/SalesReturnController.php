@@ -3,6 +3,7 @@
 namespace App\Modules\Api\V1\SalesReturn\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Api\V1\Billing\Services\BillingPriceService;
 use App\Modules\Api\V1\Billing\Services\BillingStockService;
 use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\SalesReturn\Models\SalesReturn;
@@ -15,6 +16,7 @@ use App\Modules\Api\V1\SavedFilter\Services\QueryFilterService;
 use App\Services\BranchAccess;
 use App\Services\PermissionService;
 use App\Support\ApiPagination;
+use App\Support\Idempotency;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -84,30 +86,44 @@ class SalesReturnController extends Controller
 
     public function store(StoreSalesReturnRequest $request)
     {
-        $values = $request->input('data.values');
-        $itemsData = $request->input('data.relatedRecords.items', []);
         $user = $request->user();
         $permissionService = new PermissionService($user);
         if ($deny = $permissionService->denyMessage('SalesReturn', 'create')) {
             return $this->error($deny, null, null, null, 403);
         }
 
+        [$lock, $cacheKey, $early] = Idempotency::begin(
+            'sales-return:create',
+            $request->header('Idempotency-Key'),
+            true
+        );
+        if ($early) {
+            return $early;
+        }
+
+        $values = $request->input('data.values');
+        $itemsData = $request->input('data.relatedRecords.items', []);
+
         $orgId = $user->organization_id;
         $branchId = BranchAccess::resolveBranchIdFromRequest($request, $user)
             ?: ($values['branchId'] ?? null);
 
         if (! $branchId) {
+            Idempotency::release($lock);
+
             return $this->error('Select an active branch before logging a return.', null, null, null, 422);
         }
 
         try {
             BranchAccess::assertCanAccessBranch($user, (string) $branchId);
         } catch (\RuntimeException $e) {
+            Idempotency::release($lock);
+
             return $this->error($e->getMessage(), null, null, null, 403);
         }
 
         try {
-            $return = DB::transaction(function () use (
+            $response = DB::transaction(function () use (
                 $orgId,
                 $branchId,
                 $itemsData,
@@ -141,10 +157,10 @@ class SalesReturnController extends Controller
                         throw new \RuntimeException("Enter a valid quantity for {$product->name}.");
                     }
 
-                    $unitPrice = isset($itemData['unitPrice']) && $itemData['unitPrice'] !== ''
-                        ? (float) $itemData['unitPrice']
-                        : (float) ($product->price ?? 0);
-                    $lineValue = round($quantity * $unitPrice, 2);
+                    // Always use catalog price (never trust client unitPrice for loss value).
+                    $unitPrice = (float) ($product->price ?? 0);
+                    $lineUnit = $product->unit;
+                    $lineValue = BillingPriceService::lineTotal($quantity, $unitPrice, $lineUnit);
                     $totalReturnValue += $lineValue;
 
                     $piecesRaw = $itemData['pieces'] ?? null;
@@ -158,7 +174,7 @@ class SalesReturnController extends Controller
                     $item->sales_return_id = $record->id;
                     $item->product_id = $productId;
                     $item->quantity = $quantity;
-                    $item->unit = $itemData['unit'] ?? $product->unit;
+                    $item->unit = $product->unit;
                     $item->pieces = $pieces;
                     $item->unit_price = $unitPrice;
                     $item->return_value = $lineValue;
@@ -176,18 +192,24 @@ class SalesReturnController extends Controller
                 // Wastage: deduct branch stock (never add back)
                 app(BillingStockService::class)->deductForSale($orgId, (string) $branchId, $stockItems);
 
-                return $record->load(['branch', 'items.product'])->loadCount('items');
+                $record = $record->load(['branch', 'items.product'])->loadCount('items');
+
+                return $this->success(
+                    new SalesReturnResource($record),
+                    'Wastage logged — branch stock reduced.',
+                    201
+                );
             });
 
-            return $this->success(
-                new SalesReturnResource($return),
-                'Wastage logged — branch stock reduced.',
-                201
-            );
+            Idempotency::remember($cacheKey, $response);
+
+            return $response;
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Throwable $e) {
             return $this->error('Failed to log return: ' . $e->getMessage(), null, null, null, 500);
+        } finally {
+            Idempotency::release($lock);
         }
     }
 

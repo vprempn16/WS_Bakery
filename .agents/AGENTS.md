@@ -229,13 +229,59 @@ Vendor → Ingredient (stock in via InventoryTransaction / Adjust Stock — UI: 
 - **Org-scoped uniqueness**: business keys that must be unique *per bakery* (e.g. `products.product_number`) MUST use a composite unique index `(organization_id, …)`, never a global unique on the key alone. Global unique breaks new-org setup when another org already used `#1`.
 - **Product numbers**: uniqueness + auto-increment are **per organization**. Migration: `2026_08_14_163600_make_product_number_unique_per_organization`. On any new project / production deploy: `php artisan migrate` so this runs. Do not reintroduce `products_product_number_unique` on `product_number` alone.
 
+### Idempotency (stock-mutating creates)
+- Shared helper: `App\Support\Idempotency` (`begin` / `remember` / `release`).
+- **Required** `Idempotency-Key` header on: Billing paid create/pay, BranchTransfer create, MaterialIssue create, SalesReturn create.
+- Frontend: generate once per submit attempt via `nextIdempotencyKey()` and **reuse the same key on retry**; clear only after success.
+- Uses Laravel cache + `cache_locks`. Production must have `CACHE_STORE=database` (or Redis) so locks work. `cache_locks` is created by the default cache migration.
+
+### Billing POS guards
+- **Void / re-hold paid bill** (restore stock): full admin only (`PermissionService::userIsFullAdmin`). Logged as warning.
+- **Staff discount cap:** non-admin cashiers limited to `config('app.billing_staff_max_discount_pct')` (env `BILLING_STAFF_MAX_DISCOUNT_PCT`, default `0.10`). Admins uncapped. Catalog prices still win over client line prices.
+
+### Public organization registration
+- `POST Organization/new` is gated by `config('app.allow_public_registration')`.
+- Defaults **false** when `APP_ENV=production`. Set `ALLOW_PUBLIC_REGISTRATION=true` only for local/demo.
+
+### Custom fields (Settings → Module Fields)
+- Routes live under `settings/fields` (not the old `custom-field-creation` paths).
+- Create-view supports relation picklist types + related module picker. List uses `ProfileView` so displaytypes 1/2/3 all appear in settings.
+
 ### Migrations (new project + production updates)
 1. **Never edit an already-deployed migration** to change schema on live DBs — add a **new** migration instead.
-2. Fresh install / new env: pull code → configure `.env` → `php artisan migrate` (runs all pending, including uniqueness fixes).
-3. Existing production: deploy code → backup DB → `php artisan migrate` on the server (only pending migrations run).
-4. When adding multi-tenant features, double-check unique indexes and auto-number generators are org-scoped.
-5. After a migration that fixes a bug, note it here under Multi-tenant / this section so agents do not regress it.
-6. **SalesReturn batches:** if `sales_returns` still has `product_id` and no `sales_return_items`, run pending `2026_09_03_100000_refactor_sales_returns_to_batches` (or recreate from updated create migration on fresh DBs).
+2. Fresh install / new env: `./setup.sh` (runs `php artisan migrate --force`).
+3. **Existing production / live:** backup DB → `./setup.sh --live-update` (lists pending → `migrate --force` → field sync → staff profiles → storage → transfer repair). Does **not** recreate the DB or reset superadmin password.
+4. Manual equivalent: `php artisan migrate --force` then `php artisan migrate:module-fields`.
+5. When adding multi-tenant features, double-check unique indexes and auto-number generators are org-scoped.
+6. After a migration that fixes a bug, note it here so agents do not regress it.
+
+#### Live-required Sept 2026 migrations (run ALL pending — do not skip)
+
+| Migration | Why it must run |
+|-----------|-----------------|
+| `2026_09_02_220000_add_product_image_to_products_table` | `product_image` column |
+| `2026_09_02_221000_create_sales_returns_table` | Returns header table |
+| `2026_09_02_221100_seed_sales_return_default_filter` | Returns list columns (no Created At) |
+| `2026_09_03_100000_refactor_sales_returns_to_batches` | `sales_return_items` + batch columns |
+| `2026_09_04_100000_move_product_images_into_module_folders` | Relocate files into `uploads/images/product/` |
+| `2026_09_04_110000_add_shelf_status_to_branch_stock_list` | BranchStock shelf badge column |
+| `2026_09_04_120000_add_product_source_to_products_table` | Own vs bought product |
+| `2026_09_04_120100_add_category_to_ingredients_table` | Ingredient category (raw/packaging/other) |
+| `2026_09_04_120200_create_product_stock_transactions_table` | Bought-product receive-stock ledger |
+| `2026_09_04_120300_add_biscuit_chocolate_to_product_category_picklist` | Extra product categories |
+| `2026_09_04_210000_add_shelf_status_to_product_list` | Product list shelf chip |
+| `2026_09_04_211000_product_shelf_status_badge_on_shelf_life` | Shelf-life field badge |
+| `2026_09_04_220000_seed_billing_default_saved_filter` | Bills list default columns |
+| `2026_09_04_221000_make_billing_item_count_readonly` | `itemCount` displaytype 3 |
+| `2026_09_04_221000_seed_recipe_and_product_stock_tx_filters` | Recipe + product stock tx lists |
+| `2026_09_04_222000_make_product_number_mandatory` | `productNumber` mandatory in crm_fields |
+| `2026_09_04_223000_hide_created_at_on_plan_and_material_lists` | Hide Created At on Plan / Withdrawal |
+| `2026_09_04_224000_fix_sales_return_crm_fields_for_batches` | Soft-delete legacy header product/qty fields; seed SalesReturnItem fields |
+| `2026_09_04_230000_hide_created_at_on_sales_return_list` | Hide Created At on Returns list |
+
+Also still required if never applied: `2026_08_14_163600_make_product_number_unique_per_organization`, `2026_08_30_200000_update_material_withdrawal_labels`.
+
+**SalesReturn batches:** if `sales_returns` still has `product_id` and no `sales_return_items`, the refactor migration must run or list/create will fail.
 
 ### Roles (current bakery)
 String roles on users (`admin` / `superadmin`, `warehouse`, branch) plus Profile/Role tables. Branch/Sales staff typically get Billing, BranchDailyReport, SalesReturn, Product. Warehouse does **not** get SalesReturn or ProductionPlan by default. Do not assume Member/technician portal unless it is implemented here.
@@ -250,6 +296,19 @@ String roles on users (`admin` / `superadmin`, `warehouse`, branch) plus Profile
 Prefer existing bakery helpers (`success`, `error`, `paginated` via `ResultTrait`). Keep HTTP/status conventions consistent with surrounding controllers. Do not invent a second response shape.
 
 ## 13. Changelog (agent reference)
+
+### 2026-09-04
+
+| Area | Change |
+|------|--------|
+| **Live installer** | `./setup.sh --live-update` — pending migrate list + `migrate --force` + fields + profiles + storage + transfer repair. No DB recreate, no superadmin password reset. `--verify-only` now prints pending migrations. |
+| **Idempotency** | Shared `App\Support\Idempotency`. Required on Billing (paid), BranchTransfer, MaterialIssue, SalesReturn. Frontend reuses one key per submit attempt (`nextIdempotencyKey`). |
+| **SalesReturn loss** | Catalog price only (ignore client `unitPrice`). Weight lines use `BillingPriceService::lineTotal` same as POS (`g/1000 × pricePerKg`). |
+| **Billing** | Staff discount cap (`BILLING_STAFF_MAX_DISCOUNT_PCT`, default 10%). Void/re-hold paid bill is admin-only. |
+| **Signup** | `ALLOW_PUBLIC_REGISTRATION` — off in production by default. |
+| **Settings fields** | Custom fields API under `settings/fields`; relation picklist + related module; frontend Module Fields modal/table aligned. |
+| **Migrations** | `2026_09_04_224000_fix_sales_return_crm_fields_for_batches` (unique timestamp — do not reuse 223000). `2026_09_04_230000_hide_created_at_on_sales_return_list`. Seed/refactor filters drop `createdAt`. |
+| **UX** | List date filter on the right; delete confirms; Recipe tab “per 1 kg BOM” copy; `multiPickList`/`array` in `BkFieldType`. |
 
 ### 2026-09-03
 
@@ -268,4 +327,6 @@ Prefer existing bakery helpers (`success`, `error`, `paginated` via `ResultTrait
 | **Product number** | Validated as string in create/update requests (frontend must stringify numeric input from `InputNumber`). Uniqueness remains per `organization_id`. |
 | **Adjust Stock vs Withdrawal** | Frontend Adjust Stock modal is stock-in only; operational stock-out is Material Withdrawal. Backend `InventoryTransaction` still accepts `out` via API. |
 
-Frontend companion docs: [`RETURNS_AND_ROLES.md`](../../../bk-frontend/agent/RETURNS_AND_ROLES.md), [`PRODUCT_IMAGE_AND_STORAGE.md`](../../../bk-frontend/agent/PRODUCT_IMAGE_AND_STORAGE.md), [`RECENT_UPDATES_2026-08-30.md`](../../../bk-frontend/agent/RECENT_UPDATES_2026-08-30.md).
+Frontend companion docs: [`RETURNS_AND_ROLES.md`](../../../bk-frontend/agent/RETURNS_AND_ROLES.md), [`PRODUCT_IMAGE_AND_STORAGE.md`](../../../bk-frontend/agent/PRODUCT_IMAGE_AND_STORAGE.md), [`PRODUCTION_WORKFLOW.md`](../../../bk-frontend/agent/PRODUCTION_WORKFLOW.md), [`RECENT_UPDATES_2026-09-04.md`](../../../bk-frontend/agent/RECENT_UPDATES_2026-09-04.md), [`RECENT_UPDATES_2026-09-03.md`](../../../bk-frontend/agent/RECENT_UPDATES_2026-09-03.md), [`RECENT_UPDATES_2026-08-30.md`](../../../bk-frontend/agent/RECENT_UPDATES_2026-08-30.md).
+
+Workspace copy (frontend README import): [`../../.agents/AGENTS.md`](../../.agents/AGENTS.md). Keep both files in sync.

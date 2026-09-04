@@ -482,7 +482,8 @@ class ModuleFieldConfig
             ['fieldname' => 'totalReturnValue', 'fieldlabel' => 'Total Loss', 'fieldtype' => 'currency', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'itemCount', 'fieldlabel' => 'Items', 'fieldtype' => 'integer', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'notes', 'fieldlabel' => 'Notes', 'fieldtype' => 'textarea', 'displaytype' => 1, 'mandatory' => 0],
-            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 3, 'mandatory' => 0],
+            // System timestamp — use returnDate on list; hide createdAt (displaytype 2).
+            ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
         ],
         'sales_return_items' => [

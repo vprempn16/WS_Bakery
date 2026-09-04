@@ -249,6 +249,51 @@ class SalesReturnAndRoleMatrixTest extends TestCase
         $this->assertEquals(0, SalesReturn::count());
     }
 
+    public function test_weight_product_return_uses_price_per_kg_like_pos(): void
+    {
+        Sanctum::actingAs($this->salesUser);
+
+        $cake = new Product();
+        $cake->organization_id = $this->org->id;
+        $cake->name = 'Vanilla Cake';
+        $cake->price = 450; // per kg
+        $cake->unit = 'gm';
+        $cake->status = 'active';
+        $cake->current_stock = 0;
+        $cake->save();
+
+        BranchStock::create([
+            'organization_id' => $this->org->id,
+            'branch_id' => $this->retail->id,
+            'product_id' => $cake->id,
+            'current_stock' => 10000, // 10 kg in grams
+        ]);
+
+        $response = $this->postJson('/api/v1/SalesReturn/new', [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->retail->id,
+                    'returnDate' => now()->format('Y-m-d'),
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        [
+                            'productId' => $cake->id,
+                            'quantity' => 1, // 1 gram
+                            'unit' => 'gm',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(201);
+        // (1 / 1000) * 450 = 0.45
+        $this->assertEquals(0.45, (float) $response->json('data.totalReturnValue'));
+        $this->assertEquals(9999.0, (float) BranchStock::where('product_id', $cake->id)
+            ->where('branch_id', $this->retail->id)->value('current_stock'));
+    }
+
     public function test_list_returns_batch_with_total_return_value(): void
     {
         Sanctum::actingAs($this->salesUser);

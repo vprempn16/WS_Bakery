@@ -19,6 +19,16 @@ class OrganizationController extends Controller
 {
     public function store(StoreOrganizationRequest $request)
     {
+        if (! config('app.allow_public_registration')) {
+            return $this->error(
+                'Public organization registration is disabled. Contact your administrator.',
+                null,
+                null,
+                null,
+                403
+            );
+        }
+
         $values = $request->input('data.values');
 
         $result = DB::transaction(function () use ($values) {

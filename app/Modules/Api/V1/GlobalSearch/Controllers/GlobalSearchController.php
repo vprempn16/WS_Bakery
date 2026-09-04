@@ -4,6 +4,7 @@ namespace App\Modules\Api\V1\GlobalSearch\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
+use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -28,11 +29,14 @@ class GlobalSearchController extends Controller
             return $this->success(['results' => []]);
         }
 
+        $perms = new PermissionService($user);
+        $can = fn (string $module) => $perms->hasPermission($module, 'view');
+
         $like = '%' . addcslashes($queryText, '%_\\') . '%';
         $results = [];
 
         // 1. Products
-        if (class_exists(\App\Modules\Api\V1\Product\Models\Product::class)) {
+        if ($can('Product') && class_exists(\App\Modules\Api\V1\Product\Models\Product::class)) {
             $products = \App\Modules\Api\V1\Product\Models\Product::where('organization_id', $orgId)
                 ->where(function ($q) use ($like, $queryText) {
                     $q->where('name', 'like', $like)
@@ -61,7 +65,7 @@ class GlobalSearchController extends Controller
         }
 
         // 2. Ingredients
-        if (class_exists(\App\Modules\Api\V1\Ingredient\Models\Ingredient::class)) {
+        if ($can('Ingredient') && class_exists(\App\Modules\Api\V1\Ingredient\Models\Ingredient::class)) {
             $ingredients = \App\Modules\Api\V1\Ingredient\Models\Ingredient::where('organization_id', $orgId)
                 ->where('name', 'like', $like)
                 ->limit(8)
@@ -81,7 +85,7 @@ class GlobalSearchController extends Controller
         }
 
         // 3. Branch Transfers
-        if (class_exists(\App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer::class)) {
+        if ($can('BranchTransfer') && class_exists(\App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer::class)) {
             $transfers = \App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer::where('organization_id', $orgId)
                 ->where(function ($q) use ($like) {
                     $q->where('transfer_number', 'like', $like)
@@ -103,7 +107,7 @@ class GlobalSearchController extends Controller
         }
 
         // 4. Production Batches
-        if (class_exists(\App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch::class)) {
+        if ($can('ProductionBatch') && class_exists(\App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch::class)) {
             $batches = \App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch::where('organization_id', $orgId)
                 ->where(function ($q) use ($like) {
                     $q->where('batch_number', 'like', $like)
@@ -125,7 +129,7 @@ class GlobalSearchController extends Controller
         }
 
         // 5. Material Issues
-        if (class_exists(\App\Modules\Api\V1\MaterialIssue\Models\MaterialIssue::class)) {
+        if ($can('MaterialIssue') && class_exists(\App\Modules\Api\V1\MaterialIssue\Models\MaterialIssue::class)) {
             $issues = \App\Modules\Api\V1\MaterialIssue\Models\MaterialIssue::where('organization_id', $orgId)
                 ->where('issue_number', 'like', $like)
                 ->limit(8)
@@ -144,7 +148,7 @@ class GlobalSearchController extends Controller
         }
 
         // 6. Vendors
-        if (class_exists(\App\Modules\Api\V1\Vendor\Models\Vendor::class)) {
+        if ($can('Vendor') && class_exists(\App\Modules\Api\V1\Vendor\Models\Vendor::class)) {
             $vendors = \App\Modules\Api\V1\Vendor\Models\Vendor::where('organization_id', $orgId)
                 ->where(function ($q) use ($like) {
                     $q->where('name', 'like', $like)
@@ -169,7 +173,7 @@ class GlobalSearchController extends Controller
         }
 
         // 7. Branches
-        if (class_exists(\App\Modules\Api\V1\Branch\Models\Branch::class)) {
+        if ($can('Branch') && class_exists(\App\Modules\Api\V1\Branch\Models\Branch::class)) {
             $branches = \App\Modules\Api\V1\Branch\Models\Branch::where('organization_id', $orgId)
                 ->where(function ($q) use ($like) {
                     $q->where('name', 'like', $like)

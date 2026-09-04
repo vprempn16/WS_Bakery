@@ -123,4 +123,32 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Public organization registration
+    |--------------------------------------------------------------------------
+    |
+    | When false, POST /Organization/new is rejected. Defaults to false in
+    | production; set ALLOW_PUBLIC_REGISTRATION=true only for local/demo.
+    |
+    */
+    'allow_public_registration' => filter_var(
+        env(
+            'ALLOW_PUBLIC_REGISTRATION',
+            env('APP_ENV', 'production') !== 'production' ? 'true' : 'false'
+        ),
+        FILTER_VALIDATE_BOOLEAN
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Staff billing discount cap (fraction of subtotal)
+    |--------------------------------------------------------------------------
+    |
+    | Non-admin cashiers may apply discounts up to this share of the subtotal.
+    | Larger discounts require a full admin. Set to 0 to require admin for any discount.
+    |
+    */
+    'billing_staff_max_discount_pct' => (float) env('BILLING_STAFF_MAX_DISCOUNT_PCT', 0.10),
+
 ];

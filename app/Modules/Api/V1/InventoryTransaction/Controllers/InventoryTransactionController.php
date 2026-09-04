@@ -129,6 +129,12 @@ class InventoryTransactionController extends Controller
     public function show($id)
     {
         try {
+            $user = AuthUser::requireUser();
+            $permissionService = new PermissionService($user);
+            if (! $permissionService->hasPermission('InventoryTransaction', 'view')) {
+                return $this->error("You don't have permission to view InventoryTransaction.", null, null, null, 403);
+            }
+
             $orgId = AuthUser::organizationId();
             $transaction = InventoryTransaction::where('organization_id', $orgId)->findOrFail($id);
             $resource = new InventoryTransactionResource($transaction);

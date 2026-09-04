@@ -31,14 +31,30 @@
 # - Heuristic: product has expired ProductionBatch + branch qty > 0 (not FIFO batch tracking).
 # - Product.productNumber is mandatory on create/edit (ModuleFieldConfig + crm_fields + Store/Update requests).
 #
-# Usage:
-#   ./setup.sh                 Full install
+# Live / production (existing DB — never recreates the database):
+#   ./setup.sh --live-update
+#     1. Lists pending migrations
+#     2. php artisan migrate --force  (ALL pending, including Sept 2026 Returns/shelf-life/etc.)
+#     3. Sync crm_fields from ModuleFieldConfig
+#     4. Insert missing portal_module rows
+#     5. Upsert Warehouse + Sales default profiles/roles (does NOT reset superadmin password)
+#     6. Print role matrix (ProductionPlan admin-only, SalesReturn retail-only)
+#     7. Product image storage + public/storage link
+#     8. Warehouse → retail transfer access repair
+#
+# Other usage:
+#   ./setup.sh                 Full install (new machine)
 #   ./setup.sh --fields-only   Re-sync field metadata only
 #   ./setup.sh --skip-db       Skip interactive DB / migrate / seed
-#   ./setup.sh --verify-only   Repair warehouse assignments + run transfer access checks
+#   ./setup.sh --verify-only   Storage + pending-migration report + transfer access checks
 #
 # Optional password:
 #   export BK_INSTALLER_PASSWORD="YourSecurePassword" && ./setup.sh
+#
+# Production .env (after migrate):
+#   ALLOW_PUBLIC_REGISTRATION=false          # default in APP_ENV=production
+#   BILLING_STAFF_MAX_DISCOUNT_PCT=0.10      # cashiers capped; admins uncapped
+#   CACHE_STORE=database                     # required for Idempotency-Key locks (cache_locks table)
 
 set -uo pipefail
 
@@ -60,13 +76,15 @@ log_error()   { echo -e "${RED}❌${NC} $1" >&2; }
 FIELDS_ONLY=0
 SKIP_DB=0
 VERIFY_ONLY=0
+LIVE_UPDATE=0
 for arg in "$@"; do
   case "$arg" in
     --fields-only) FIELDS_ONLY=1 ;;
     --skip-db)     SKIP_DB=1 ;;
     --verify-only) VERIFY_ONLY=1 ;;
+    --live-update) LIVE_UPDATE=1 ;;
     -h|--help)
-      sed -n '2,22p' "$0"
+      sed -n '2,55p' "$0"
       exit 0
       ;;
   esac
@@ -249,6 +267,11 @@ SESSION_DRIVER=database
 QUEUE_CONNECTION=database
 CACHE_STORE=database
 FILESYSTEM_DISK=local
+
+# Production: leave false. Local/demo may set true.
+ALLOW_PUBLIC_REGISTRATION=false
+# Non-admin cashier discount cap (0.10 = 10%). Admins uncapped.
+BILLING_STAFF_MAX_DISCOUNT_PCT=0.10
 ENVFILE
 }
 
@@ -793,6 +816,100 @@ PHP
   log_success "Warehouse transfer access verified"
 }
 
+print_pending_migrations() {
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "📜  Pending migrations (must run on live)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  cd "$LARAVEL_ROOT"
+
+  if ! php artisan migrate:status >/tmp/bk_migrate_status.txt 2>/tmp/bk_migrate_status.err; then
+    log_warning "Could not read migrate:status (is .env DB reachable?)"
+    cat /tmp/bk_migrate_status.err 2>/dev/null | tail -n 8 || true
+    return 1
+  fi
+
+  local pending
+  pending="$(awk '/Pending/ {print}' /tmp/bk_migrate_status.txt || true)"
+  if [ -z "$pending" ]; then
+    log_success "No pending migrations"
+    return 0
+  fi
+
+  log_warning "Pending migrations (these MUST run before go-live):"
+  echo "$pending"
+  echo ""
+  echo "  Known Sept 2026 live-required migrations (if still Pending):"
+  echo "    2026_09_02_220000_add_product_image_to_products_table"
+  echo "    2026_09_02_221000_create_sales_returns_table"
+  echo "    2026_09_02_221100_seed_sales_return_default_filter"
+  echo "    2026_09_03_100000_refactor_sales_returns_to_batches"
+  echo "    2026_09_04_100000_move_product_images_into_module_folders"
+  echo "    2026_09_04_110000_add_shelf_status_to_branch_stock_list"
+  echo "    2026_09_04_120000_add_product_source_to_products_table"
+  echo "    2026_09_04_120100_add_category_to_ingredients_table"
+  echo "    2026_09_04_120200_create_product_stock_transactions_table"
+  echo "    2026_09_04_120300_add_biscuit_chocolate_to_product_category_picklist"
+  echo "    2026_09_04_210000_add_shelf_status_to_product_list"
+  echo "    2026_09_04_211000_product_shelf_status_badge_on_shelf_life"
+  echo "    2026_09_04_220000_seed_billing_default_saved_filter"
+  echo "    2026_09_04_221000_make_billing_item_count_readonly"
+  echo "    2026_09_04_221000_seed_recipe_and_product_stock_tx_filters"
+  echo "    2026_09_04_222000_make_product_number_mandatory"
+  echo "    2026_09_04_223000_hide_created_at_on_plan_and_material_lists"
+  echo "    2026_09_04_224000_fix_sales_return_crm_fields_for_batches"
+  echo "    2026_09_04_230000_hide_created_at_on_sales_return_list"
+  return 0
+}
+
+run_live_migrations() {
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "🚀  Live migrate --force"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  cd "$LARAVEL_ROOT"
+  php artisan config:clear >/dev/null 2>&1 || true
+  php artisan migrate --force || { log_error "migrate --force failed — STOP. Do not continue deploy."; exit 1; }
+  log_success "php artisan migrate --force complete"
+  print_pending_migrations || true
+}
+
+live_update() {
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "🌐  Live / production update"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  Does NOT recreate the database or reset superadmin password."
+  echo "  Runs pending migrations + field sync + profiles + storage + transfer checks."
+  cd "$LARAVEL_ROOT"
+
+  if [ ! -f .env ]; then
+    log_error "No .env — live-update cannot run. Copy .env.example and set production DB first."
+    exit 1
+  fi
+
+  install_dependencies
+  set_storage_permissions || true
+  verify_product_image_storage || true
+  print_pending_migrations || true
+  run_live_migrations
+  sync_module_fields
+  seed_portal_modules
+  seed_default_staff_profiles
+  print_module_role_matrix
+  repair_warehouse_transfer_access
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  log_success "Live update finished"
+  echo "  Confirm: php artisan migrate:status   (no Pending rows)"
+  echo "  Confirm: ALLOW_PUBLIC_REGISTRATION is false in production"
+  echo "  Confirm: CACHE_STORE=database (Idempotency-Key uses cache_locks)"
+  echo "  Queue:   php artisan queue:work   (Supervisor in production)"
+  echo "  Images:  public/storage → storage/app/public"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
+
 verify_warehouse_transfer_tests() {
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -816,20 +933,29 @@ main() {
   verify_installer_password
   cd "$LARAVEL_ROOT"
 
+  if [ "$LIVE_UPDATE" -eq 1 ]; then
+    live_update
+    exit 0
+  fi
+
   if [ "$VERIFY_ONLY" -eq 1 ]; then
     install_dependencies
     set_storage_permissions || true
     verify_product_image_storage || true
+    print_pending_migrations || true
     repair_warehouse_transfer_access
     verify_warehouse_transfer_tests
     log_success "Verify-only finished"
+    echo "  If migrate:status showed Pending rows, run: ./setup.sh --live-update"
     exit 0
   fi
 
   if [ "$FIELDS_ONLY" -eq 1 ]; then
     install_dependencies
+    print_pending_migrations || true
     sync_module_fields
     log_success "Fields-only setup finished"
+    echo "  If migrate:status showed Pending rows, run: ./setup.sh --live-update"
     exit 0
   fi
 
@@ -861,6 +987,7 @@ main() {
   echo "  Product images: storage/app/public/uploads/images/{modulename}/ + public/storage link"
   echo "  Re-sync fields anytime: ./setup.sh --fields-only"
   echo "  Re-check transfer + image storage: ./setup.sh --verify-only"
+  echo "  Live / existing DB: ./setup.sh --live-update  (migrate --force + fields + profiles + storage)"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 

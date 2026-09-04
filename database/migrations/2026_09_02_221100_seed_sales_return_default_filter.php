@@ -34,7 +34,6 @@ return new class extends Migration
                 ['fieldname' => 'totalReturnValue', 'fieldlabel' => 'Total Loss'],
                 ['fieldname' => 'itemCount', 'fieldlabel' => 'Items'],
                 ['fieldname' => 'notes', 'fieldlabel' => 'Notes'],
-                ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At'],
             ]),
             'created_at' => now(),
             'updated_at' => now(),

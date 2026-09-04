@@ -32,6 +32,12 @@ class PermissionService
         return in_array($role, ['admin', 'superadmin', 'owner'], true);
     }
 
+    /** Public check for controllers (void paid bills, large discounts, etc.). */
+    public function userIsFullAdmin(): bool
+    {
+        return $this->isFullAdmin();
+    }
+
     protected function loadProfileData(): void
     {
         $orgId = $this->user->organization_id;

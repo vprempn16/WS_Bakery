@@ -115,6 +115,13 @@ class ProductStockTransactionController extends Controller
     public function show($id)
     {
         try {
+            $user = AuthUser::requireUser();
+            $permissionService = new PermissionService($user);
+            if (! $permissionService->hasPermission('ProductStockTransaction', 'view')
+                && ! $permissionService->hasPermission('Product', 'view')) {
+                return $this->error("You don't have permission to view ProductStockTransaction.", null, null, null, 403);
+            }
+
             $orgId = AuthUser::organizationId();
             $transaction = ProductStockTransaction::where('organization_id', $orgId)
                 ->with('product')

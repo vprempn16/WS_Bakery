@@ -17,6 +17,7 @@ use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Services\AuthUser;
 use App\Services\BranchAccess;
 use App\Services\ImageUploadService;
+use App\Services\PermissionService;
 use App\Services\ShelfLifeStatusService;
 use App\Services\CRM\RecordObject;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -287,6 +288,7 @@ class BillingController extends Controller
 
                     $discount = max(0, (float) ($data['discountAmount'] ?? 0));
                     $tax = max(0, (float) ($data['taxAmount'] ?? 0));
+                    $this->assertDiscountAllowed($discount, $subTotal);
                     if ($discount > $subTotal) {
                         throw new \RuntimeException('Discount cannot exceed subtotal.');
                     }
@@ -416,8 +418,9 @@ class BillingController extends Controller
                         $newBranchId = $data['branchId'];
                     }
 
-                    // Cancel paid bill → restore stock
+                    // Cancel / re-hold paid bills restores stock — admin only (prevents cashier void fraud).
                     if ($newStatus === 'cancelled' && $oldStatus === 'paid') {
+                        $this->assertCanVoidPaidBill();
                         $restoreItems = $billing->items->map(fn ($item) => [
                             'productId' => $item->product_id,
                             'quantity' => $item->quantity,
@@ -425,6 +428,12 @@ class BillingController extends Controller
                         $this->stockService->restoreForSale($orgId, $billing->branch_id, $restoreItems);
                         $billing->payment_status = 'Cancelled';
                         $billing->save();
+
+                        Log::warning('Paid bill cancelled and stock restored', [
+                            'billing_id' => $billing->id,
+                            'user_id' => AuthUser::id(),
+                            'branch_id' => $billing->branch_id,
+                        ]);
 
                         return $this->success(
                             new BillingResource($billing->load(['branch', 'items.product'])),
@@ -434,11 +443,17 @@ class BillingController extends Controller
 
                     // Paid → pending (re-hold): restore stock so a later pending→paid does not double-deduct
                     if ($oldStatus === 'paid' && $newStatus === 'pending') {
+                        $this->assertCanVoidPaidBill();
                         $restoreItems = $billing->items->map(fn ($item) => [
                             'productId' => $item->product_id,
                             'quantity' => $item->quantity,
                         ])->all();
                         $this->stockService->restoreForSale($orgId, $billing->branch_id, $restoreItems);
+                        Log::warning('Paid bill re-held to pending; stock restored', [
+                            'billing_id' => $billing->id,
+                            'user_id' => AuthUser::id(),
+                            'branch_id' => $billing->branch_id,
+                        ]);
                     }
 
                     // Pending → paid: always deduct from the bill's current branch (never trust client branchId alone).
@@ -555,6 +570,7 @@ class BillingController extends Controller
                     $subTotal = (float) $billing->sub_total;
                     $discount = (float) $billing->discount_amount;
                     $tax = (float) $billing->tax_amount;
+                    $this->assertDiscountAllowed($discount, $subTotal);
                     if ($discount > $subTotal) {
                         throw new \RuntimeException('Discount cannot exceed subtotal.');
                     }
@@ -783,6 +799,44 @@ class BillingController extends Controller
         }
 
         return $resolved;
+    }
+
+    private function assertCanVoidPaidBill(): void
+    {
+        $user = AuthUser::user();
+        if (! $user || ! (new PermissionService($user))->userIsFullAdmin()) {
+            throw new \RuntimeException(
+                'Only an admin can cancel or re-hold a paid bill (stock would be restored).'
+            );
+        }
+    }
+
+    private function assertDiscountAllowed(float $discount, float $subTotal): void
+    {
+        if ($discount <= 0 || $subTotal <= 0) {
+            return;
+        }
+
+        $user = AuthUser::user();
+        if ($user && (new PermissionService($user))->userIsFullAdmin()) {
+            return;
+        }
+
+        $maxPct = (float) config('app.billing_staff_max_discount_pct', 0.10);
+        if ($maxPct < 0) {
+            $maxPct = 0;
+        }
+        if ($maxPct > 1) {
+            $maxPct = 1;
+        }
+
+        $maxAmount = round($subTotal * $maxPct, 2);
+        if ($discount > $maxAmount + 0.001) {
+            $pctLabel = rtrim(rtrim(number_format($maxPct * 100, 2, '.', ''), '0'), '.');
+            throw new \RuntimeException(
+                "Discount above {$pctLabel}% of the subtotal requires an admin."
+            );
+        }
     }
 
     /**
