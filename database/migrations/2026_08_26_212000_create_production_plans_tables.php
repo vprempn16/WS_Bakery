@@ -14,7 +14,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('organization_id')->constrained('organizations')->cascadeOnDelete();
             $table->date('plan_date');
-            $table->string('status')->default('draft'); // draft | approved | completed | cancelled
+            $table->string('status')->default('draft'); // draft | cancelled
             $table->text('notes')->nullable();
             $table->uuid('created_by')->nullable()->index();
             $table->timestamps();
@@ -54,7 +54,6 @@ return new class extends Migration
                 'header_details' => json_encode([
                     ['fieldname' => 'id', 'fieldlabel' => 'ID'],
                     ['fieldname' => 'planDate', 'fieldlabel' => 'Plan Date'],
-                    ['fieldname' => 'status', 'fieldlabel' => 'Status'],
                     ['fieldname' => 'notes', 'fieldlabel' => 'Notes'],
                     ['fieldname' => 'createdBy', 'fieldlabel' => 'Created By'],
                     ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At'],

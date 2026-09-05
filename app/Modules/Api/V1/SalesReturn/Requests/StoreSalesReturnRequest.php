@@ -1,0 +1,87 @@
+<?php
+
+namespace App\Modules\Api\V1\SalesReturn\Requests;
+
+use App\Modules\Api\V1\Product\Models\Product;
+use App\Services\AuthUser;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
+
+class StoreSalesReturnRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'data.values.branchId' => ['nullable', 'uuid'],
+            'data.values.returnDate' => ['required', 'date'],
+            'data.values.notes' => ['nullable', 'string'],
+            'data.relatedRecords.items' => ['required', 'array', 'min:1'],
+            'data.relatedRecords.items.*.productId' => ['required', 'uuid', 'distinct'],
+            'data.relatedRecords.items.*.quantity' => ['nullable', 'numeric', 'min:0.01'],
+            'data.relatedRecords.items.*.unit' => ['nullable', 'string'],
+            'data.relatedRecords.items.*.pieces' => ['nullable', 'numeric', 'min:1'],
+            'data.relatedRecords.items.*.unitPrice' => ['nullable', 'numeric', 'min:0'],
+        ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $items = $this->input('data.relatedRecords.items', []);
+            $orgId = AuthUser::organizationId() ?? $this->user()?->organization_id;
+
+            foreach ($items as $index => $item) {
+                $productId = $item['productId'] ?? null;
+                if (! $productId) {
+                    continue;
+                }
+
+                $product = Product::where('organization_id', $orgId)->where('id', $productId)->first();
+                if (! $product) {
+                    $validator->errors()->add(
+                        "data.relatedRecords.items.{$index}.productId",
+                        'Product not found in your organization.'
+                    );
+                    continue;
+                }
+
+                $unit = strtolower(trim((string) ($product->unit ?? '')));
+                $isPieceUnit = in_array($unit, ['pcs', 'pc', 'piece', 'pieces'], true);
+                $piecesProvided = array_key_exists('pieces', $item)
+                    && $item['pieces'] !== null
+                    && $item['pieces'] !== '';
+                $quantityProvided = array_key_exists('quantity', $item)
+                    && $item['quantity'] !== null
+                    && $item['quantity'] !== ''
+                    && is_numeric($item['quantity'])
+                    && (float) $item['quantity'] >= 0.01;
+
+                if ($isPieceUnit) {
+                    if (! $piecesProvided) {
+                        $validator->errors()->add(
+                            "data.relatedRecords.items.{$index}.pieces",
+                            'Pieces is required when product unit is pcs.'
+                        );
+                    } elseif (! is_numeric($item['pieces']) || (float) $item['pieces'] < 1 || floor((float) $item['pieces']) != (float) $item['pieces']) {
+                        $validator->errors()->add(
+                            "data.relatedRecords.items.{$index}.pieces",
+                            'Pieces must be a whole number of at least 1.'
+                        );
+                    }
+                } else {
+                    if (! $quantityProvided) {
+                        $validator->errors()->add(
+                            "data.relatedRecords.items.{$index}.quantity",
+                            'Enter a valid quantity.'
+                        );
+                    }
+                }
+            }
+        });
+    }
+}

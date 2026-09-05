@@ -17,6 +17,26 @@ class Ingredient extends \App\Models\BKModel
     // Do not allow mass-assign of stock via API fill — stock changes go through InventoryTransaction.
     protected $guarded = ['id', 'organization_id', 'deleted', 'created_at', 'updated_at', 'created_by', 'current_stock'];
 
+    protected $attributes = [
+        'category' => 'raw',
+    ];
+
+    protected static function booted()
+    {
+        static::creating(function ($ingredient) {
+            if (empty($ingredient->category)) {
+                $ingredient->category = 'raw';
+            }
+        });
+
+        static::saving(function ($ingredient) {
+            if ($ingredient->category !== null && $ingredient->category !== '') {
+                $cat = strtolower(trim((string) $ingredient->category));
+                $ingredient->category = in_array($cat, ['raw', 'packaging', 'other'], true) ? $cat : 'raw';
+            }
+        });
+    }
+
     public function organization()
     {
         return $this->belongsTo(Organization::class);

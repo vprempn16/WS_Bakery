@@ -96,6 +96,18 @@ class ProductionBatchController extends Controller
                 return $this->error('Cannot produce: product is inactive. Activate it first.', null, null, null, 400);
             }
 
+            if ($product->isBought()) {
+                DB::rollBack();
+
+                return $this->error(
+                    'Cannot log production: this is a bought (outside brand) product. Receive stock instead, then transfer and sell in POS.',
+                    null,
+                    null,
+                    null,
+                    400
+                );
+            }
+
             if (! Recipe::where('product_id', $product->id)->exists()) {
                 DB::rollBack();
 

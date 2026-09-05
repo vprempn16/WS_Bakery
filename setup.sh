@@ -3,8 +3,16 @@
 #
 # - Installs Composer / NPM deps
 # - Configures MySQL .env + migrate + seed
-# - Syncs ModuleFieldConfig → crm_fields (displaytype / mandatory)
+# - Syncs ModuleFieldConfig → crm_fields (displaytype / mandatory), including Product image
 # - Seeds portal_module rows from app/Models/BkPortal/PortalModuleSeed.php
+#
+# Default module visibility (override in Settings → Profiles):
+#   Admin/superadmin     → all modules
+#   Warehouse Staff      → ingredients, production batch, material withdrawal, transfers, …
+#                          (NOT Production Plan, NOT Returns)
+#   Sales Staff          → Billing/POS, Returns, products (view), branch stock, daily report
+#   Production Plan      → admin only
+#   Returns (SalesReturn) → admin + retail only
 #
 # Intentionally NOT included (out of scope for BkPortal — do not re-add):
 # - Member module / Member↔User sync / member_user_id
@@ -12,19 +20,41 @@
 # - Lead, Contact, Quotation, Invoice, Checklist modules
 # - Generating stub Controllers over existing bakery modules
 #
-# Transfer access (do not regress):
+# - Transfer access (do not regress):
 # - Warehouse staff create transfers TO retail branches (destination ≠ their warehouse).
 # - Never gate BranchTransfer store/show/update on assertCanAccessBranch(destination).
 # - Use BranchAccess::assertCanAccessTransferDestination / applyTransferListBranchScope.
 #
-# Usage:
-#   ./setup.sh                 Full install
+# Future / product notes (see agent docs for details):
+# - Shelf-life warnings: GET Reports/BranchShelfLife; POS badges + toast; BranchStock shelfStatus;
+#   Dashboard shelf-life block. Warn only — never block POS for expiry. Use Inactive to delist.
+# - Heuristic: product has expired ProductionBatch + branch qty > 0 (not FIFO batch tracking).
+# - Product.productNumber is mandatory on create/edit (ModuleFieldConfig + crm_fields + Store/Update requests).
+#
+# Live / production (existing DB — never recreates the database):
+#   ./setup.sh --live-update
+#     1. Lists pending migrations
+#     2. php artisan migrate --force  (ALL pending, including Sept 2026 Returns/shelf-life/etc.)
+#     3. Sync crm_fields from ModuleFieldConfig
+#     4. Insert missing portal_module rows
+#     5. Upsert Warehouse + Sales default profiles/roles (does NOT reset superadmin password)
+#     6. Print role matrix (ProductionPlan admin-only, SalesReturn retail-only)
+#     7. Product image storage + public/storage link
+#     8. Warehouse → retail transfer access repair
+#
+# Other usage:
+#   ./setup.sh                 Full install (new machine)
 #   ./setup.sh --fields-only   Re-sync field metadata only
 #   ./setup.sh --skip-db       Skip interactive DB / migrate / seed
-#   ./setup.sh --verify-only   Repair warehouse assignments + run transfer access checks
+#   ./setup.sh --verify-only   Storage + pending-migration report + transfer access checks
 #
 # Optional password:
 #   export BK_INSTALLER_PASSWORD="YourSecurePassword" && ./setup.sh
+#
+# Production .env (after migrate):
+#   ALLOW_PUBLIC_REGISTRATION=false          # default in APP_ENV=production
+#   BILLING_STAFF_MAX_DISCOUNT_PCT=0.10      # cashiers capped; admins uncapped
+#   CACHE_STORE=database                     # required for Idempotency-Key locks (cache_locks table)
 
 set -uo pipefail
 
@@ -46,13 +76,15 @@ log_error()   { echo -e "${RED}❌${NC} $1" >&2; }
 FIELDS_ONLY=0
 SKIP_DB=0
 VERIFY_ONLY=0
+LIVE_UPDATE=0
 for arg in "$@"; do
   case "$arg" in
     --fields-only) FIELDS_ONLY=1 ;;
     --skip-db)     SKIP_DB=1 ;;
     --verify-only) VERIFY_ONLY=1 ;;
+    --live-update) LIVE_UPDATE=1 ;;
     -h|--help)
-      sed -n '2,22p' "$0"
+      sed -n '2,55p' "$0"
       exit 0
       ;;
   esac
@@ -108,9 +140,108 @@ install_dependencies() {
 
 set_storage_permissions() {
   cd "$LARAVEL_ROOT"
-  mkdir -p storage/app/Profiles storage/framework/{cache,sessions,views} bootstrap/cache
+
+  # Product images + Laravel runtime dirs (public disk = storage/app/public)
+  # Image uploads live under uploads/images/{modulename}/ (e.g. product)
+  mkdir -p \
+    storage/app/Profiles \
+    storage/app/public/uploads/images \
+    storage/app/public/uploads/images/product \
+    storage/framework/{cache,sessions,views} \
+    bootstrap/cache
+
   chmod -R u+rwX,g+rwX storage bootstrap/cache 2>/dev/null || true
-  log_success "storage / bootstrap/cache writable"
+
+  # Broken/missing public/storage symlink → /storage/uploads/images/... 404/403 in browser
+  if [ -L public/storage ] && [ ! -e public/storage ]; then
+    log_warning "public/storage is a broken symlink — recreating"
+    rm -f public/storage
+  fi
+
+  if [ ! -e public/storage ]; then
+    if php artisan storage:link >/dev/null 2>&1; then
+      log_success "Created public/storage via php artisan storage:link"
+    elif ln -sfn ../storage/app/public public/storage 2>/dev/null; then
+      log_success "Created public/storage via ln -sfn"
+    else
+      log_error "Could not create public/storage symlink — product images will not display"
+      return 1
+    fi
+  fi
+
+  # Resolve to real public disk path
+  local linked
+  linked="$(cd public/storage 2>/dev/null && pwd -P || true)"
+  local expected
+  expected="$(cd storage/app/public 2>/dev/null && pwd -P || true)"
+  if [ -n "$linked" ] && [ -n "$expected" ] && [ "$linked" != "$expected" ]; then
+    log_warning "public/storage does not point at storage/app/public — recreating"
+    rm -f public/storage
+    php artisan storage:link >/dev/null 2>&1 || ln -sfn ../storage/app/public public/storage
+  fi
+
+  if [ ! -d storage/app/public/uploads/images ]; then
+    log_error "storage/app/public/uploads/images missing after mkdir"
+    return 1
+  fi
+
+  if [ ! -w storage/app/public/uploads/images ]; then
+    log_error "storage/app/public/uploads/images is not writable — fix folder permissions for product images"
+    return 1
+  fi
+
+  # Touch-test write then clean up (base + product module folder)
+  local probe="storage/app/public/uploads/images/.bk_setup_write_test"
+  local probe_mod="storage/app/public/uploads/images/product/.bk_setup_write_test"
+  if ! touch "$probe" 2>/dev/null; then
+    log_error "Cannot write to uploads/images — check OS permissions on storage/"
+    return 1
+  fi
+  if ! touch "$probe_mod" 2>/dev/null; then
+    log_error "Cannot write to uploads/images/product — check OS permissions on storage/"
+    rm -f "$probe"
+    return 1
+  fi
+  rm -f "$probe" "$probe_mod"
+
+  log_success "storage writable; uploads/images/{modulename} ready; public/storage link OK"
+}
+
+verify_product_image_storage() {
+  cd "$LARAVEL_ROOT"
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  Product image storage check"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  if [ ! -d storage/app/public/uploads/images ]; then
+    log_error "Missing storage/app/public/uploads/images"
+    return 1
+  fi
+  if [ ! -w storage/app/public/uploads/images ]; then
+    log_error "uploads/images not writable"
+    return 1
+  fi
+  if [ ! -d storage/app/public/uploads/images/product ]; then
+    mkdir -p storage/app/public/uploads/images/product
+  fi
+  if [ ! -w storage/app/public/uploads/images/product ]; then
+    log_error "uploads/images/product not writable"
+    return 1
+  fi
+  if [ ! -e public/storage ]; then
+    log_error "Missing public/storage symlink (run: php artisan storage:link)"
+    return 1
+  fi
+  if [ -L public/storage ] && [ ! -e public/storage ]; then
+    log_error "Broken public/storage symlink"
+    return 1
+  fi
+
+  log_success "Image disk: storage/app/public/uploads/images/{modulename} (writable)"
+  log_success "Public URL path: /storage/uploads/images/{modulename}/{file}"
+  log_success "Known module folder: uploads/images/product"
+  echo "  Tip: Vite proxies /storage → API in vite.config.ts; APP_URL should match artisan serve host/port"
 }
 
 create_basic_env_file() {
@@ -136,6 +267,11 @@ SESSION_DRIVER=database
 QUEUE_CONNECTION=database
 CACHE_STORE=database
 FILESYSTEM_DISK=local
+
+# Production: leave false. Local/demo may set true.
+ALLOW_PUBLIC_REGISTRATION=false
+# Non-admin cashier discount cap (0.10 = 10%). Admins uncapped.
+BILLING_STAFF_MAX_DISCOUNT_PCT=0.10
 ENVFILE
 }
 
@@ -460,6 +596,79 @@ PHP
   log_success "Default Warehouse + Sales profiles ready"
 }
 
+print_module_role_matrix() {
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "🔐  Default module visibility matrix"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  cd "$LARAVEL_ROOT"
+  php <<'PHP'
+<?php
+require __DIR__ . '/vendor/autoload.php';
+$app = require __DIR__ . '/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+if (! Schema::hasTable('profiles') || ! Schema::hasTable('profile_module_actions')) {
+    echo "   ↪ profiles tables missing — skip\n";
+    exit(0);
+}
+
+$profiles = DB::table('profiles')
+    ->whereIn('name', ['Warehouse Staff', 'Sales Staff'])
+    ->where('deleted', 0)
+    ->orderBy('name')
+    ->get(['id', 'name', 'organization_id']);
+
+$grouped = [];
+foreach ($profiles as $profile) {
+    $mods = DB::table('profile_module_actions as pma')
+        ->join('system_actions as sa', 'sa.id', '=', 'pma.action_id')
+        ->where('pma.profileid', $profile->id)
+        ->where('pma.permission', 1)
+        ->where('sa.action_key', 'view')
+        ->pluck('pma.modulename')
+        ->unique()
+        ->sort()
+        ->values()
+        ->all();
+    $grouped[$profile->name] = $mods;
+}
+
+foreach (['Warehouse Staff', 'Sales Staff'] as $name) {
+    $mods = $grouped[$name] ?? [];
+    echo "   {$name}:\n";
+    echo "     " . (count($mods) ? implode(', ', $mods) : '(none — re-run seed_default_staff_profiles)') . "\n";
+}
+
+$warehouseHasPlan = in_array('ProductionPlan', $grouped['Warehouse Staff'] ?? [], true);
+$warehouseHasReturn = in_array('SalesReturn', $grouped['Warehouse Staff'] ?? [], true);
+$salesHasReturn = in_array('SalesReturn', $grouped['Sales Staff'] ?? [], true);
+
+if ($warehouseHasPlan) {
+    echo "   ⚠ Warehouse Staff still has ProductionPlan — expected admin-only\n";
+} else {
+    echo "   ✅ ProductionPlan not granted to Warehouse Staff\n";
+}
+if ($warehouseHasReturn) {
+    echo "   ⚠ Warehouse Staff has SalesReturn — expected retail-only\n";
+} else {
+    echo "   ✅ SalesReturn not granted to Warehouse Staff\n";
+}
+if ($salesHasReturn) {
+    echo "   ✅ SalesReturn granted to Sales Staff\n";
+} else {
+    echo "   ⚠ Sales Staff missing SalesReturn\n";
+}
+
+echo "   Admin-only by default: ProductionPlan\n";
+echo "   Override anytime: Settings → User Manager → Profiles\n";
+PHP
+  log_success "Module visibility matrix verified"
+}
+
 repair_warehouse_transfer_access() {
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -607,6 +816,100 @@ PHP
   log_success "Warehouse transfer access verified"
 }
 
+print_pending_migrations() {
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "📜  Pending migrations (must run on live)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  cd "$LARAVEL_ROOT"
+
+  if ! php artisan migrate:status >/tmp/bk_migrate_status.txt 2>/tmp/bk_migrate_status.err; then
+    log_warning "Could not read migrate:status (is .env DB reachable?)"
+    cat /tmp/bk_migrate_status.err 2>/dev/null | tail -n 8 || true
+    return 1
+  fi
+
+  local pending
+  pending="$(awk '/Pending/ {print}' /tmp/bk_migrate_status.txt || true)"
+  if [ -z "$pending" ]; then
+    log_success "No pending migrations"
+    return 0
+  fi
+
+  log_warning "Pending migrations (these MUST run before go-live):"
+  echo "$pending"
+  echo ""
+  echo "  Known Sept 2026 live-required migrations (if still Pending):"
+  echo "    2026_09_02_220000_add_product_image_to_products_table"
+  echo "    2026_09_02_221000_create_sales_returns_table"
+  echo "    2026_09_02_221100_seed_sales_return_default_filter"
+  echo "    2026_09_03_100000_refactor_sales_returns_to_batches"
+  echo "    2026_09_04_100000_move_product_images_into_module_folders"
+  echo "    2026_09_04_110000_add_shelf_status_to_branch_stock_list"
+  echo "    2026_09_04_120000_add_product_source_to_products_table"
+  echo "    2026_09_04_120100_add_category_to_ingredients_table"
+  echo "    2026_09_04_120200_create_product_stock_transactions_table"
+  echo "    2026_09_04_120300_add_biscuit_chocolate_to_product_category_picklist"
+  echo "    2026_09_04_210000_add_shelf_status_to_product_list"
+  echo "    2026_09_04_211000_product_shelf_status_badge_on_shelf_life"
+  echo "    2026_09_04_220000_seed_billing_default_saved_filter"
+  echo "    2026_09_04_221000_make_billing_item_count_readonly"
+  echo "    2026_09_04_221000_seed_recipe_and_product_stock_tx_filters"
+  echo "    2026_09_04_222000_make_product_number_mandatory"
+  echo "    2026_09_04_223000_hide_created_at_on_plan_and_material_lists"
+  echo "    2026_09_04_224000_fix_sales_return_crm_fields_for_batches"
+  echo "    2026_09_04_230000_hide_created_at_on_sales_return_list"
+  return 0
+}
+
+run_live_migrations() {
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "🚀  Live migrate --force"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  cd "$LARAVEL_ROOT"
+  php artisan config:clear >/dev/null 2>&1 || true
+  php artisan migrate --force || { log_error "migrate --force failed — STOP. Do not continue deploy."; exit 1; }
+  log_success "php artisan migrate --force complete"
+  print_pending_migrations || true
+}
+
+live_update() {
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "🌐  Live / production update"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  Does NOT recreate the database or reset superadmin password."
+  echo "  Runs pending migrations + field sync + profiles + storage + transfer checks."
+  cd "$LARAVEL_ROOT"
+
+  if [ ! -f .env ]; then
+    log_error "No .env — live-update cannot run. Copy .env.example and set production DB first."
+    exit 1
+  fi
+
+  install_dependencies
+  set_storage_permissions || true
+  verify_product_image_storage || true
+  print_pending_migrations || true
+  run_live_migrations
+  sync_module_fields
+  seed_portal_modules
+  seed_default_staff_profiles
+  print_module_role_matrix
+  repair_warehouse_transfer_access
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  log_success "Live update finished"
+  echo "  Confirm: php artisan migrate:status   (no Pending rows)"
+  echo "  Confirm: ALLOW_PUBLIC_REGISTRATION is false in production"
+  echo "  Confirm: CACHE_STORE=database (Idempotency-Key uses cache_locks)"
+  echo "  Queue:   php artisan queue:work   (Supervisor in production)"
+  echo "  Images:  public/storage → storage/app/public"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
+
 verify_warehouse_transfer_tests() {
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -630,23 +933,35 @@ main() {
   verify_installer_password
   cd "$LARAVEL_ROOT"
 
+  if [ "$LIVE_UPDATE" -eq 1 ]; then
+    live_update
+    exit 0
+  fi
+
   if [ "$VERIFY_ONLY" -eq 1 ]; then
     install_dependencies
+    set_storage_permissions || true
+    verify_product_image_storage || true
+    print_pending_migrations || true
     repair_warehouse_transfer_access
     verify_warehouse_transfer_tests
     log_success "Verify-only finished"
+    echo "  If migrate:status showed Pending rows, run: ./setup.sh --live-update"
     exit 0
   fi
 
   if [ "$FIELDS_ONLY" -eq 1 ]; then
     install_dependencies
+    print_pending_migrations || true
     sync_module_fields
     log_success "Fields-only setup finished"
+    echo "  If migrate:status showed Pending rows, run: ./setup.sh --live-update"
     exit 0
   fi
 
   install_dependencies
   set_storage_permissions
+  verify_product_image_storage
 
   if [ "$SKIP_DB" -eq 0 ]; then
     setup_database
@@ -658,6 +973,7 @@ main() {
   seed_portal_modules
   seed_superadmin
   seed_default_staff_profiles
+  print_module_role_matrix
   repair_warehouse_transfer_access
   verify_warehouse_transfer_tests
 
@@ -668,8 +984,10 @@ main() {
   echo "  Superadmin (dev only): superadmin@example.com / Admin@123"
   echo "  Default staff: Warehouse + Sales profiles/roles per org (including branch receiving/reporting)"
   echo "  Warehouse staff may transfer TO any retail branch (not blocked by destination branch check)"
+  echo "  Product images: storage/app/public/uploads/images/{modulename}/ + public/storage link"
   echo "  Re-sync fields anytime: ./setup.sh --fields-only"
-  echo "  Re-check transfer access: ./setup.sh --verify-only"
+  echo "  Re-check transfer + image storage: ./setup.sh --verify-only"
+  echo "  Live / existing DB: ./setup.sh --live-update  (migrate --force + fields + profiles + storage)"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 

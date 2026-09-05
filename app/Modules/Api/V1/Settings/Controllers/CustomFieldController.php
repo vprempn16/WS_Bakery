@@ -13,47 +13,64 @@ use App\Http\Controllers\Controller;
 use App\Models\CrmField;
 use App\Models\FieldModelManager;
 use App\Models\ModuleRelationFields;
+use App\Modules\Api\V1\Profile\Services\ModuleService;
 
 class CustomFieldController extends Controller
 {
     public function createViewFields(Request $request)
     {
         $fieldTypes = [
-            ['value'=>'text','label'=>'Text'],
-            ['value'=>'textarea','label'=>'Textarea'],
-            ['value'=>'number','label'=>'Number'],
-            ['value'=>'email','label'=>'Email'],
-            ['value'=>'date','label'=>'Date'],
-            ['value'=>'datetime','label'=>'Datetime'],
-            ['value'=>'picklist','label'=>'Picklist'],
-            ['value'=>'multiselect','label'=>'Multi Select'],
-            ['value'=>'checkbox','label'=>'Checkbox'],
+            ['value' => 'text', 'label' => 'Text'],
+            ['value' => 'textarea', 'label' => 'Textarea'],
+            ['value' => 'number', 'label' => 'Number'],
+            ['value' => 'email', 'label' => 'Email'],
+            ['value' => 'date', 'label' => 'Date'],
+            ['value' => 'datetime', 'label' => 'Datetime'],
+            ['value' => 'picklist', 'label' => 'Picklist'],
+            ['value' => 'multiselect', 'label' => 'Multi Select'],
+            ['value' => 'relationPickList', 'label' => 'Relation Picklist'],
+            ['value' => 'multiRelationPicklist', 'label' => 'Multi Relation Picklist'],
+            ['value' => 'checkbox', 'label' => 'Checkbox'],
         ];
+
+        $moduleOptions = ModuleService::getEntityPortalModules()
+            ->map(fn ($m) => [
+                'value' => $m->modulename,
+                'label' => $m->modulelabel ?: $m->modulename,
+            ])
+            ->values()
+            ->all();
 
         $fields = [
-            ['name'=>'modulename','label'=>'Module','type'=>'text','required'=>true],
-            ['name'=>'fieldlabel','label'=>'Field Label','type'=>'text','required'=>true],
+            ['name' => 'modulename', 'label' => 'Module', 'type' => 'text', 'required' => true],
+            ['name' => 'fieldlabel', 'label' => 'Field Label', 'type' => 'text', 'required' => true],
             [
-                'name'=>'fieldtype',
-                'label'=>'Field Type',
-                'type'=>'picklist',
-                'required'=>true,
-                'options'=>$fieldTypes,
+                'name' => 'fieldtype',
+                'label' => 'Field Type',
+                'type' => 'picklist',
+                'required' => true,
+                'options' => $fieldTypes,
             ],
-            ['name'=>'mandatory','label'=>'Mandatory','type'=>'checkbox'],
+            ['name' => 'mandatory', 'label' => 'Mandatory', 'type' => 'checkbox'],
             [
-                'name'=>'options',
-                'label'=>'Options',
-                'type'=>'array',
-                'showIf'=>['fieldtype'=>['picklist','multiselect']],
+                'name' => 'related_modules',
+                'label' => 'Related Module',
+                'type' => 'picklist',
+                'required' => true,
+                'options' => $moduleOptions,
+                'showIf' => ['fieldtype' => ['relationPickList', 'multiRelationPicklist']],
+            ],
+            [
+                'name' => 'options',
+                'label' => 'Options',
+                'type' => 'array',
+                'required' => true,
+                'showIf' => ['fieldtype' => ['picklist', 'multiselect']],
             ],
         ];
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'fields' => $fields,
-            ]
+        return $this->success([
+            'fields' => $fields,
         ]);
     }
 
@@ -61,14 +78,15 @@ class CustomFieldController extends Controller
     {
         $module = $request->query('module');
         if (!$module) {
-            return response()->json(['success' => false, 'message' => 'Module is required'], 400);
+            return $this->error('Module is required', null, null, null, 400);
         }
 
         $module = preg_replace('/[^a-zA-Z]/', '', $module);
 
-        $fields = FieldModelManager::make($module, 'DetailView', false)->getApiFormFields();
+        // ProfileView includes displaytypes 1/2/3 so settings can list all fields per module.
+        $fields = FieldModelManager::make($module, 'ProfileView', false)->getApiFormFields();
 
-        return response()->json(['success' => true, 'data' => $fields]);
+        return $this->success($fields);
     }
 
     public function create(Request $request)
@@ -79,25 +97,44 @@ class CustomFieldController extends Controller
             $data = $request->input('data', []);
 
             $data = validator($data, [
-                'id'                    => 'nullable|string',
-                'fieldlabel'            => 'required|string|max:150',
-                'fieldtype'             => 'required|string',
-                'modulename'            => 'required|string',
-                'mandatory'             => 'nullable|in:0,1',
-                'options'               => 'array',
-                'options.*.label'       => 'required|string|max:100',
-                'options.*.value'       => 'nullable|string|max:100',
+                'id' => 'nullable|string',
+                'fieldlabel' => 'required|string|max:150',
+                'fieldtype' => 'required|string',
+                'modulename' => 'required|string',
+                'mandatory' => 'nullable|in:0,1',
+                'options' => 'array',
+                'options.*.label' => 'required|string|max:100',
+                'options.*.value' => 'nullable|string|max:100',
+                'related_modules' => 'nullable|array',
+                'related_modules.*' => 'string|max:100',
             ])->validate();
 
             $allowedTypes = [
                 'text', 'textarea', 'number', 'email',
                 'date', 'datetime', 'picklist',
                 'multiselect', 'checkbox',
+                'relationPickList', 'multiRelationPicklist',
             ];
 
             if (!in_array($data['fieldtype'], $allowedTypes, true)) {
                 DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'Invalid field type'], 400);
+                return $this->error('Invalid field type', null, null, null, 400);
+            }
+
+            $isRelation = in_array($data['fieldtype'], ['relationPickList', 'multiRelationPicklist'], true);
+            $isPicklist = in_array($data['fieldtype'], ['picklist', 'multiselect'], true);
+
+            if ($isRelation) {
+                $related = array_values(array_filter($data['related_modules'] ?? []));
+                if (empty($related)) {
+                    DB::rollBack();
+                    return $this->error('Related module is required for relation fields', null, null, null, 400);
+                }
+            }
+
+            if ($isPicklist && empty($data['options'])) {
+                DB::rollBack();
+                return $this->error('At least one option is required for picklist / multi select', null, null, null, 400);
             }
 
             $organizationId = auth()->user()->organization_id ?? null;
@@ -106,7 +143,7 @@ class CustomFieldController extends Controller
 
             if (empty($module) || strlen($module) > 50) {
                 DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'Invalid module name. Must be alphanumeric and max 50 characters.'], 400);
+                return $this->error('Invalid module name. Must be alphanumeric and max 50 characters.', null, null, null, 400);
             }
 
             $module = Str::snake($module);
@@ -128,7 +165,7 @@ class CustomFieldController extends Controller
 
             DB::beginTransaction();
 
-            $fieldId   = (string) Str::uuid();
+            $fieldId = (string) Str::uuid();
             $fieldname = Str::slug($data['fieldlabel'], '_');
 
             $exists = CrmField::where('modulename', $data['modulename'])
@@ -138,7 +175,13 @@ class CustomFieldController extends Controller
 
             if ($exists) {
                 DB::rollBack();
-                return response()->json(['success' => false, 'message' => "Field '{$data['fieldlabel']}' already exists in module '{$data['modulename']}'."], 400);
+                return $this->error(
+                    "Field '{$data['fieldlabel']}' already exists in module '{$data['modulename']}'.",
+                    null,
+                    null,
+                    null,
+                    400
+                );
             }
 
             $seq = CrmField::where('modulename', $data['modulename'])
@@ -146,45 +189,57 @@ class CustomFieldController extends Controller
                 ->max('seq') ?? 0;
 
             $field = CrmField::create([
-                'id'              => $fieldId,
-                'modulename'      => $data['modulename'],
-                'fieldname'       => $fieldname,
-                'fieldlabel'      => $data['fieldlabel'],
-                'fieldtype'       => $data['fieldtype'],
-                'tablename'       => $customTable,
-                'mandatory'       => $data['mandatory'] ?? 0,
-                'apifieldname'    => Str::camel($fieldname),
-                'displaytype'     => 1,
+                'id' => $fieldId,
+                'modulename' => $data['modulename'],
+                'fieldname' => $fieldname,
+                'fieldlabel' => $data['fieldlabel'],
+                'fieldtype' => $data['fieldtype'],
+                'tablename' => $customTable,
+                'mandatory' => $data['mandatory'] ?? 0,
+                'apifieldname' => Str::camel($fieldname),
+                'displaytype' => 1,
                 'is_custom_field' => 1,
                 'organization_id' => $organizationId,
-                'seq'             => $seq + 1,
+                'seq' => $seq + 1,
             ]);
 
-            if (in_array($data['fieldtype'], ['picklist', 'multiselect'], true)) {
+            if ($isPicklist) {
                 foreach ($data['options'] ?? [] as $i => $opt) {
                     DB::table('picklist_values')->insert([
-                        'id'         => (string) Str::uuid(),
-                        'field_id'   => $fieldId,
-                        'label'      => $opt['label'],
-                        'value'      => Str::slug($opt['label'], '_'),
+                        'id' => (string) Str::uuid(),
+                        'field_id' => $fieldId,
+                        'label' => $opt['label'],
+                        'value' => $opt['value'] ?? Str::slug($opt['label'], '_'),
                         'sort_order' => $i + 1,
-                        'status'     => 1,
+                        'status' => 1,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
                 }
             }
 
+            if ($isRelation) {
+                foreach (array_values(array_unique(array_filter($data['related_modules'] ?? []))) as $relatedModule) {
+                    ModuleRelationFields::create([
+                        'id' => (string) Str::uuid(),
+                        'field_id' => $fieldId,
+                        'modulename' => $data['modulename'],
+                        'related_module' => $relatedModule,
+                        'deleted' => 0,
+                    ]);
+                }
+            }
+
             DB::commit();
 
-            return response()->json(['success' => true, 'data' => $field]);
-
+            return $this->success($field, 'Custom field created successfully');
         } catch (\Throwable $e) {
             if (DB::transactionLevel() > 0) {
                 DB::rollBack();
             }
             Log::error('CUSTOM_FIELD_ERROR', ['error' => $e->getMessage()]);
-            return response()->json(['success' => false, 'message' => 'Failed to create custom field', 'error' => $e->getMessage()], 500);
+
+            return $this->errorFromException($e, 'Failed to create custom field');
         }
     }
 
@@ -199,7 +254,7 @@ class CustomFieldController extends Controller
             ->first();
 
         if (!$field) {
-            return response()->json(['success' => false, 'message' => 'Field not found'], 404);
+            return $this->error('Field not found', null, null, null, 404);
         }
 
         if ((int) $field->is_custom_field === 0) {
@@ -211,7 +266,7 @@ class CustomFieldController extends Controller
 
             if ($override) {
                 $field->fieldlabel = $override->fieldlabel;
-                $field->mandatory  = (int) $override->mandatory;
+                $field->mandatory = (int) $override->mandatory;
             }
         }
 
@@ -225,16 +280,25 @@ class CustomFieldController extends Controller
                 ->toArray();
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'id'              => $field->id,
-                'fieldlabel'      => $field->fieldlabel,
-                'fieldtype'       => $field->fieldtype,
-                'modulename'      => $field->modulename,
-                'mandatory'       => (int) $field->mandatory,
-                'options'         => $options,
-            ]
+        $relatedModules = [];
+        if (in_array($field->fieldtype, ['relationPickList', 'multiRelationPicklist'], true)) {
+            $relatedModules = ModuleRelationFields::where('field_id', $field->id)
+                ->where('deleted', 0)
+                ->pluck('related_module')
+                ->filter()
+                ->values()
+                ->all();
+        }
+
+        return $this->success([
+            'id' => $field->id,
+            'fieldlabel' => $field->fieldlabel,
+            'fieldtype' => $field->fieldtype,
+            'modulename' => $field->modulename,
+            'mandatory' => (int) $field->mandatory,
+            'is_custom_field' => (bool) (int) $field->is_custom_field,
+            'options' => $options,
+            'related_modules' => $relatedModules,
         ]);
     }
 
@@ -246,12 +310,7 @@ class CustomFieldController extends Controller
 
             if (empty($data['id'])) {
                 DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'Field ID is required'], 400);
-            }
-
-            if (empty($data['fieldlabel'])) {
-                DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'Field label is required'], 400);
+                return $this->error('Field ID is required', null, null, null, 400);
             }
 
             $organizationId = auth()->user()->organization_id ?? null;
@@ -262,26 +321,47 @@ class CustomFieldController extends Controller
 
             if (!$field) {
                 DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'Field not found'], 404);
+                return $this->error('Field not found', null, null, null, 404);
             }
 
-            if ((int) $field->is_custom_field === 1) {
-                $field->update([
-                    'fieldlabel' => $data['fieldlabel'],
-                    'mandatory'  => $data['mandatory'] ?? $field->mandatory,
+            $isCustom = (int) $field->is_custom_field === 1;
+            $mandatoryOnly = !empty($data['mandatory_only']) || !$isCustom;
+
+            // System fields: only mandatory may change. Custom: label + mandatory.
+            if ($isCustom && !$mandatoryOnly && empty($data['fieldlabel'])) {
+                DB::rollBack();
+                return $this->error('Field label is required', null, null, null, 400);
+            }
+
+            if ($isCustom) {
+                $update = [
+                    'mandatory' => $data['mandatory'] ?? $field->mandatory,
                     'updated_at' => now(),
-                ]);
+                ];
+                if (!$mandatoryOnly && !empty($data['fieldlabel'])) {
+                    $update['fieldlabel'] = $data['fieldlabel'];
+                }
+                $field->update($update);
             } else {
+                // Keep the system label (or existing override label); only persist mandatory.
+                $existingOverride = DB::table('crm_default_field_definitions')
+                    ->where('organization_id', $organizationId)
+                    ->where('modulename', $field->modulename)
+                    ->where('fieldname', $field->fieldname)
+                    ->first();
+
+                $label = $existingOverride->fieldlabel ?? $field->fieldlabel;
+
                 DB::table('crm_default_field_definitions')->updateOrInsert(
                     [
                         'organization_id' => $organizationId,
-                        'modulename'      => $field->modulename,
-                        'fieldname'       => $field->fieldname,
+                        'modulename' => $field->modulename,
+                        'fieldname' => $field->fieldname,
                     ],
                     [
-                        'fieldlabel' => $data['fieldlabel'],
-                        'mandatory'  => $data['mandatory'] ?? $field->mandatory,
-                        'seq'        => $field->seq,
+                        'fieldlabel' => $label,
+                        'mandatory' => $data['mandatory'] ?? $field->mandatory,
+                        'seq' => $field->seq,
                         'updated_at' => now(),
                         'created_at' => now(),
                     ]
@@ -290,18 +370,15 @@ class CustomFieldController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'message'  => 'Field label updated successfully',
-                    'field_id' => $field->id,
-                ]
-            ]);
-
+            return $this->success([
+                'message' => 'Field label updated successfully',
+                'field_id' => $field->id,
+            ], 'Field label updated successfully');
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('CUSTOM_FIELD_UPDATE_LABEL_ERROR', ['error' => $e->getMessage()]);
-            return response()->json(['success' => false, 'message' => 'Failed to update field label'], 500);
+
+            return $this->errorFromException($e, 'Failed to update field label');
         }
     }
 
@@ -314,19 +391,19 @@ class CustomFieldController extends Controller
 
             $field = CrmField::where('id', $id)
                 ->where('deleted', 0)
-                ->where('is_custom_field', 1) 
+                ->where('is_custom_field', 1)
                 ->first();
-            
+
             if (!$field) {
                 DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'Custom field not found or cannot be deleted'], 404);
+                return $this->error('Custom field not found or cannot be deleted', null, null, null, 404);
             }
 
             if (in_array($field->fieldtype, ['picklist', 'multiselect'], true)) {
                 DB::table('picklist_values')
                     ->where('field_id', $field->id)
                     ->update([
-                        'status'     => 0,
+                        'status' => 0,
                         'updated_at' => now(),
                     ]);
             }
@@ -340,20 +417,16 @@ class CustomFieldController extends Controller
             }
 
             $field->update([
-                'deleted'    => 1,
-                'updated_at'=> now(),
+                'deleted' => 1,
+                'updated_at' => now(),
             ]);
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'message'  => 'Custom field deleted successfully',
-                    'field_id' => $field->id,
-                ]
-            ]);
-
+            return $this->success([
+                'message' => 'Custom field deleted successfully',
+                'field_id' => $field->id,
+            ], 'Custom field deleted successfully');
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('CUSTOM_FIELD_DELETE_ERROR', [
@@ -361,7 +434,7 @@ class CustomFieldController extends Controller
                 'field_id' => $id,
             ]);
 
-            return response()->json(['success' => false, 'message' => 'Failed to delete custom field'], 500);
+            return $this->errorFromException($e, 'Failed to delete custom field');
         }
     }
 }

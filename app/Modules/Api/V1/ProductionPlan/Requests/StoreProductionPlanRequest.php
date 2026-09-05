@@ -19,7 +19,6 @@ class StoreProductionPlanRequest extends FormRequest
         return [
             'data.values.planDate' => ['required', 'date'],
             'data.values.notes' => ['nullable', 'string'],
-            'data.values.status' => ['sometimes', 'string', 'in:draft,approved'],
             'data.relatedRecords.items' => ['required', 'array', 'min:1'],
             'data.relatedRecords.items.*.productId' => ['required', 'string', 'exists:products,id', 'distinct'],
             'data.relatedRecords.items.*.plannedQuantity' => ['required', 'numeric', 'min:0.01'],

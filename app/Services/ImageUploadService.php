@@ -9,6 +9,9 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Bakery-safe local image upload service (no Google Drive dependency).
+ *
+ * Files are stored under: uploads/images/{modulename}/{filename}
+ * e.g. uploads/images/product/9a6b4c3d...jpg
  */
 class ImageUploadService
 {
@@ -28,8 +31,12 @@ class ImageUploadService
     /**
      * @return array{path: string, url: string|null, meta: array}
      */
-    public function processAndSave($imageData, ?string $recordId = null, ?string $oldImagePath = null): array
-    {
+    public function processAndSave(
+        $imageData,
+        ?string $recordId = null,
+        ?string $oldImagePath = null,
+        ?string $moduleName = null
+    ): array {
         $base64String = $this->extractBase64String($imageData);
 
         if (empty($base64String)) {
@@ -38,18 +45,21 @@ class ImageUploadService
 
         $decoded = $this->decodeBase64Image($base64String);
         $filename = $this->generateFilename($recordId, $decoded['extension']);
-        $relativePath = self::DIRECTORY . '/' . $filename;
+        $directory = $this->resolveModuleDirectory($moduleName);
+        $relativePath = $directory . '/' . $filename;
 
         if ($oldImagePath) {
             $this->deleteImage($oldImagePath);
         }
 
+        Storage::disk(self::DISK)->makeDirectory($directory);
         Storage::disk(self::DISK)->put($relativePath, $decoded['binary']);
 
         $publicUrl = $this->transformToUrl($relativePath);
 
         Log::info('Image uploaded to local storage', [
             'path' => $relativePath,
+            'module' => $this->normalizeModuleSlug($moduleName),
             'size' => $decoded['size'],
             'mime' => $decoded['mimeType'],
         ]);
@@ -62,9 +72,29 @@ class ImageUploadService
                 'mimeType' => $decoded['mimeType'],
                 'size' => $decoded['size'],
                 'extension' => $decoded['extension'],
+                'module' => $this->normalizeModuleSlug($moduleName),
                 'uploadedAt' => now()->toIso8601String(),
             ],
         ];
+    }
+
+    /**
+     * Base dir for a module: uploads/images/{modulename}
+     */
+    public function resolveModuleDirectory(?string $moduleName): string
+    {
+        return self::DIRECTORY . '/' . $this->normalizeModuleSlug($moduleName);
+    }
+
+    /**
+     * Safe filesystem slug from module class/name (Product → product).
+     */
+    public function normalizeModuleSlug(?string $moduleName): string
+    {
+        $cleaned = preg_replace('/[^a-zA-Z0-9_-]+/', '', (string) $moduleName);
+        $slug = strtolower(is_string($cleaned) ? $cleaned : '');
+
+        return $slug !== '' ? $slug : 'misc';
     }
 
     protected function extractBase64String($imageData): ?string
@@ -103,7 +133,7 @@ class ImageUploadService
         $finfo = new \finfo(FILEINFO_MIME_TYPE);
         $mimeType = $finfo->buffer($binary);
 
-        if (!in_array($mimeType, self::ALLOWED_MIME_TYPES, true)) {
+        if (! in_array($mimeType, self::ALLOWED_MIME_TYPES, true)) {
             throw ValidationException::withMessages(['image' => [
                 'Invalid image format. Allowed: png, jpg, jpeg, gif, webp',
             ]]);
@@ -191,9 +221,18 @@ class ImageUploadService
             return $storedPath;
         }
 
-        $relative = $this->normalizePath($storedPath);
+        if (str_starts_with($storedPath, 'data:')) {
+            return $storedPath;
+        }
 
-        return $relative ? Storage::disk(self::DISK)->url($relative) : null;
+        $relative = $this->normalizePath($storedPath);
+        if (! $relative) {
+            return null;
+        }
+
+        // Prefer root-relative /storage/... so frontend (Vite proxy) and artisan serve
+        // both work without depending on APP_URL host/port.
+        return '/storage/' . ltrim($relative, '/');
     }
 
     protected function normalizePath(string $path): string

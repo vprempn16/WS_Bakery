@@ -16,7 +16,6 @@ class UpdateProductionPlanRequest extends FormRequest
         return [
             'data.values.planDate' => ['sometimes', 'date'],
             'data.values.notes' => ['nullable', 'string'],
-            'data.values.status' => ['sometimes', 'string', 'in:draft,approved,completed,cancelled'],
             'data.relatedRecords.items' => ['sometimes', 'array', 'min:1'],
             'data.relatedRecords.items.*.productId' => ['required_with:data.relatedRecords.items', 'string', 'exists:products,id', 'distinct'],
             'data.relatedRecords.items.*.plannedQuantity' => ['required_with:data.relatedRecords.items', 'numeric', 'min:0.01'],

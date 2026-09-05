@@ -57,19 +57,24 @@ trait HandlesImageUploads
                  // Get record ID (use existing ID or null for new records)
                  $recordId = $this->exists ? $this->id : null;
  
-                 // Process and save the image to Google Drive
-                 $result = $imageService->processAndSave($value, $recordId, $oldImagePath);
- 
-                 // Replace base64 data with Google Drive file ID
-                 $attributes[$fieldName] = $result['path'];
- 
-                 Log::info('Image field processed and saved to Google Drive', [
-                     'module' => $this->getModuleName(),
-                     'field' => $fieldName,
-                     'file_id' => $result['path'],
-                     'url' => $result['url'],
-                 ]);
- 
+                // Process and save under uploads/images/{modulename}/
+                $result = $imageService->processAndSave(
+                    $value,
+                    $recordId,
+                    $oldImagePath,
+                    $this->getModuleName()
+                );
+
+                // Replace base64 data with relative storage path
+                $attributes[$fieldName] = $result['path'];
+
+                Log::info('Image field processed and saved to local storage', [
+                    'module' => $this->getModuleName(),
+                    'field' => $fieldName,
+                    'path' => $result['path'],
+                    'url' => $result['url'],
+                ]);
+
              } catch (\Exception $e) {
                  Log::error('Failed to process image field', [
                      'module' => $this->getModuleName(),

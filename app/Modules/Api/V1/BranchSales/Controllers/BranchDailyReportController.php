@@ -8,7 +8,6 @@ use App\Modules\Api\V1\Billing\Models\BillingItem;
 use App\Modules\Api\V1\BranchSales\Models\BranchDailyReport;
 use App\Modules\Api\V1\BranchSales\Requests\StoreBranchDailyReportRequest;
 use App\Modules\Api\V1\BranchSales\Resources\BranchDailyReportResource;
-use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\SavedFilter\Models\SavedFilter;
 use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
@@ -172,8 +171,9 @@ class BranchDailyReportController extends Controller
                 $totalRevenue = $this->sumPaidPosGrandTotal($orgId, $branchId, $reportDate);
             }
 
-            // Backward-compatible manual lines are still supported. Only reported
-            // waste/returns deduct branch stock; sold stock is handled by POS.
+            // Backward-compatible manual lines are still supported for reporting.
+            // Wastage stock deduction is ONLY via SalesReturn — daily report must not
+            // deduct again (prevents double write-off of the same physical stock).
             foreach ($submittedItems ?? [] as $item) {
                 $productId = $item['productId'];
                 $qtySold = (float) $item['quantitySold'];
@@ -191,22 +191,6 @@ class BranchDailyReportController extends Controller
 
                 $totalRevenue += $subtotalRevenue;
                 $totalWasteAmount += $subtotalWaste;
-
-                // Deduct only waste/returns from branch stock
-                if ($qtyReturned > 0) {
-                    $branchStock = BranchStock::where('organization_id', $orgId)
-                        ->where('branch_id', $branchId)
-                        ->where('product_id', $productId)
-                        ->lockForUpdate()
-                        ->first();
-
-                    if (! $branchStock || (float) $branchStock->current_stock < $qtyReturned) {
-                        throw new \RuntimeException("Insufficient stock at branch for waste/return of Product ID: {$productId}");
-                    }
-
-                    $branchStock->current_stock = (float) $branchStock->current_stock - $qtyReturned;
-                    $branchStock->save();
-                }
 
                 $itemsData[] = [
                     'product_id' => $productId,
@@ -257,12 +241,18 @@ class BranchDailyReportController extends Controller
     public function show($id, Request $request)
     {
         try {
-            $orgId = $request->user()->organization_id;
+            $user = $request->user();
+            $permissionService = new PermissionService($user);
+            if ($deny = $permissionService->denyMessage('BranchDailyReport', 'view')) {
+                return $this->error($deny, null, null, null, 403);
+            }
+
+            $orgId = $user->organization_id;
             $report = BranchDailyReport::with(['branch', 'items.product'])
                 ->where('organization_id', $orgId)
                 ->findOrFail($id);
 
-            BranchAccess::assertCanAccessBranch($request->user(), (string) $report->branch_id);
+            BranchAccess::assertCanAccessBranch($user, (string) $report->branch_id);
 
             $resource = new BranchDailyReportResource($report);
             $fieldList = ModuleFieldConfig::getApiFieldsForView('BranchDailyReport', 'DetailView');

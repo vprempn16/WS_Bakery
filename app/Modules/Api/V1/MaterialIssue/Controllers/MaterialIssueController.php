@@ -15,6 +15,7 @@ use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Modules\Api\V1\SavedFilter\Services\QueryFilterService;
 use App\Services\AuthUser;
 use App\Services\CRM\RecordObject;
+use App\Support\Idempotency;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -80,13 +81,22 @@ class MaterialIssueController extends Controller
 
     public function store(StoreMaterialIssueRequest $request)
     {
+        [$lock, $cacheKey, $early] = Idempotency::begin(
+            'material-issue:create',
+            $request->header('Idempotency-Key'),
+            true
+        );
+        if ($early) {
+            return $early;
+        }
+
         $values = $request->input('data.values');
         $itemsData = $request->input('data.relatedRecords.items', []);
         $orgId = AuthUser::organizationId();
         $userId = AuthUser::id();
 
         try {
-            return DB::transaction(function () use ($values, $itemsData, $orgId, $userId) {
+            $response = DB::transaction(function () use ($values, $itemsData, $orgId, $userId) {
                 foreach ($itemsData as $itemData) {
                     try {
                         RecordObject::make('Ingredient', $itemData['ingredientId'], [], 'DetailView');
@@ -150,10 +160,16 @@ class MaterialIssueController extends Controller
                     201
                 );
             });
+
+            Idempotency::remember($cacheKey, $response);
+
+            return $response;
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Exception $e) {
             return $this->error('Failed to post material withdrawal: ' . $e->getMessage(), null, null, null, 500);
+        } finally {
+            Idempotency::release($lock);
         }
     }
 

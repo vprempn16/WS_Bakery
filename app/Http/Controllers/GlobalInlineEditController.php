@@ -26,7 +26,9 @@ class GlobalInlineEditController extends Controller
         'Billing' => \App\Modules\Api\V1\Billing\Models\Billing::class,
     ];
 
-    /** Ledger / stock / security / financial fields must never be mutated via inline edit. */
+    /** Ledger / stock / security / financial fields must never be mutated via inline edit.
+     * discount_amount / tax_amount are set only via Billing POS (pencil) create/update API.
+     */
     private array $blockedColumns = [
         'current_stock',
         'quantity',

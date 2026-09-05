@@ -15,17 +15,17 @@ class StoreSavedFilterRequest extends FormRequest
     {
         return [
             'data.values.name' => ['required', 'string', 'max:255'],
-            'data.values.module' => ['required', 'string', 'in:products,ingredients,material_issues,production_plans,vendors,users,inventory_transactions,recipes,branches,production_batches,branch_stocks,branch_transfers,branch_daily_reports,User,Vendor,Ingredient,MaterialIssue,ProductionPlan,InventoryTransaction,Product,Recipe,Branch,ProductionBatch,BranchStock,BranchTransfer,BranchDailyReport,Billing'],
+            'data.values.module' => ['required', 'string', 'in:products,ingredients,material_issues,production_plans,vendors,users,inventory_transactions,product_stock_transactions,recipes,branches,production_batches,branch_stocks,branch_transfers,branch_daily_reports,sales_returns,billings,User,Vendor,Ingredient,MaterialIssue,ProductionPlan,InventoryTransaction,ProductStockTransaction,Product,Recipe,Branch,ProductionBatch,BranchStock,BranchTransfer,BranchDailyReport,Billing,SalesReturn'],
             'data.values.isPublic' => ['nullable', 'boolean'],
-            'data.values.rules' => ['required', 'array'],
+            'data.values.rules' => ['nullable', 'array'],
             'data.values.rules.logical_operator' => ['nullable', 'string', 'in:AND,OR,and,or'],
-            'data.values.rules.conditions' => ['required', 'array', 'min:1'],
+            'data.values.rules.conditions' => ['nullable', 'array'],
             'data.values.rules.conditions.*.field' => ['required', 'string'],
             'data.values.rules.conditions.*.operator' => ['required', 'string', 'in:=,!=,>,<,>=,<=,like,LIKE,in,IN'],
             'data.values.rules.conditions.*.value' => ['required'],
-            'data.values.headerDetails' => ['nullable', 'array'],
-            'data.values.headerDetails.*.fieldname' => ['required_with:data.values.headerDetails', 'string'],
-            'data.values.headerDetails.*.fieldlabel' => ['required_with:data.values.headerDetails', 'string'],
+            'data.values.headerDetails' => ['required', 'array', 'min:1'],
+            'data.values.headerDetails.*.fieldname' => ['required', 'string'],
+            'data.values.headerDetails.*.fieldlabel' => ['required', 'string'],
         ];
     }
 }

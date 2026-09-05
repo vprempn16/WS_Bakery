@@ -15,6 +15,7 @@ use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Modules\Api\V1\SavedFilter\Services\QueryFilterService;
 use App\Services\AuthUser;
 use App\Services\CRM\RecordObject;
+use App\Services\ShelfLifeStatusService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class ProductController extends Controller
             'fields' => $fields,
             'values' => [
                 'status' => 'active',
+                'productSource' => 'own',
             ],
         ]);
     }
@@ -68,6 +70,20 @@ class ProductController extends Controller
             $q->where('unit', $unit);
         });
 
+        $query->when($request->query('category'), function ($q, $category) {
+            $normalized = strtolower(trim((string) $category));
+            if ($normalized !== '' && $normalized !== 'all') {
+                $q->whereRaw('LOWER(category) = ?', [$normalized]);
+            }
+        });
+
+        $query->when($request->query('productSource'), function ($q, $productSource) {
+            $normalized = strtolower(trim((string) $productSource));
+            if (in_array($normalized, ['own', 'bought'], true)) {
+                $q->whereRaw('LOWER(COALESCE(product_source, ?)) = ?', ['own', $normalized]);
+            }
+        });
+
         $query->when($request->query('status'), function ($q, $status) {
             $normalized = strtolower((string) $status);
             if (in_array($normalized, ['active', 'inactive'], true)) {
@@ -100,6 +116,18 @@ class ProductController extends Controller
         }
 
         $products = $query->paginate($perPage);
+
+        $productIds = $products->getCollection()->pluck('id')->filter()->values()->all();
+        $shelfMap = ShelfLifeStatusService::statusForProducts((string) $orgId, $productIds);
+
+        $products->getCollection()->transform(function ($row) use ($shelfMap) {
+            $info = $shelfMap[(string) $row->id] ?? null;
+            $row->setAttribute('shelf_status_computed', $info['shelfStatus'] ?? null);
+            $row->setAttribute('earliest_expiry_computed', $info['earliestExpiry'] ?? null);
+
+            return $row;
+        });
+
         $fieldList = FieldModelManager::make('Product', 'DetailView', false)->getApiFormFields();
 
         return $this->paginated(ProductResource::collection($products)->resource, $fieldList);
@@ -163,6 +191,13 @@ class ProductController extends Controller
         try {
             /** @var Product $product */
             $product = RecordObject::make('Product', $id, [], 'DetailView');
+
+            $orgId = (string) (AuthUser::organizationId() ?? $product->organization_id);
+            $shelfMap = ShelfLifeStatusService::statusForProducts($orgId, [(string) $product->id]);
+            $info = $shelfMap[(string) $product->id] ?? null;
+            $product->setAttribute('shelf_status_computed', $info['shelfStatus'] ?? null);
+            $product->setAttribute('earliest_expiry_computed', $info['earliestExpiry'] ?? null);
+
             $resource = new ProductResource($product);
             $fieldList = FieldModelManager::make('Product', 'DetailView', false)->getApiFormFields();
 
