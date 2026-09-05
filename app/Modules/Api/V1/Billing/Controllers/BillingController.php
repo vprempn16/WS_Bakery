@@ -288,6 +288,7 @@ class BillingController extends Controller
 
                     $discount = max(0, (float) ($data['discountAmount'] ?? 0));
                     $tax = max(0, (float) ($data['taxAmount'] ?? 0));
+                    $this->assertBillingAdjustmentsAllowed($discount, $tax);
                     $this->assertDiscountAllowed($discount, $subTotal);
                     if ($discount > $subTotal) {
                         throw new \RuntimeException('Discount cannot exceed subtotal.');
@@ -570,6 +571,7 @@ class BillingController extends Controller
                     $subTotal = (float) $billing->sub_total;
                     $discount = (float) $billing->discount_amount;
                     $tax = (float) $billing->tax_amount;
+                    $this->assertBillingAdjustmentsAllowed($discount, $tax);
                     $this->assertDiscountAllowed($discount, $subTotal);
                     if ($discount > $subTotal) {
                         throw new \RuntimeException('Discount cannot exceed subtotal.');
@@ -837,6 +839,22 @@ class BillingController extends Controller
                 "Discount above {$pctLabel}% of the subtotal requires an admin."
             );
         }
+    }
+
+    private function assertBillingAdjustmentsAllowed(float $discount, float $tax): void
+    {
+        if ($discount <= 0 && $tax <= 0) {
+            return;
+        }
+
+        $user = AuthUser::user();
+        if ($user && (new PermissionService($user))->userIsFullAdmin()) {
+            return;
+        }
+
+        throw new \RuntimeException(
+            'Only an admin can apply discount or tax on a bill.'
+        );
     }
 
     /**

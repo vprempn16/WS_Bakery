@@ -327,6 +327,89 @@ class SecurityHardeningTest extends TestCase
         $this->assertStringContainsString('discount', strtolower($response->json('message') ?? ''));
     }
 
+    public function test_bill_level_tax_percent_amount_is_accepted(): void
+    {
+        Sanctum::actingAs($this->adminA);
+
+        BranchStock::create([
+            'organization_id' => $this->orgA->id,
+            'branch_id' => $this->branchA->id,
+            'product_id' => $this->productA->id,
+            'current_stock' => 10,
+        ]);
+
+        // POS sends computed taxAmount (e.g. 1% of 100 = 1), not the percent itself.
+        $response = $this->postJson('/api/v1/Billing/new', [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->branchA->id,
+                    'paymentMethod' => 'cash',
+                    'paymentStatus' => 'paid',
+                    'discountAmount' => 0,
+                    'taxAmount' => 1,
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        [
+                            'productId' => $this->productA->id,
+                            'quantity' => 4,
+                            'unitPrice' => 25,
+                            'unit' => 'pcs',
+                            'category' => 'bakery',
+                        ],
+                    ],
+                ],
+            ],
+        ], ['Idempotency-Key' => 'securityhardeningtest-paid-5']);
+
+        $response->assertSuccessful();
+        $payload = $response->json('data');
+        $billId = data_get($payload, 'id') ?? data_get($payload, 'values.id');
+        $billing = Billing::find($billId);
+
+        $this->assertEquals(0.0, (float) $billing->discount_amount);
+        $this->assertEquals(1.0, (float) $billing->tax_amount);
+        $this->assertEquals((float) $billing->sub_total + 1.0, (float) $billing->grand_total);
+    }
+
+    public function test_staff_cannot_apply_discount_or_tax(): void
+    {
+        Sanctum::actingAs($this->staffA);
+
+        BranchStock::create([
+            'organization_id' => $this->orgA->id,
+            'branch_id' => $this->branchA->id,
+            'product_id' => $this->productA->id,
+            'current_stock' => 10,
+        ]);
+
+        $response = $this->postJson('/api/v1/Billing/new', [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->branchA->id,
+                    'paymentMethod' => 'cash',
+                    'paymentStatus' => 'paid',
+                    'discountAmount' => 5,
+                    'taxAmount' => 1,
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        [
+                            'productId' => $this->productA->id,
+                            'quantity' => 2,
+                            'unitPrice' => 25,
+                            'unit' => 'pcs',
+                            'category' => 'bakery',
+                        ],
+                    ],
+                ],
+            ],
+        ], ['Idempotency-Key' => 'securityhardeningtest-staff-adj-1']);
+
+        $response->assertStatus(400);
+        $this->assertStringContainsString('admin', strtolower($response->json('message') ?? ''));
+    }
+
     public function test_inline_edit_blocks_payment_status(): void
     {
         Sanctum::actingAs($this->adminA);
