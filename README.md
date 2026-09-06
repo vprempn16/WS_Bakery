@@ -37,6 +37,16 @@ See [`docs/ON_SITE_DEMO.md`](../../docs/ON_SITE_DEMO.md) and run from repo root:
 ./scripts/demo-start.sh       # at client site
 ```
 
+### Recent changes (2026-09-06)
+
+- **Branch POS defaults** — `branches.pos_discount_amount` / `pos_tax_percent`. API: `GET|PUT /api/v1/Branch/{id}/pos-settings` (PUT full-admin only). Migration: `2026_09_06_250000_add_pos_defaults_to_branches`.
+- **Dashboard Returns** — KPI sums `sales_returns.total_return_value` (not daily-report waste).
+- **Shelf life** — Strict Expired + Fresh dual status; expired qty FIFO cap; bought pack `expiry_date`; receipt `wasted_at` on Returns; Product list overlays retail branch stock.
+- **Audit** — `GlobalAuditLogController` returns `event_type` + `changes` + actor name.
+- **Live installer** — `./setup.sh --live-update` applies all pending Sept 6 migrations (expiry, tier soft-delete, wasted_at, shelf picklist seed, POS defaults). See [`.agents/AGENTS.md`](./.agents/AGENTS.md).
+
+After deploy: `./setup.sh --live-update` then confirm `php artisan migrate:status` has no Pending rows.
+
 ### Recent changes (2026-09-04)
 
 - **Live installer** — `./setup.sh --live-update` applies all pending migrations (including Returns batches, product image folders, shelf-life columns, product source, ingredient category, product stock ledger, mandatory product number, SalesReturn CRM field fix). Does not recreate the DB or reset superadmin.

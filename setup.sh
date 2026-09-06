@@ -28,13 +28,16 @@
 # Future / product notes (see agent docs for details):
 # - Shelf-life warnings: GET Reports/BranchShelfLife; POS badges + toast; BranchStock shelfStatus;
 #   Dashboard shelf-life block. Warn only — never block POS for expiry. Use Inactive to delist.
-# - Heuristic: product has expired ProductionBatch + branch qty > 0 (not FIFO batch tracking).
+# - Strict expired: past lots stay Expired until Returns mark wasted; dual Expired·N + Fresh.
+# - Heuristic: FIFO remaining for Expired · N (do not inflate when fresh stock is added).
 # - Product.productNumber is mandatory on create/edit (ModuleFieldConfig + crm_fields + Store/Update requests).
+# - Per-branch POS discount/tax: branches.pos_* columns; GET|PUT Branch/{id}/pos-settings (admin PUT).
+# - Dashboard Returns KPI: sum sales_returns.total_return_value for period/branch.
 #
 # Live / production (existing DB — never recreates the database):
 #   ./setup.sh --live-update
 #     1. Lists pending migrations
-#     2. php artisan migrate --force  (ALL pending, including Sept 2026 Returns/shelf-life/etc.)
+#     2. php artisan migrate --force  (ALL pending, including Sept 2026 Returns/shelf-life/POS defaults/etc.)
 #     3. Sync crm_fields from ModuleFieldConfig
 #     4. Insert missing portal_module rows
 #     5. Upsert Warehouse + Sales default profiles/roles (does NOT reset superadmin password)
@@ -859,6 +862,13 @@ print_pending_migrations() {
   echo "    2026_09_04_223000_hide_created_at_on_plan_and_material_lists"
   echo "    2026_09_04_224000_fix_sales_return_crm_fields_for_batches"
   echo "    2026_09_04_230000_hide_created_at_on_sales_return_list"
+  echo "    2026_09_06_190000_add_expiry_date_to_product_stock_transactions"
+  echo "    2026_09_06_200000_hide_product_tier_field"
+  echo "    2026_09_06_210000_soft_delete_product_tier_field"
+  echo "    2026_09_06_220000_add_product_expiry_date"
+  echo "    2026_09_06_230000_add_wasted_at_to_product_stock_transactions"
+  echo "    2026_09_06_240000_seed_product_shelf_life_month_options"
+  echo "    2026_09_06_250000_add_pos_defaults_to_branches"
   return 0
 }
 

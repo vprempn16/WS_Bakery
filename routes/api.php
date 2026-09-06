@@ -62,6 +62,9 @@ Route::prefix('v1')->group(function () {
                 ->middleware('throttle:writes');
             Route::get('{id}/transfer-history', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'branchTransferHistory']);
             Route::get('{id}/inventory', [\App\Modules\Api\V1\Related\Controllers\RelatedRecordsController::class, 'branchInventory']);
+            Route::get('{id}/pos-settings', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'posSettings']);
+            Route::put('{id}/pos-settings', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'updatePosSettings'])
+                ->middleware('throttle:writes');
             Route::get('{id}', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'show']);
             Route::post('{id}', [\App\Modules\Api\V1\Branch\Controllers\BranchController::class, 'update'])
                 ->middleware('throttle:writes');
