@@ -10,9 +10,11 @@ use App\Modules\Api\V1\SavedFilter\Models\SavedFilter;
 use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Modules\Api\V1\SavedFilter\Services\QueryFilterService;
 use App\Services\AuthUser;
+use App\Services\BranchAccess;
 use App\Services\CRM\RecordObject;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class BranchController extends Controller
 {
@@ -146,5 +148,90 @@ class BranchController extends Controller
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         }
+    }
+
+    /**
+     * GET /Branch/{id}/pos-settings — POS discount/tax defaults for a branch.
+     */
+    public function posSettings(Request $request, string $id)
+    {
+        $user = AuthUser::requireUser();
+        $permissionService = new \App\Services\PermissionService($user);
+        if ($deny = $permissionService->denyMessage('Billing', 'view')) {
+            return $this->error($deny, null, null, null, 403);
+        }
+
+        $orgId = AuthUser::organizationId();
+        $branch = Branch::where('organization_id', $orgId)->find($id);
+        if (! $branch) {
+            return $this->error('Branch not found.', null, null, null, 404);
+        }
+
+        try {
+            BranchAccess::assertCanAccessBranch($user, (string) $branch->id);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
+        }
+
+        return $this->success($this->posSettingsPayload($branch));
+    }
+
+    /**
+     * PUT /Branch/{id}/pos-settings — admin-only update of POS discount/tax defaults.
+     */
+    public function updatePosSettings(Request $request, string $id)
+    {
+        $user = AuthUser::requireUser();
+        if (! $user->isFullAdmin()) {
+            return $this->error('Only an admin can update POS discount and tax defaults.', null, null, null, 403);
+        }
+
+        $validated = $request->validate([
+            'discountAmount' => ['nullable', 'numeric', 'min:0'],
+            'taxPercent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'data.values.discountAmount' => ['nullable', 'numeric', 'min:0'],
+            'data.values.taxPercent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+        ]);
+
+        $values = $validated['data']['values'] ?? [
+            'discountAmount' => $validated['discountAmount'] ?? 0,
+            'taxPercent' => $validated['taxPercent'] ?? 0,
+        ];
+        $discount = max(0, (float) ($values['discountAmount'] ?? 0));
+        $taxPercent = max(0, min(100, (float) ($values['taxPercent'] ?? 0)));
+
+        $orgId = AuthUser::organizationId();
+        $branch = Branch::where('organization_id', $orgId)->find($id);
+        if (! $branch) {
+            return $this->error('Branch not found.', null, null, null, 404);
+        }
+
+        try {
+            BranchAccess::assertCanAccessBranch($user, (string) $branch->id);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
+        }
+
+        if (! Schema::hasColumn('branches', 'pos_discount_amount')) {
+            return $this->error('POS settings columns are missing. Run migrations.', null, null, null, 500);
+        }
+
+        $branch->pos_discount_amount = round($discount, 2);
+        $branch->pos_tax_percent = round($taxPercent, 2);
+        $branch->save();
+
+        return $this->success($this->posSettingsPayload($branch), 'POS settings saved.');
+    }
+
+    /**
+     * @return array{discountAmount: float, taxPercent: float, branchId: string}
+     */
+    private function posSettingsPayload(Branch $branch): array
+    {
+        return [
+            'branchId' => (string) $branch->id,
+            'discountAmount' => (float) ($branch->pos_discount_amount ?? 0),
+            'taxPercent' => (float) ($branch->pos_tax_percent ?? 0),
+        ];
     }
 }

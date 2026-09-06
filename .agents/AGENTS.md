@@ -238,6 +238,7 @@ Vendor → Ingredient (stock in via InventoryTransaction / Adjust Stock — UI: 
 ### Billing POS guards
 - **Void / re-hold paid bill** (restore stock): full admin only (`PermissionService::userIsFullAdmin`). Logged as warning.
 - **Staff discount cap:** non-admin cashiers limited to `config('app.billing_staff_max_discount_pct')` (env `BILLING_STAFF_MAX_DISCOUNT_PCT`, default `0.10`). Admins uncapped. Catalog prices still win over client line prices.
+- **Per-branch POS defaults:** `branches.pos_discount_amount` / `pos_tax_percent`. `GET|PUT Branch/{id}/pos-settings` (PUT = full admin). Frontend loads on branch switch; pencil Save persists. Do not clear these to 0 on branch switch in the client store.
 
 ### Public organization registration
 - `POST Organization/new` is gated by `config('app.allow_public_registration')`.
@@ -278,6 +279,12 @@ Vendor → Ingredient (stock in via InventoryTransaction / Adjust Stock — UI: 
 | `2026_09_04_223000_hide_created_at_on_plan_and_material_lists` | Hide Created At on Plan / Withdrawal |
 | `2026_09_04_224000_fix_sales_return_crm_fields_for_batches` | Soft-delete legacy header product/qty fields; seed SalesReturnItem fields |
 | `2026_09_04_230000_hide_created_at_on_sales_return_list` | Hide Created At on Returns list |
+| `2026_09_06_190000_add_expiry_date_to_product_stock_transactions` | Receipt lot expiry + shelf picklist seed (`modulename=Product`) |
+| `2026_09_06_210000_soft_delete_product_tier_field` | Soft-delete Product Tier CRM field |
+| `2026_09_06_220000_add_product_expiry_date` | Bought product pack `expiry_date` |
+| `2026_09_06_230000_add_wasted_at_to_product_stock_transactions` | Mark wasted receipt lots on Returns |
+| `2026_09_06_240000_seed_product_shelf_life_month_options` | Idempotent 3/4 Months shelf options |
+| `2026_09_06_250000_add_pos_defaults_to_branches` | Per-branch POS discount/tax columns |
 
 Also still required if never applied: `2026_08_14_163600_make_product_number_unique_per_organization`, `2026_08_30_200000_update_material_withdrawal_labels`.
 
@@ -296,6 +303,16 @@ String roles on users (`admin` / `superadmin`, `warehouse`, branch) plus Profile
 Prefer existing bakery helpers (`success`, `error`, `paginated` via `ResultTrait`). Keep HTTP/status conventions consistent with surrounding controllers. Do not invent a second response shape.
 
 ## 13. Changelog (agent reference)
+
+### 2026-09-06
+
+| Area | Change |
+|------|--------|
+| **Branch POS defaults** | `pos_discount_amount` / `pos_tax_percent` on `branches`. `GET\|PUT Branch/{id}/pos-settings`. Migration `2026_09_06_250000_add_pos_defaults_to_branches`. |
+| **Dashboard Returns** | KPI from `sales_returns.total_return_value` (not daily-report waste). |
+| **Shelf life** | Strict Expired+Fresh; FIFO expired qty; bought `expiry_date`; receipt `wasted_at`; Product list branch stock overlay. |
+| **Audit** | Audit log API maps `event_type` + `changes` + actor. |
+| **Migrations** | `190000`–`250000` Sept 6 set (expiry, tier, wasted_at, shelf seed, POS defaults). |
 
 ### 2026-09-04
 

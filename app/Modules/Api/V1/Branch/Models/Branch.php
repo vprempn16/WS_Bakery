@@ -14,6 +14,11 @@ class Branch extends BKModel
 
     protected $guarded = [];
 
+    protected $casts = [
+        'pos_discount_amount' => 'decimal:2',
+        'pos_tax_percent' => 'decimal:2',
+    ];
+
     public function organization()
     {
         return $this->belongsTo(Organization::class);
