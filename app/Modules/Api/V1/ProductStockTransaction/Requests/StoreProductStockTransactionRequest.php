@@ -17,6 +17,7 @@ class StoreProductStockTransactionRequest extends FormRequest
             'data.values.productId' => ['required', 'string', 'exists:products,id'],
             'data.values.type' => ['required', 'in:in'],
             'data.values.quantity' => ['required', 'numeric', 'min:0.01'],
+            'data.values.expiryDate' => ['nullable', 'date'],
             'data.values.referenceNote' => ['nullable', 'string', 'max:255'],
         ];
     }

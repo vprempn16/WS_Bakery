@@ -23,6 +23,21 @@ class ProductResource extends JsonResource
         ) {
             $data['earliestExpiry'] = $this->resource->earliest_expiry_computed;
         }
+        if (array_key_exists('expired_qty_computed', $this->resource->getAttributes())
+            || isset($this->resource->expired_qty_computed)
+        ) {
+            $data['expiredQty'] = (float) $this->resource->expired_qty_computed;
+        }
+        if (array_key_exists('has_fresh_lot_computed', $this->resource->getAttributes())
+            || isset($this->resource->has_fresh_lot_computed)
+        ) {
+            $data['hasFreshLot'] = (bool) $this->resource->has_fresh_lot_computed;
+        }
+        if (array_key_exists('warehouse_stock_computed', $this->resource->getAttributes())
+            || isset($this->resource->warehouse_stock_computed)
+        ) {
+            $data['warehouseStock'] = (float) $this->resource->warehouse_stock_computed;
+        }
 
         return $data;
     }

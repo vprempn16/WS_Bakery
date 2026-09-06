@@ -93,6 +93,7 @@ class ProductStockTransactionController extends Controller
                     'product_id' => $product->id,
                     'type' => $type,
                     'quantity' => $qty,
+                    'expiry_date' => $values['expiryDate'] ?? null,
                     'reference_note' => $values['referenceNote'] ?? null,
                     'created_by' => $userId,
                 ]);

@@ -18,6 +18,7 @@ class ProductStockTransactionResource extends JsonResource
             'unit' => $this->product ? $this->product->unit : null,
             'type' => $this->type,
             'quantity' => (float) $this->quantity,
+            'expiryDate' => $this->expiry_date ? $this->expiry_date->format('Y-m-d') : null,
             'referenceNote' => $this->reference_note,
             'createdAt' => $this->created_at,
         ];

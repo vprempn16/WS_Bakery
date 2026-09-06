@@ -70,7 +70,7 @@ class ExpiryReportController extends Controller
                 'id' => $batch->id,
                 'batchNumber' => $batch->batch_number,
                 'productName' => $batch->product ? $batch->product->name : 'Unknown',
-                'tier' => $batch->product ? $batch->product->tier : 'N/A',
+                'shelfLife' => $batch->product ? $batch->product->shelf_life : null,
                 'quantityProduced' => (float) $batch->quantity_produced,
                 'productionDate' => $batch->production_date ? $batch->production_date->format('Y-m-d') : null,
                 'expiryTimestamp' => $expiry ? $expiry->format('Y-m-d H:i:s') : null,

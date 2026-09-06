@@ -4,7 +4,9 @@ namespace App\Modules\Api\V1\Product\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\FieldModelManager;
+use App\Modules\Api\V1\Branch\Models\Branch;
 use App\Modules\Api\V1\BranchSales\Models\BranchDailyReportItem;
+use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\Product\Requests\StoreProductRequest;
 use App\Modules\Api\V1\Product\Requests\UpdateProductRequest;
@@ -14,6 +16,7 @@ use App\Modules\Api\V1\SavedFilter\Models\SavedFilter;
 use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Modules\Api\V1\SavedFilter\Services\QueryFilterService;
 use App\Services\AuthUser;
+use App\Services\BranchAccess;
 use App\Services\CRM\RecordObject;
 use App\Services\ShelfLifeStatusService;
 use Carbon\Carbon;
@@ -91,13 +94,55 @@ class ProductController extends Controller
             }
         });
 
-        $query->when($request->query('stockStatus'), function ($q, $stockStatus) {
-            if ($stockStatus === 'out_of_stock') {
-                $q->where('current_stock', 0);
-            } elseif ($stockStatus === 'in_stock') {
-                $q->where('current_stock', '>', 0);
+        // When a retail branch is selected, Current Stock on the Product list = branch stock.
+        $branchId = null;
+        $useBranchStock = false;
+        try {
+            $branchId = BranchAccess::resolveBranchIdFromRequest($request, $user);
+            if ($branchId) {
+                BranchAccess::assertCanAccessBranch($user, (string) $branchId);
+                $isWarehouse = Branch::query()
+                    ->where('organization_id', $orgId)
+                    ->where('id', $branchId)
+                    ->whereRaw('LOWER(type) = ?', ['warehouse'])
+                    ->exists();
+                $useBranchStock = ! $isWarehouse;
             }
-        });
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
+        }
+
+        $stockStatus = $request->query('stockStatus');
+        if ($useBranchStock && $branchId && in_array($stockStatus, ['out_of_stock', 'in_stock'], true)) {
+            $query->where(function ($q) use ($orgId, $branchId, $stockStatus) {
+                $op = $stockStatus === 'out_of_stock' ? '<=' : '>';
+                $q->whereExists(function ($sub) use ($orgId, $branchId, $op) {
+                    $sub->selectRaw('1')
+                        ->from('branch_stocks')
+                        ->whereColumn('branch_stocks.product_id', 'products.id')
+                        ->where('branch_stocks.organization_id', $orgId)
+                        ->where('branch_stocks.branch_id', $branchId)
+                        ->where('branch_stocks.current_stock', $op, 0);
+                });
+                if ($stockStatus === 'out_of_stock') {
+                    $q->orWhereNotExists(function ($sub) use ($orgId, $branchId) {
+                        $sub->selectRaw('1')
+                            ->from('branch_stocks')
+                            ->whereColumn('branch_stocks.product_id', 'products.id')
+                            ->where('branch_stocks.organization_id', $orgId)
+                            ->where('branch_stocks.branch_id', $branchId);
+                    });
+                }
+            });
+        } else {
+            $query->when($stockStatus, function ($q, $status) {
+                if ($status === 'out_of_stock') {
+                    $q->where('current_stock', 0);
+                } elseif ($status === 'in_stock') {
+                    $q->where('current_stock', '>', 0);
+                }
+            });
+        }
 
         if ($request->has('savedFilterId')) {
             $savedFilter = SavedFilter::where('organization_id', $orgId)
@@ -118,12 +163,38 @@ class ProductController extends Controller
         $products = $query->paginate($perPage);
 
         $productIds = $products->getCollection()->pluck('id')->filter()->values()->all();
-        $shelfMap = ShelfLifeStatusService::statusForProducts((string) $orgId, $productIds);
+        $branchStockByProduct = [];
+        if ($useBranchStock && $branchId && $productIds !== []) {
+            $branchStockByProduct = BranchStock::query()
+                ->where('organization_id', $orgId)
+                ->where('branch_id', $branchId)
+                ->whereIn('product_id', $productIds)
+                ->pluck('current_stock', 'product_id')
+                ->map(fn ($qty) => (float) $qty)
+                ->all();
+        }
 
-        $products->getCollection()->transform(function ($row) use ($shelfMap) {
+        $shelfStockGate = $useBranchStock
+            ? collect($productIds)->mapWithKeys(fn ($id) => [
+                (string) $id => (float) ($branchStockByProduct[(string) $id] ?? $branchStockByProduct[$id] ?? 0),
+            ])->all()
+            : [];
+
+        $shelfMap = ShelfLifeStatusService::statusForProducts((string) $orgId, $productIds, $shelfStockGate);
+
+        $products->getCollection()->transform(function ($row) use ($shelfMap, $useBranchStock, $branchStockByProduct) {
             $info = $shelfMap[(string) $row->id] ?? null;
             $row->setAttribute('shelf_status_computed', $info['shelfStatus'] ?? null);
             $row->setAttribute('earliest_expiry_computed', $info['earliestExpiry'] ?? null);
+            $row->setAttribute('expired_qty_computed', $info['expiredQty'] ?? 0);
+            $row->setAttribute('has_fresh_lot_computed', $info['hasFreshLot'] ?? false);
+
+            if ($useBranchStock) {
+                $pid = (string) $row->id;
+                $branchQty = (float) ($branchStockByProduct[$pid] ?? $branchStockByProduct[$row->id] ?? 0);
+                $row->setAttribute('warehouse_stock_computed', (float) ($row->current_stock ?? 0));
+                $row->current_stock = $branchQty;
+            }
 
             return $row;
         });
@@ -197,6 +268,8 @@ class ProductController extends Controller
             $info = $shelfMap[(string) $product->id] ?? null;
             $product->setAttribute('shelf_status_computed', $info['shelfStatus'] ?? null);
             $product->setAttribute('earliest_expiry_computed', $info['earliestExpiry'] ?? null);
+            $product->setAttribute('expired_qty_computed', $info['expiredQty'] ?? 0);
+            $product->setAttribute('has_fresh_lot_computed', $info['hasFreshLot'] ?? false);
 
             $resource = new ProductResource($product);
             $fieldList = FieldModelManager::make('Product', 'DetailView', false)->getApiFormFields();

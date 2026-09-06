@@ -15,6 +15,7 @@ use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Modules\Api\V1\SavedFilter\Services\QueryFilterService;
 use App\Services\BranchAccess;
 use App\Services\PermissionService;
+use App\Services\ShelfLifeStatusService;
 use App\Support\ApiPagination;
 use App\Support\Idempotency;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -191,6 +192,15 @@ class SalesReturnController extends Controller
 
                 // Wastage: deduct branch stock (never add back)
                 app(BillingStockService::class)->deductForSale($orgId, (string) $branchId, $stockItems);
+
+                // Clear expired lot badges for returned quantities (own batches + bought receipts)
+                foreach ($stockItems as $stockItem) {
+                    ShelfLifeStatusService::markExpiredLotsWasted(
+                        (string) $orgId,
+                        (string) $stockItem['productId'],
+                        (float) $stockItem['quantity']
+                    );
+                }
 
                 $record = $record->load(['branch', 'items.product'])->loadCount('items');
 

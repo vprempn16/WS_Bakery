@@ -143,6 +143,7 @@ class ModuleFieldConfig
                 ],
             ],
             ['fieldname' => 'quantity', 'fieldlabel' => 'Quantity', 'fieldtype' => 'decimal', 'displaytype' => 1, 'mandatory' => 1],
+            ['fieldname' => 'expiryDate', 'fieldlabel' => 'Expiry Date', 'fieldtype' => 'date', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'unit', 'fieldlabel' => 'Unit', 'fieldtype' => 'text', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'referenceNote', 'fieldlabel' => 'Reference Note', 'fieldtype' => 'textarea', 'displaytype' => 1, 'mandatory' => 0],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
@@ -224,7 +225,16 @@ class ModuleFieldConfig
                     ['value' => '168', 'label' => '7 Days (1 Week)'],
                     ['value' => '336', 'label' => '14 Days'],
                     ['value' => '720', 'label' => '30 Days'],
+                    ['value' => '2160', 'label' => '3 Months'],
+                    ['value' => '2880', 'label' => '4 Months'],
                 ],
+            ],
+            [
+                'fieldname' => 'expiryDate',
+                'fieldlabel' => 'Expired Date',
+                'fieldtype' => 'date',
+                'displaytype' => 1,
+                'mandatory' => 0,
             ],
             [
                 'fieldname' => 'shelfStatus',
@@ -233,18 +243,6 @@ class ModuleFieldConfig
                 // API-only: list shows badge beside Shelf Life, not a separate column
                 'displaytype' => 2,
                 'mandatory' => 0,
-            ],
-            [
-                'fieldname' => 'tier',
-                'fieldlabel' => 'Tier',
-                'fieldtype' => 'picklist',
-                'displaytype' => 1,
-                'mandatory' => 0,
-                'options' => [
-                    ['value' => 'tier_1', 'label' => 'Tier 1 (Hours)'],
-                    ['value' => 'tier_2', 'label' => 'Tier 2 (Days)'],
-                    ['value' => 'tier_3', 'label' => 'Tier 3 (Custom)'],
-                ],
             ],
             ['fieldname' => 'currentStock', 'fieldlabel' => 'Current Stock', 'fieldtype' => 'decimal', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
