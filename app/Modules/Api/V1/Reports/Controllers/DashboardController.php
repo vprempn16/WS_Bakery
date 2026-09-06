@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Modules\Api\V1\Billing\Models\Billing;
 use App\Modules\Api\V1\Billing\Models\BillingItem;
 use App\Modules\Api\V1\Branch\Models\Branch;
-use App\Modules\Api\V1\BranchSales\Models\BranchDailyReport;
 use App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch;
+use App\Modules\Api\V1\SalesReturn\Models\SalesReturn;
 use App\Services\BranchAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -63,13 +63,14 @@ class DashboardController extends Controller
         }
         $salesTotal = (float) $salesQuery->sum('grand_total');
 
-        $returnsQuery = BranchDailyReport::where('organization_id', $orgId)
-            ->whereDate('report_date', '>=', $rangeStart)
-            ->whereDate('report_date', '<=', $today);
+        // Returns KPI = SalesReturn loss value (not BranchDailyReport waste, which is report-only / often 0).
+        $returnsQuery = SalesReturn::where('organization_id', $orgId)
+            ->whereDate('return_date', '>=', $rangeStart)
+            ->whereDate('return_date', '<=', $today);
         if ($branchId) {
             $returnsQuery->where('branch_id', $branchId);
         }
-        $returnsTotal = (float) $returnsQuery->sum('total_waste_amount');
+        $returnsTotal = (float) $returnsQuery->sum('total_return_value');
 
         $productionQuery = ProductionBatch::where('organization_id', $orgId)
             ->whereDate('production_date', '>=', $rangeStart)

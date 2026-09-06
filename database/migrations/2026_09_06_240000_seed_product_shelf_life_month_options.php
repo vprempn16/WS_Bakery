@@ -1,23 +1,16 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
+/**
+ * Re-seed 3/4 month shelf-life options if the earlier migration used wrong modulename.
+ */
 return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('product_stock_transactions') && ! Schema::hasColumn('product_stock_transactions', 'expiry_date')) {
-            Schema::table('product_stock_transactions', function (Blueprint $table) {
-                $table->date('expiry_date')->nullable()->after('quantity');
-            });
-        }
-
-        // Seed 3 Months / 4 Months shelf life picklist values for Product.shelfLife
-        // CRM modulename is "Product" (singular), not "products".
         $fieldIds = DB::table('crm_fields')
             ->where('modulename', 'Product')
             ->where(function ($q) {
@@ -57,10 +50,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (Schema::hasTable('product_stock_transactions') && Schema::hasColumn('product_stock_transactions', 'expiry_date')) {
-            Schema::table('product_stock_transactions', function (Blueprint $table) {
-                $table->dropColumn('expiry_date');
-            });
-        }
+        // Keep options; safe no-op
     }
 };

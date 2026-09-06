@@ -175,7 +175,7 @@ class GlobalAuditLogController extends Controller
                     'old_values' => $log->old_values,
                     'new_values' => $log->new_values,
                     'changes' => $changes,
-                    'timestamp' => $log->created_at?->format('Y-m-d H:i:s'),
+                    'timestamp' => $log->created_at?->toIso8601String(),
                 ];
             });
 

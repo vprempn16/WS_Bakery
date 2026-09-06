@@ -144,7 +144,8 @@ class ShelfLifeStatusService
                 $expiry = Carbon::parse($product->expiry_date)->endOfDay();
                 $hasReceiptLots = ($receipts && $receipts->count() > 0);
                 if (! $hasReceiptLots) {
-                    $qty = max(0.0, (float) ($product->current_stock ?? 0));
+                    // Prefer branch/on-hand gate stock when provided (POS / branch list).
+                    $qty = max(0.0, (float) $stock);
                     $lot = ['expiry' => $expiry, 'qty' => $qty > 0 ? $qty : 1.0];
                     if ($expiry->isPast()) {
                         $pastLots[] = $lot;
@@ -156,20 +157,20 @@ class ShelfLifeStatusService
                     // if receipts already contribute; only add if no past receipt yet
                     $hasPastReceipt = collect($pastLots)->isNotEmpty();
                     if (! $hasPastReceipt) {
-                        $pastLots[] = ['expiry' => $expiry, 'qty' => max(0.0, (float) ($product->current_stock ?? 0))];
+                        $pastLots[] = ['expiry' => $expiry, 'qty' => max(0.0, (float) $stock)];
                     }
                 }
             }
 
             $pastSum = round(array_sum(array_column($pastLots, 'qty')), 2);
             $freshSum = round(array_sum(array_column($futureLots, 'qty')), 2);
-            // Expired · N = open expired stock only. Do not let new fresh receipts inflate
-            // the badge (e.g. past lots 60 + add 10 fresh → stock 70 must stay Expired · 60).
+            // FIFO remaining: treat freshest produced as still on hand first, then attribute
+            // leftover stock to expired lots. Caps prevent fresh receipts from inflating Expired · N.
             if ($stock <= 0) {
                 $expiredQty = 0.0;
             } else {
-                $openExpiredCapacity = max(0.0, round($stock - $freshSum, 2));
-                $expiredQty = round(min($pastSum, $openExpiredCapacity), 2);
+                $freshOnHand = min($freshSum, $stock);
+                $expiredQty = round(min($pastSum, max(0.0, $stock - $freshOnHand)), 2);
             }
             $hasFreshLot = count($futureLots) > 0;
             $hasPastLot = count($pastLots) > 0;

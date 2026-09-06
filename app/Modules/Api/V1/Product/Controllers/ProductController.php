@@ -144,10 +144,14 @@ class ProductController extends Controller
             });
         }
 
+        $branchStockContext = ($useBranchStock && $branchId)
+            ? ['orgId' => (string) $orgId, 'branchId' => (string) $branchId]
+            : null;
+
         if ($request->has('savedFilterId')) {
             $savedFilter = SavedFilter::where('organization_id', $orgId)
                 ->findOrFail($request->query('savedFilterId'));
-            QueryFilterService::apply($query, 'products', $savedFilter->rules);
+            QueryFilterService::apply($query, 'products', $savedFilter->rules, $branchStockContext);
         }
 
         if ($request->has('rules')) {
@@ -156,7 +160,7 @@ class ProductController extends Controller
                 $rules = json_decode($rules, true);
             }
             if (is_array($rules)) {
-                QueryFilterService::apply($query, 'products', $rules);
+                QueryFilterService::apply($query, 'products', $rules, $branchStockContext);
             }
         }
 
@@ -257,19 +261,48 @@ class ProductController extends Controller
         }
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         try {
             /** @var Product $product */
             $product = RecordObject::make('Product', $id, [], 'DetailView');
 
             $orgId = (string) (AuthUser::organizationId() ?? $product->organization_id);
-            $shelfMap = ShelfLifeStatusService::statusForProducts($orgId, [(string) $product->id]);
+            $user = AuthUser::requireUser();
+            $branchId = BranchAccess::resolveBranchIdFromRequest($request, $user);
+            $useBranchStock = false;
+            $branchQty = null;
+            if ($branchId) {
+                BranchAccess::assertCanAccessBranch($user, (string) $branchId);
+                $isWarehouse = Branch::query()
+                    ->where('organization_id', $orgId)
+                    ->where('id', $branchId)
+                    ->whereRaw('LOWER(type) = ?', ['warehouse'])
+                    ->exists();
+                $useBranchStock = ! $isWarehouse;
+                if ($useBranchStock) {
+                    $branchQty = (float) (BranchStock::query()
+                        ->where('organization_id', $orgId)
+                        ->where('branch_id', $branchId)
+                        ->where('product_id', $product->id)
+                        ->value('current_stock') ?? 0);
+                }
+            }
+
+            $shelfGate = $useBranchStock
+                ? [(string) $product->id => (float) $branchQty]
+                : [];
+            $shelfMap = ShelfLifeStatusService::statusForProducts($orgId, [(string) $product->id], $shelfGate);
             $info = $shelfMap[(string) $product->id] ?? null;
             $product->setAttribute('shelf_status_computed', $info['shelfStatus'] ?? null);
             $product->setAttribute('earliest_expiry_computed', $info['earliestExpiry'] ?? null);
             $product->setAttribute('expired_qty_computed', $info['expiredQty'] ?? 0);
             $product->setAttribute('has_fresh_lot_computed', $info['hasFreshLot'] ?? false);
+
+            if ($useBranchStock) {
+                $product->setAttribute('warehouse_stock_computed', (float) ($product->current_stock ?? 0));
+                $product->current_stock = (float) $branchQty;
+            }
 
             $resource = new ProductResource($product);
             $fieldList = FieldModelManager::make('Product', 'DetailView', false)->getApiFormFields();
@@ -280,6 +313,8 @@ class ProductController extends Controller
             ]);
         } catch (ModelNotFoundException $e) {
             return $this->error('Product not found.', null, null, null, 404);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), null, null, null, 403);
         }
