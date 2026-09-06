@@ -71,12 +71,12 @@ class QueryFilterService
     /**
      * Apply rules dynamically to an Eloquent query builder.
      *
-     * @param Builder $query
-     * @param string $module
-     * @param array $rules
+     * @param  array{orgId: string, branchId: string}|null  $branchStockContext
+     *         When set for products, currentStock filters use branch_stocks for that branch.
+     *
      * @throws ValidationException
      */
-    public static function apply(Builder $query, string $module, array $rules): void
+    public static function apply(Builder $query, string $module, array $rules, ?array $branchStockContext = null): void
     {
         $logicalOperator = strtolower($rules['logical_operator'] ?? 'and');
         $conditions = $rules['conditions'] ?? [];
@@ -85,7 +85,7 @@ class QueryFilterService
             return;
         }
 
-        $query->where(function ($subQuery) use ($module, $conditions, $logicalOperator) {
+        $query->where(function ($subQuery) use ($module, $conditions, $logicalOperator, $branchStockContext) {
             foreach ($conditions as $condition) {
                 $clientField = $condition['field'] ?? null;
                 $operator = $condition['operator'] ?? null;
@@ -104,6 +104,38 @@ class QueryFilterService
                     throw ValidationException::withMessages([
                         'rules' => ["Operator '{$operator}' is not allowed."]
                     ]);
+                }
+
+                // Branch-scoped product stock: filter on branch_stocks, not warehouse products.current_stock
+                if (
+                    $module === 'products'
+                    && $branchStockContext
+                    && in_array($clientField, ['currentStock', 'current_stock'], true)
+                    && ! empty($branchStockContext['orgId'])
+                    && ! empty($branchStockContext['branchId'])
+                ) {
+                    $expr = 'COALESCE((SELECT bs.current_stock FROM branch_stocks bs WHERE bs.product_id = products.id AND bs.organization_id = ? AND bs.branch_id = ? LIMIT 1), 0)';
+                    $bindings = [(string) $branchStockContext['orgId'], (string) $branchStockContext['branchId']];
+                    if (strtolower((string) $operator) === 'in') {
+                        $vals = is_array($value) ? $value : [$value];
+                        $placeholders = implode(',', array_fill(0, count($vals), '?'));
+                        $sql = "{$expr} IN ({$placeholders})";
+                        $bindings = array_merge($bindings, $vals);
+                        if ($logicalOperator === 'or') {
+                            $subQuery->orWhereRaw($sql, $bindings);
+                        } else {
+                            $subQuery->whereRaw($sql, $bindings);
+                        }
+                    } else {
+                        $sql = "{$expr} {$operator} ?";
+                        $bindings[] = $value;
+                        if ($logicalOperator === 'or') {
+                            $subQuery->orWhereRaw($sql, $bindings);
+                        } else {
+                            $subQuery->whereRaw($sql, $bindings);
+                        }
+                    }
+                    continue;
                 }
 
                 // 3. Formulate the method and apply to query builder
