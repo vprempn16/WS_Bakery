@@ -55,6 +55,8 @@ class QueryFilterService
             'unit' => 'unit',
             'shelfLife' => 'shelf_life',
             'shelf_life' => 'shelf_life',
+            'expiryDate' => 'expiry_date',
+            'expiry_date' => 'expiry_date',
             'currentStock' => 'current_stock',
             'current_stock' => 'current_stock',
             'createdAt' => 'created_at',

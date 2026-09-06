@@ -704,6 +704,8 @@ class BillingController extends Controller
                 'currentStock' => (float) ($stockByProduct[$item->id] ?? 0),
                 'shelfStatus' => $shelf['shelfStatus'] ?? null,
                 'earliestExpiry' => $shelf['earliestExpiry'] ?? null,
+                'expiredQty' => (float) ($shelf['expiredQty'] ?? 0),
+                'hasFreshLot' => (bool) ($shelf['hasFreshLot'] ?? false),
                 'product_image' => $imageUrl,
                 'productImage' => $imageUrl,
                 'image_url' => $imageUrl,

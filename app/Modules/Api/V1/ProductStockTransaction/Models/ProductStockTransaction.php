@@ -18,8 +18,16 @@ class ProductStockTransaction extends Model
         'product_id',
         'type',
         'quantity',
+        'expiry_date',
+        'wasted_at',
         'reference_note',
         'created_by',
+    ];
+
+    protected $casts = [
+        'expiry_date' => 'date',
+        'wasted_at' => 'datetime',
+        'quantity' => 'decimal:2',
     ];
 
     public function organization()

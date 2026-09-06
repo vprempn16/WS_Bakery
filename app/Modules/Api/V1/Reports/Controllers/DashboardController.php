@@ -23,7 +23,22 @@ class DashboardController extends Controller
         }
 
         $orgId = $user->organization_id;
+        $period = strtolower((string) $request->query('period', 'day'));
+        if (! in_array($period, ['day', 'week', 'month'], true)) {
+            $period = 'day';
+        }
+
         $today = Carbon::today();
+        if ($period === 'week') {
+            $rangeStart = $today->copy()->subDays(6);
+            $trendDays = 7;
+        } elseif ($period === 'month') {
+            $rangeStart = $today->copy()->subDays(29);
+            $trendDays = 30;
+        } else {
+            $rangeStart = $today->copy();
+            $trendDays = 1;
+        }
 
         $branchId = BranchAccess::resolveBranchIdFromRequest($request, $user);
         if ($branchId) {
@@ -33,40 +48,40 @@ class DashboardController extends Controller
                 return $this->error($e->getMessage(), null, null, null, 403);
             }
 
-            // Extra org check (BranchAccess already scopes admin to org branches)
             $exists = Branch::where('organization_id', $orgId)->where('id', $branchId)->exists();
             if (! $exists) {
                 return $this->error('Branch not found in this organization.', null, null, null, 403);
             }
         }
 
-        // POS Billing is the sales source of truth (optionally branch-scoped)
         $salesQuery = Billing::where('organization_id', $orgId)
-            ->whereDate('billing_date', $today)
+            ->whereDate('billing_date', '>=', $rangeStart)
+            ->whereDate('billing_date', '<=', $today)
             ->whereRaw('LOWER(payment_status) = ?', ['paid']);
         if ($branchId) {
             $salesQuery->where('branch_id', $branchId);
         }
-        $salesToday = (float) $salesQuery->sum('grand_total');
+        $salesTotal = (float) $salesQuery->sum('grand_total');
 
-        $wasteQuery = BranchDailyReport::where('organization_id', $orgId)
-            ->whereDate('report_date', $today);
+        $returnsQuery = BranchDailyReport::where('organization_id', $orgId)
+            ->whereDate('report_date', '>=', $rangeStart)
+            ->whereDate('report_date', '<=', $today);
         if ($branchId) {
-            $wasteQuery->where('branch_id', $branchId);
+            $returnsQuery->where('branch_id', $branchId);
         }
-        $wasteToday = (float) $wasteQuery->sum('total_waste_amount');
+        $returnsTotal = (float) $returnsQuery->sum('total_waste_amount');
 
-        // Production is warehouse/org-level (not per retail branch)
-        $productionToday = ProductionBatch::where('organization_id', $orgId)
-            ->whereDate('production_date', $today)
+        $productionQuery = ProductionBatch::where('organization_id', $orgId)
+            ->whereDate('production_date', '>=', $rangeStart)
+            ->whereDate('production_date', '<=', $today)
             ->where(function ($q) {
                 $q->whereNull('status')->orWhereRaw('LOWER(status) != ?', ['cancelled']);
-            })
-            ->count();
+            });
+        $productionCount = $productionQuery->count();
 
-        $sevenDaysAgo = Carbon::today()->subDays(6);
         $trendQuery = Billing::where('organization_id', $orgId)
-            ->whereDate('billing_date', '>=', $sevenDaysAgo)
+            ->whereDate('billing_date', '>=', $rangeStart)
+            ->whereDate('billing_date', '<=', $today)
             ->whereRaw('LOWER(payment_status) = ?', ['paid']);
         if ($branchId) {
             $trendQuery->where('branch_id', $branchId);
@@ -78,8 +93,8 @@ class DashboardController extends Controller
             ->get();
 
         $trendData = [];
-        for ($i = 0; $i < 7; $i++) {
-            $dateStr = $sevenDaysAgo->copy()->addDays($i)->format('Y-m-d');
+        for ($i = 0; $i < $trendDays; $i++) {
+            $dateStr = $rangeStart->copy()->addDays($i)->format('Y-m-d');
             $found = $salesTrend->firstWhere('date', $dateStr);
             $trendData[] = [
                 'date' => $dateStr,
@@ -105,12 +120,18 @@ class DashboardController extends Controller
             ->get();
 
         return $this->success([
+            'period' => $period,
             'kpis' => [
-                'salesToday' => $salesToday,
-                'wasteToday' => $wasteToday,
-                'productionBatchesToday' => $productionToday,
+                'salesTotal' => $salesTotal,
+                'salesToday' => $salesTotal,
+                'returnsTotal' => $returnsTotal,
+                'wasteToday' => $returnsTotal,
+                'returnsToday' => $returnsTotal,
+                'productionBatches' => $productionCount,
+                'productionBatchesToday' => $productionCount,
             ],
             'branchId' => $branchId ? (string) $branchId : null,
+            'salesTrend' => $trendData,
             'salesTrend7Days' => $trendData,
             'topProducts30Days' => $topProducts->map(function ($item) {
                 return [

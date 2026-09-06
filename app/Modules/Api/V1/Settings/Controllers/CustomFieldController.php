@@ -205,11 +205,23 @@ class CustomFieldController extends Controller
 
             if ($isPicklist) {
                 foreach ($data['options'] ?? [] as $i => $opt) {
+                    $labelOpt = trim((string) ($opt['label'] ?? ''));
+                    $valueOpt = isset($opt['value']) ? trim((string) $opt['value']) : '';
+                    if ($labelOpt === '') {
+                        DB::rollBack();
+                        return $this->error('Each option needs a label', null, null, null, 400);
+                    }
+                    // Custom fields named like shelf_life still need hours if label says shelf life;
+                    // for create we only slug unless value is provided as hours.
+                    if ($valueOpt === '') {
+                        $valueOpt = Str::slug($labelOpt, '_');
+                    }
+
                     DB::table('picklist_values')->insert([
                         'id' => (string) Str::uuid(),
                         'field_id' => $fieldId,
-                        'label' => $opt['label'],
-                        'value' => $opt['value'] ?? Str::slug($opt['label'], '_'),
+                        'label' => $labelOpt,
+                        'value' => $valueOpt,
                         'sort_order' => $i + 1,
                         'status' => 1,
                         'created_at' => now(),
@@ -368,12 +380,69 @@ class CustomFieldController extends Controller
                 );
             }
 
+            // Allow add/remove picklist options without changing field label/type.
+            if (in_array($field->fieldtype, ['picklist', 'multiselect'], true) && array_key_exists('options', $data)) {
+                $options = $data['options'];
+                if (! is_array($options)) {
+                    DB::rollBack();
+                    return $this->error('Options must be an array', null, null, null, 400);
+                }
+                if (count($options) === 0) {
+                    DB::rollBack();
+                    return $this->error('At least one option is required for picklist / multi select', null, null, null, 400);
+                }
+
+                DB::table('picklist_values')->where('field_id', $field->id)->delete();
+                $isShelfLife = strtolower((string) $field->fieldname) === 'shelflife'
+                    || str_contains(strtolower((string) $field->fieldlabel), 'shelf life');
+
+                foreach (array_values($options) as $i => $opt) {
+                    $labelOpt = is_array($opt) ? ($opt['label'] ?? '') : (string) $opt;
+                    $valueOpt = is_array($opt) ? ($opt['value'] ?? null) : null;
+                    $labelOpt = trim((string) $labelOpt);
+                    if ($labelOpt === '') {
+                        DB::rollBack();
+                        return $this->error('Each option needs a label', null, null, null, 400);
+                    }
+
+                    if ($isShelfLife) {
+                        $hours = trim((string) ($valueOpt ?? ''));
+                        if ($hours === '' || ! ctype_digit($hours) || (int) $hours < 1) {
+                            DB::rollBack();
+                            return $this->error(
+                                'Shelf Life options need a whole-number hours value (e.g. 720 for 1 month). Do not use the label as the value.',
+                                null,
+                                null,
+                                null,
+                                400
+                            );
+                        }
+                        $valueOpt = $hours;
+                    } else {
+                        $valueOpt = $valueOpt !== null && trim((string) $valueOpt) !== ''
+                            ? trim((string) $valueOpt)
+                            : Str::slug($labelOpt, '_');
+                    }
+
+                    DB::table('picklist_values')->insert([
+                        'id' => (string) Str::uuid(),
+                        'field_id' => $field->id,
+                        'label' => $labelOpt,
+                        'value' => $valueOpt,
+                        'sort_order' => $i + 1,
+                        'status' => 1,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
             DB::commit();
 
             return $this->success([
-                'message' => 'Field label updated successfully',
+                'message' => 'Field updated successfully',
                 'field_id' => $field->id,
-            ], 'Field label updated successfully');
+            ], 'Field updated successfully');
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('CUSTOM_FIELD_UPDATE_LABEL_ERROR', ['error' => $e->getMessage()]);

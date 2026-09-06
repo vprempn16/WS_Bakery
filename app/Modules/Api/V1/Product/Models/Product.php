@@ -24,6 +24,7 @@ class Product extends \App\Models\BKModel
 
     protected $casts = [
         'shelf_life' => 'integer',
+        'expiry_date' => 'date',
     ];
 
     public function isSellable(): bool
@@ -63,6 +64,12 @@ class Product extends \App\Models\BKModel
             if ($product->product_source !== null && $product->product_source !== '') {
                 $src = strtolower(trim((string) $product->product_source));
                 $product->product_source = in_array($src, ['own', 'bought'], true) ? $src : 'own';
+            }
+
+            if ($product->isBought()) {
+                $product->shelf_life = null;
+            } else {
+                $product->expiry_date = null;
             }
 
             if ($product->unit !== null && $product->unit !== '') {

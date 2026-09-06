@@ -23,11 +23,11 @@ class UpdateProductRequest extends FormRequest
             'data.values.productImage' => ['nullable'],
             'data.values.price' => ['nullable', 'numeric', 'min:0'],
             'data.values.unit' => ['required', 'string', 'in:gm,pcs,ml'],
-            'data.values.category' => ['nullable', 'string', 'in:bread,sweet,cake,snack,spices,beverage,biscuit,chocolate,other'],
+            'data.values.category' => ['nullable', 'string', 'max:100'],
             'data.values.status' => ['nullable', 'string', 'in:active,inactive'],
             'data.values.productSource' => ['nullable', 'string', 'in:own,bought'],
-            'data.values.shelfLife' => ['nullable', 'integer', 'in:6,12,24,48,72,120,168,336,720'],
-            'data.values.tier' => ['nullable', 'string', 'in:tier_1,tier_2,tier_3'],
+            'data.values.shelfLife' => ['nullable', 'integer', 'min:1', 'max:87600'],
+            'data.values.expiryDate' => ['nullable', 'date'],
         ];
     }
 
