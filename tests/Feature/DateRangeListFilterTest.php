@@ -93,6 +93,7 @@ class DateRangeListFilterTest extends TestCase
     public function test_branch_stock_date_from_to_filters_updated_at(): void
     {
         Sanctum::actingAs($this->admin);
+        BranchStock::where('organization_id', $this->org->id)->update(['updated_at' => Carbon::now()->subDays(10)]);
 
         $fresh = BranchStock::create([
             'organization_id' => $this->org->id,
@@ -116,7 +117,7 @@ class DateRangeListFilterTest extends TestCase
             'product_id' => $staleProduct->id,
             'current_stock' => 3,
         ]);
-        BranchStock::where('id', $stale->id)->update([
+        BranchStock::where('product_id', $staleProduct->id)->update([
             'updated_at' => Carbon::now()->subDays(10),
         ]);
 

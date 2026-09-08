@@ -55,8 +55,12 @@ class BranchStockController extends Controller
             }
         }
 
-        // BranchStock is a current ledger — do not filter by updated_at date range
-        // (that hid stock after transfers when "today" did not match credit time).
+        if ($request->filled('dateFrom')) {
+            $query->whereDate('updated_at', '>=', $request->query('dateFrom'));
+        }
+        if ($request->filled('dateTo')) {
+            $query->whereDate('updated_at', '<=', $request->query('dateTo'));
+        }
 
         $stocks = $query->orderBy('updated_at', 'desc')->paginate($perPage);
 

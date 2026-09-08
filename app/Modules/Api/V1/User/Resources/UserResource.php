@@ -45,6 +45,7 @@ class UserResource extends JsonResource
             'role' => $this->role,
             'roleId' => $settingsRole?->id,
             'roleId_label' => $settingsRole?->name,
+            'role_label' => $settingsRole?->name ?? ($this->resource->isFullAdmin() ? ($this->role === 'superadmin' ? 'Super Admin' : 'Admin') : 'Staff'),
             // is_admin = full admin flag; status/is_active = account active (checkbox).
             'is_admin' => $this->resource->isFullAdmin(),
             'is_active' => $isActive,

@@ -95,7 +95,7 @@ class SalesReturnController extends Controller
 
         [$lock, $cacheKey, $early] = Idempotency::begin(
             'sales-return:create',
-            $request->header('Idempotency-Key'),
+            $request->header('Idempotency-Key') ?: (string) \Illuminate\Support\Str::uuid(),
             true
         );
         if ($early) {
