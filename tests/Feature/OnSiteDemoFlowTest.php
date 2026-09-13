@@ -140,6 +140,7 @@ class OnSiteDemoFlowTest extends TestCase
             'data' => [
                 'values' => [
                     'name' => 'Demo Bread',
+                    'productNumber' => '9201',
                     'price' => 40,
                     'unit' => 'pcs',
                     'category' => 'bread',
@@ -151,6 +152,7 @@ class OnSiteDemoFlowTest extends TestCase
             'data' => [
                 'values' => [
                     'name' => 'Demo Laddu',
+                    'productNumber' => '9202',
                     'price' => 400,
                     'unit' => 'gm',
                     'category' => 'sweet',

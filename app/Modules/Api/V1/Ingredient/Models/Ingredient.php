@@ -17,6 +17,21 @@ class Ingredient extends \App\Models\BKModel
     // Do not allow mass-assign of stock via API fill — stock changes go through InventoryTransaction.
     protected $guarded = ['id', 'organization_id', 'deleted', 'created_at', 'updated_at', 'created_by', 'current_stock'];
 
+    public const CATEGORIES = [
+        'raw',
+        'packaging',
+        'oil',
+        'flour',
+        'dal',
+        'spice_whole',
+        'spice_powder',
+        'sauce',
+        'salt_sweetener',
+        'baking',
+        'colour_flavour',
+        'other',
+    ];
+
     protected $attributes = [
         'category' => 'raw',
     ];
@@ -32,7 +47,7 @@ class Ingredient extends \App\Models\BKModel
         static::saving(function ($ingredient) {
             if ($ingredient->category !== null && $ingredient->category !== '') {
                 $cat = strtolower(trim((string) $ingredient->category));
-                $ingredient->category = in_array($cat, ['raw', 'packaging', 'other'], true) ? $cat : 'raw';
+                $ingredient->category = in_array($cat, self::CATEGORIES, true) ? $cat : 'raw';
             }
         });
     }

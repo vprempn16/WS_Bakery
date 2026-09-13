@@ -2,7 +2,9 @@
 
 namespace App\Modules\Api\V1\Ingredient\Requests;
 
+use App\Modules\Api\V1\Ingredient\Models\Ingredient;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreIngredientRequest extends FormRequest
 {
@@ -17,7 +19,7 @@ class StoreIngredientRequest extends FormRequest
             'data.values.vendorId' => ['nullable', 'string', 'exists:vendors,id'],
             'data.values.name' => ['required', 'string', 'max:255'],
             'data.values.unit' => ['nullable', 'string', 'max:50'],
-            'data.values.category' => ['nullable', 'string', 'in:raw,packaging,other'],
+            'data.values.category' => ['nullable', 'string', Rule::in(Ingredient::CATEGORIES)],
             'data.values.minimumStockLevel' => ['nullable', 'numeric', 'min:0'],
             'data.values.currentStock' => ['nullable', 'numeric', 'min:0'],
         ];

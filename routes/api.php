@@ -182,6 +182,8 @@ Route::prefix('v1')->group(function () {
             Route::get('', [\App\Modules\Api\V1\InventoryTransaction\Controllers\InventoryTransactionController::class, 'index']);
             Route::post('new', [\App\Modules\Api\V1\InventoryTransaction\Controllers\InventoryTransactionController::class, 'store']);
             Route::get('{id}', [\App\Modules\Api\V1\InventoryTransaction\Controllers\InventoryTransactionController::class, 'show']);
+            Route::post('{id}/reverse', [\App\Modules\Api\V1\InventoryTransaction\Controllers\InventoryTransactionController::class, 'reverse'])
+                ->middleware('throttle:writes');
         });
 
         // Bought-product warehouse receipts (stock in only)

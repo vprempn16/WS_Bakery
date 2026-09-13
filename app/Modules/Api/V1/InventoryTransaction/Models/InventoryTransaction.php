@@ -19,6 +19,10 @@ class InventoryTransaction extends Model
         'type', // 'in', 'out', 'waste', 'production'
         'quantity',
         'reference_note',
+        'created_by',
+        'reversed_at',
+        'reversed_by',
+        'reversal_transaction_id',
     ];
 
     public function organization()
