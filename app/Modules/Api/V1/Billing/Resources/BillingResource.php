@@ -18,6 +18,15 @@ class BillingResource extends JsonResource
         if (isset($data['paymentMethod'])) {
             $data['paymentMethod'] = strtolower((string) $data['paymentMethod']);
         }
+
+        // DetailView omits displaytype=2 money/timestamp fields; always expose them for receipts/POS.
+        $data['subTotal'] = (float) ($this->sub_total ?? 0);
+        $data['discountAmount'] = (float) ($this->discount_amount ?? 0);
+        $data['taxAmount'] = (float) ($this->tax_amount ?? 0);
+        $data['grandTotal'] = (float) ($this->grand_total ?? 0);
+        $data['createdAt'] = $this->created_at
+            ? $this->created_at->format('Y-m-d H:i:s')
+            : ($data['createdAt'] ?? null);
         
         $data['itemCount'] = $this->when(
             isset($this->items_count) || $this->relationLoaded('items'),
