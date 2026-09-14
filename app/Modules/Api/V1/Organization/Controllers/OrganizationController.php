@@ -9,9 +9,11 @@ use App\Modules\Api\V1\Organization\Requests\StoreOrganizationRequest;
 use App\Modules\Api\V1\Organization\Requests\UpdateOrganizationRequest;
 use App\Modules\Api\V1\Organization\Resources\OrganizationResource;
 use App\Modules\Api\V1\User\Models\User;
+use App\Services\DefaultCatalogService;
 use App\Services\DefaultStaffProfilesService;
 use App\Support\ApiPagination;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -64,6 +66,12 @@ class OrganizationController extends Controller
             app(DefaultStaffProfilesService::class)->ensureForOrganization(
                 (string) $organization->id,
                 (string) $user->id
+            );
+
+            Auth::login($user);
+            app(DefaultCatalogService::class)->seedForOrganization(
+                (string) $organization->id,
+                false
             );
 
             return [

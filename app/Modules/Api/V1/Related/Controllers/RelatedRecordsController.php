@@ -16,6 +16,7 @@ use App\Services\AuthUser;
 use App\Services\BranchAccess;
 use App\Services\CRM\RecordObject;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 /**
  * Related lists for detail tabs (histories / ingredients used / etc.).
@@ -97,7 +98,17 @@ class RelatedRecordsController extends Controller
                 'quantity' => (float) $t->quantity,
                 'unit' => $ingredient->unit,
                 'referenceNote' => $t->reference_note,
-                'createdAt' => optional($t->created_at)?->format('Y-m-d H:i:s'),
+                'createdAt' => $t->created_at
+                    ? (($t->created_at instanceof \DateTimeInterface)
+                        ? $t->created_at->format(DATE_ATOM)
+                        : Carbon::parse((string) $t->created_at)->toIso8601String())
+                    : null,
+                'reversedAt' => $t->reversed_at
+                    ? (($t->reversed_at instanceof \DateTimeInterface)
+                        ? $t->reversed_at->format(DATE_ATOM)
+                        : Carbon::parse((string) $t->reversed_at)->toIso8601String())
+                    : null,
+                'reversalTransactionId' => $t->reversal_transaction_id,
             ]);
 
         return $this->success(['list' => $rows]);
@@ -119,7 +130,11 @@ class RelatedRecordsController extends Controller
                 'quantity' => (float) $t->quantity,
                 'unit' => $product->unit,
                 'referenceNote' => $t->reference_note,
-                'createdAt' => optional($t->created_at)?->format('Y-m-d H:i:s'),
+                'createdAt' => $t->created_at
+                    ? (($t->created_at instanceof \DateTimeInterface)
+                        ? $t->created_at->format(DATE_ATOM)
+                        : Carbon::parse((string) $t->created_at)->toIso8601String())
+                    : null,
             ]);
 
         return $this->success(['list' => $rows]);
@@ -209,7 +224,11 @@ class RelatedRecordsController extends Controller
                 'quantity' => (float) $t->quantity,
                 'unit' => $t->ingredient?->unit,
                 'referenceNote' => $t->reference_note,
-                'createdAt' => optional($t->created_at)?->format('Y-m-d H:i:s'),
+                'createdAt' => $t->created_at
+                    ? (($t->created_at instanceof \DateTimeInterface)
+                        ? $t->created_at->format(DATE_ATOM)
+                        : Carbon::parse((string) $t->created_at)->toIso8601String())
+                    : null,
             ]);
 
         return $this->success(['list' => $rows]);
@@ -255,7 +274,11 @@ class RelatedRecordsController extends Controller
                     'transferDate' => optional($t->transfer_date)?->format('Y-m-d'),
                     'status' => $t->status,
                     'createdBy' => $by,
-                    'createdAt' => optional($t->created_at)?->format('Y-m-d H:i:s'),
+                    'createdAt' => $t->created_at
+                        ? (($t->created_at instanceof \DateTimeInterface)
+                            ? $t->created_at->format(DATE_ATOM)
+                            : Carbon::parse((string) $t->created_at)->toIso8601String())
+                        : null,
                 ];
             });
 

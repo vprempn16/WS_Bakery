@@ -47,6 +47,8 @@
 #
 # Other usage:
 #   ./setup.sh                 Full install (new machine)
+#                              Also seeds Client Demo Bakery from client-pvt/ (no batches/POS).
+#                              Not run on --live-update.
 #   ./setup.sh --fields-only   Re-sync field metadata only
 #   ./setup.sh --skip-db       Skip interactive DB / migrate / seed
 #   ./setup.sh --verify-only   Storage + pending-migration report + transfer access checks
@@ -394,6 +396,8 @@ echo "OK";
 
   log_info "Running seeders..."
   php artisan db:seed --force || log_warning "db:seed failed (may already be seeded)"
+  log_info "Seeding Client Demo Bakery catalog from client-pvt..."
+  php artisan db:seed --class=Database\\Seeders\\ClientDemoBakerySeeder --force || log_warning "Client Demo Bakery seeder failed"
   log_success "Database setup complete"
 }
 
@@ -992,6 +996,7 @@ main() {
   log_success "BkPortal setup complete"
   echo "  php artisan serve"
   echo "  Superadmin (dev only): superadmin@example.com / Admin@123"
+  echo "  Client Demo Bakery: demo.admin@client-bakery.test / Demo@12345 (catalog from client-pvt; no batches/POS)"
   echo "  Default staff: Warehouse + Sales profiles/roles per org (including branch receiving/reporting)"
   echo "  Warehouse staff may transfer TO any retail branch (not blocked by destination branch check)"
   echo "  Product images: storage/app/public/uploads/images/{modulename}/ + public/storage link"

@@ -11,6 +11,7 @@ use App\Services\AuthUser;
 use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 
 class InventoryTransactionController extends Controller
 {
@@ -147,6 +148,93 @@ class InventoryTransactionController extends Controller
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error('Inventory Transaction not found.', null, null, null, 404);
+        }
+    }
+
+    /**
+     * Reverse an inventory transaction by creating an opposite transaction.
+     * This is safer than deleting history and keeps an audit trail.
+     */
+    public function reverse(Request $request, string $id)
+    {
+        $user = AuthUser::requireUser();
+        $permissionService = new PermissionService($user);
+        if (! $permissionService->hasPermission('InventoryTransaction', 'create')) {
+            return $this->error("You don't have permission to reverse InventoryTransaction.", null, null, null, 403);
+        }
+
+        $orgId = AuthUser::organizationId();
+        $userId = AuthUser::id();
+
+        try {
+            return DB::transaction(function () use ($orgId, $userId, $id) {
+                /** @var InventoryTransaction $tx */
+                $tx = InventoryTransaction::where('organization_id', $orgId)
+                    ->where('id', $id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $tx) {
+                    return $this->error('Inventory Transaction not found.', null, null, null, 404);
+                }
+
+                if (! empty($tx->reversed_at) || ! empty($tx->reversal_transaction_id)) {
+                    return $this->error('This transaction has already been reversed.', null, null, null, 422);
+                }
+
+                $type = strtolower((string) $tx->type);
+                if ($type !== 'in') {
+                    return $this->error('Only stock-in transactions can be reversed from the UI.', null, null, null, 422);
+                }
+
+                $ingredient = Ingredient::where('organization_id', $orgId)
+                    ->where('id', $tx->ingredient_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $ingredient) {
+                    return $this->error('Ingredient not found in your organization.', null, null, null, 404);
+                }
+
+                $qty = (float) $tx->quantity;
+                if ((float) $ingredient->current_stock < $qty) {
+                    return $this->error(
+                        "Cannot reverse: insufficient stock for {$ingredient->name}. Needed: {$qty}, Available: {$ingredient->current_stock}",
+                        null,
+                        null,
+                        null,
+                        400
+                    );
+                }
+
+                // Apply reversal (subtract stock) + create an opposite transaction.
+                $ingredient->current_stock = (float) $ingredient->current_stock - $qty;
+                $ingredient->save();
+
+                $rev = InventoryTransaction::create([
+                    'organization_id' => $orgId,
+                    'ingredient_id' => $ingredient->id,
+                    'type' => 'out',
+                    'quantity' => $qty,
+                    'reference_note' => trim('Reversal of ' . $tx->id . ($tx->reference_note ? ' · ' . $tx->reference_note : '')),
+                    'created_by' => $userId,
+                ]);
+
+                $tx->reversed_at = Carbon::now();
+                $tx->reversed_by = $userId;
+                $tx->reversal_transaction_id = $rev->id;
+                $tx->save();
+
+                return $this->success(
+                    [
+                        'original' => new InventoryTransactionResource($tx->fresh(['ingredient', 'organization'])),
+                        'reversal' => new InventoryTransactionResource($rev->fresh(['ingredient', 'organization'])),
+                    ],
+                    'Transaction reversed successfully.'
+                );
+            });
+        } catch (\Exception $e) {
+            return $this->error('Failed to reverse transaction: ' . $e->getMessage(), null, null, null, 500);
         }
     }
 }
