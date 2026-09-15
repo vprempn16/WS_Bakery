@@ -38,9 +38,9 @@ class RelatedRecordsController extends Controller
                 'batchNumber' => $b->batch_number,
                 'quantityProduced' => (float) $b->quantity_produced,
                 'unit' => $b->product?->unit,
-                'productionDate' => optional($b->production_date)?->format('Y-m-d'),
+                'productionDate' => optional($b->production_date)?->format('Y-m-d H:i:s'),
                 'expiryDate' => optional($b->expiry_timestamp)?->format('Y-m-d'),
-                'expiryTime' => optional($b->expiry_timestamp)?->format('H:i'),
+                'expiryTime' => optional($b->expiry_timestamp)?->format('g:i a'),
                 'status' => $b->status,
             ]);
 
@@ -352,9 +352,9 @@ class RelatedRecordsController extends Controller
                 'quantityProduced' => (float) $batch->quantity_produced,
                 'pieces' => $batch->pieces !== null ? (int) $batch->pieces : null,
                 'productUnit' => $batch->product?->unit,
-                'productionDate' => optional($batch->production_date)?->format('Y-m-d'),
+                'productionDate' => optional($batch->production_date)?->format('Y-m-d H:i:s'),
                 'expiryDate' => $expiry ? $expiry->format('Y-m-d') : null,
-                'expiryTime' => $expiry ? $expiry->format('H:i') : null,
+                'expiryTime' => $expiry ? $expiry->format('g:i a') : null,
                 'status' => $batch->status,
                 'notes' => $batch->notes,
             ],

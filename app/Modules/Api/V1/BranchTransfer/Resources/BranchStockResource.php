@@ -2,6 +2,7 @@
 
 namespace App\Modules\Api\V1\BranchTransfer\Resources;
 
+use Carbon\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class BranchStockResource extends JsonResource
@@ -18,6 +19,15 @@ class BranchStockResource extends JsonResource
             $earliestExpiry = null;
         }
 
+        $expiry = null;
+        if ($earliestExpiry) {
+            try {
+                $expiry = Carbon::parse($earliestExpiry);
+            } catch (\Throwable $e) {
+                $expiry = null;
+            }
+        }
+
         return [
             'id' => $this->id,
             'organizationId' => $this->organization_id,
@@ -30,11 +40,15 @@ class BranchStockResource extends JsonResource
             'currentStock' => (float) $this->current_stock,
             'shelfStatus' => $shelfStatus,
             'earliestExpiry' => $earliestExpiry,
+            'expiredQty' => $this->expired_qty_computed ?? null,
+            'hasFreshLot' => $this->has_fresh_lot_computed ?? null,
+            // Human-facing expiry columns (batch/pack), not stock updated_at.
+            'expiryDate' => $expiry ? $expiry->format('Y-m-d') : null,
+            'expiryTime' => $expiry ? $expiry->format('g:i a') : null,
             'createdAt' => $this->created_at ? $this->created_at->format('Y-m-d H:i:s') : null,
             'updatedAt' => $updatedAt ? $updatedAt->format('Y-m-d H:i:s') : null,
-            // Split for BranchStock list columns (date filter scopes on updated_at).
             'updatedDate' => $updatedAt ? $updatedAt->format('Y-m-d') : null,
-            'updatedTime' => $updatedAt ? $updatedAt->format('H:i') : null,
+            'updatedTime' => $updatedAt ? $updatedAt->format('g:i a') : null,
         ];
     }
 }

@@ -19,7 +19,7 @@ class ProductionBatch extends BKModel
     protected $casts = [
         'quantity_produced' => 'decimal:2',
         'pieces' => 'integer',
-        'production_date' => 'date',
+        'production_date' => 'datetime',
         'expiry_timestamp' => 'datetime',
     ];
 

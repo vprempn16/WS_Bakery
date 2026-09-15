@@ -28,4 +28,11 @@ class StoreProductionBatchRequest extends FormRequest
             'data.values.notes' => ['nullable', 'string'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'data.values.productionDate.required' => 'Production date & time is required.',
+        ];
+    }
 }

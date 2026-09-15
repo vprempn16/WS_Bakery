@@ -23,7 +23,7 @@ class StoreProductRequest extends FormRequest
             'data.values.productImage' => ['nullable'],
             'data.values.price' => ['nullable', 'numeric', 'min:0'],
             'data.values.unit' => ['required', 'string', 'in:gm,pcs,ml'],
-            'data.values.category' => ['nullable', 'string', 'max:100'],
+            'data.values.category' => ['required', 'string', 'max:100'],
             'data.values.status' => ['nullable', 'string', 'in:active,inactive'],
             'data.values.productSource' => ['nullable', 'string', 'in:own,bought'],
             'data.values.shelfLife' => ['nullable', 'integer', 'min:1', 'max:87600'],
@@ -36,6 +36,7 @@ class StoreProductRequest extends FormRequest
         return [
             'data.values.productNumber.required' => 'Product number is required.',
             'data.values.productNumber.regex' => 'Product number must contain digits only (no letters).',
+            'data.values.category.required' => 'Category is required.',
         ];
     }
 
@@ -43,20 +44,35 @@ class StoreProductRequest extends FormRequest
     {
         $validator->after(function (Validator $validator) {
             $productNumber = $this->input('data.values.productNumber');
-            if ($productNumber === null || trim((string) $productNumber) === '') {
-                return;
+            if ($productNumber !== null && trim((string) $productNumber) !== '') {
+                $orgId = AuthUser::organizationId();
+                if ($orgId) {
+                    $check = ProductNumberService::checkAvailability($orgId, (string) $productNumber);
+                    if (! $check['available']) {
+                        $validator->errors()->add(
+                            'data.values.productNumber',
+                            $check['message'] ?? 'Product number already exists'
+                        );
+                    }
+                }
             }
 
-            $orgId = AuthUser::organizationId();
-            if (!$orgId) {
-                return;
-            }
+            $source = strtolower(trim((string) ($this->input('data.values.productSource') ?? 'own')));
+            $isBought = $source === 'bought';
+            $shelfLife = $this->input('data.values.shelfLife');
+            $expiryDate = $this->input('data.values.expiryDate');
 
-            $check = ProductNumberService::checkAvailability($orgId, (string) $productNumber);
-            if (!$check['available']) {
+            if (! $isBought && ($shelfLife === null || $shelfLife === '' || (int) $shelfLife <= 0)) {
                 $validator->errors()->add(
-                    'data.values.productNumber',
-                    $check['message'] ?? 'Product number already exists'
+                    'data.values.shelfLife',
+                    'Shelf life is required for own (baked) products.'
+                );
+            }
+
+            if ($isBought && ($expiryDate === null || trim((string) $expiryDate) === '')) {
+                $validator->errors()->add(
+                    'data.values.expiryDate',
+                    'Expired date is required for bought products.'
                 );
             }
         });

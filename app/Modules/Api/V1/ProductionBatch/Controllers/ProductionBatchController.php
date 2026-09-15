@@ -124,8 +124,14 @@ class ProductionBatchController extends Controller
             $unit = strtolower(trim((string) ($product->unit ?? '')));
             $isPieceUnit = in_array($unit, ['pcs', 'pc', 'piece', 'pieces'], true);
             $quantityProduced = (float) $values['quantityProduced'];
-            $productionDate = Carbon::parse($values['productionDate']);
-            $expiryTimestamp = $this->resolveExpiryTimestamp($product, $productionDate);
+            try {
+                $productionDate = $this->parseProductionDate((string) $values['productionDate']);
+                $expiryTimestamp = $this->resolveExpiryTimestamp($product, $productionDate);
+            } catch (\InvalidArgumentException $e) {
+                DB::rollBack();
+
+                return $this->error($e->getMessage(), null, null, null, 422);
+            }
 
             /** @var ProductionBatch $batch */
             $batch = RecordObject::make('ProductionBatch', null, [
@@ -205,9 +211,15 @@ class ProductionBatchController extends Controller
             }
 
             if (isset($values['productionDate'])) {
-                $batch->production_date = Carbon::parse($values['productionDate']);
-                $product = $batch->product;
-                $batch->expiry_timestamp = $this->resolveExpiryTimestamp($product, $batch->production_date);
+                try {
+                    $batch->production_date = $this->parseProductionDate((string) $values['productionDate']);
+                    $product = $batch->product;
+                    $batch->expiry_timestamp = $this->resolveExpiryTimestamp($product, $batch->production_date);
+                } catch (\InvalidArgumentException $e) {
+                    DB::rollBack();
+
+                    return $this->error($e->getMessage(), null, null, null, 422);
+                }
             }
 
             // Explicit cancel via status
@@ -310,12 +322,34 @@ class ProductionBatchController extends Controller
         }
     }
 
+    /**
+     * Parse production date/time.
+     * Date-only values get the current clock time so expiry is not always midnight+N hours.
+     */
+    private function parseProductionDate(string $raw): Carbon
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            throw new \InvalidArgumentException('Production date & time is required.');
+        }
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+            $now = Carbon::now();
+
+            return Carbon::createFromFormat('Y-m-d', $raw)
+                ->setTime($now->hour, $now->minute, $now->second);
+        }
+
+        return Carbon::parse($raw);
+    }
+
     private function resolveExpiryTimestamp(Product $product, Carbon $productionDate): Carbon
     {
         $hours = (int) ($product->shelf_life ?? 0);
         if ($hours <= 0) {
-            // Default half day when product has no shelf life set
-            $hours = 12;
+            throw new \InvalidArgumentException(
+                'Set Shelf Life on this product before logging production (e.g. Half Day 12h).'
+            );
         }
 
         return $productionDate->copy()->addHours($hours);

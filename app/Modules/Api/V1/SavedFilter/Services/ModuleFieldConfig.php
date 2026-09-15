@@ -183,7 +183,7 @@ class ModuleFieldConfig
                 'fieldlabel' => 'Category',
                 'fieldtype' => 'picklist',
                 'displaytype' => 1,
-                'mandatory' => 0,
+                'mandatory' => 1,
                 'options' => [
                     ['value' => 'bread', 'label' => 'Bread'],
                     ['value' => 'sweet', 'label' => 'Sweet'],
@@ -224,7 +224,8 @@ class ModuleFieldConfig
                 'fieldlabel' => 'Shelf Life',
                 'fieldtype' => 'picklist',
                 'displaytype' => 1,
-                'mandatory' => 0,
+                // Required for own (baked) products; bought products use expiryDate instead (UI/API).
+                'mandatory' => 1,
                 'options' => [
                     ['value' => '6', 'label' => '6 Hours'],
                     ['value' => '12', 'label' => 'Half Day (12h)'],
@@ -244,7 +245,8 @@ class ModuleFieldConfig
                 'fieldlabel' => 'Expired Date',
                 'fieldtype' => 'date',
                 'displaytype' => 1,
-                'mandatory' => 0,
+                // Required for bought products (UI/API); hidden for own products.
+                'mandatory' => 1,
             ],
             [
                 'fieldname' => 'shelfStatus',
@@ -295,7 +297,7 @@ class ModuleFieldConfig
             ['fieldname' => 'productId', 'fieldlabel' => 'Product', 'fieldtype' => 'relationPickList', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'quantityProduced', 'fieldlabel' => 'Quantity Produced', 'fieldtype' => 'decimal', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'pieces', 'fieldlabel' => 'Pieces', 'fieldtype' => 'integer/number', 'displaytype' => 1, 'mandatory' => 0],
-            ['fieldname' => 'productionDate', 'fieldlabel' => 'Production Date', 'fieldtype' => 'date', 'displaytype' => 1, 'mandatory' => 1],
+            ['fieldname' => 'productionDate', 'fieldlabel' => 'Production Date & Time', 'fieldtype' => 'datetime', 'displaytype' => 1, 'mandatory' => 1],
             ['fieldname' => 'expiryDate', 'fieldlabel' => 'Expiry Date', 'fieldtype' => 'date', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'expiryTime', 'fieldlabel' => 'Expiry Time', 'fieldtype' => 'time', 'displaytype' => 3, 'mandatory' => 0],
             ['fieldname' => 'expiryTimestamp', 'fieldlabel' => 'Expiry Timestamp', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
@@ -325,8 +327,11 @@ class ModuleFieldConfig
                 'displaytype' => 3,
                 'mandatory' => 0,
             ],
-            ['fieldname' => 'updatedDate', 'fieldlabel' => 'Date', 'fieldtype' => 'date', 'displaytype' => 3, 'mandatory' => 0],
-            ['fieldname' => 'updatedTime', 'fieldlabel' => 'Time', 'fieldtype' => 'time', 'displaytype' => 3, 'mandatory' => 0],
+            // Earliest batch/pack expiry (not last stock-update time).
+            ['fieldname' => 'expiryDate', 'fieldlabel' => 'Expiry Date', 'fieldtype' => 'date', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'expiryTime', 'fieldlabel' => 'Expiry Time', 'fieldtype' => 'time', 'displaytype' => 3, 'mandatory' => 0],
+            ['fieldname' => 'updatedDate', 'fieldlabel' => 'Updated Date', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
+            ['fieldname' => 'updatedTime', 'fieldlabel' => 'Updated Time', 'fieldtype' => 'time', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'createdAt', 'fieldlabel' => 'Created At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
             ['fieldname' => 'updatedAt', 'fieldlabel' => 'Updated At', 'fieldtype' => 'date', 'displaytype' => 2, 'mandatory' => 0],
         ],
