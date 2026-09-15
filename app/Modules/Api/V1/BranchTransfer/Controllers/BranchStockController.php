@@ -70,6 +70,8 @@ class BranchStockController extends Controller
             $info = $shelfMap[(string) $row->product_id] ?? null;
             $row->setAttribute('shelf_status_computed', $info['shelfStatus'] ?? null);
             $row->setAttribute('earliest_expiry_computed', $info['earliestExpiry'] ?? null);
+            $row->setAttribute('expired_qty_computed', $info['expiredQty'] ?? null);
+            $row->setAttribute('has_fresh_lot_computed', $info['hasFreshLot'] ?? null);
 
             return $row;
         });
@@ -102,6 +104,8 @@ class BranchStockController extends Controller
             $info = $shelfMap[(string) $stock->product_id] ?? null;
             $stock->setAttribute('shelf_status_computed', $info['shelfStatus'] ?? null);
             $stock->setAttribute('earliest_expiry_computed', $info['earliestExpiry'] ?? null);
+            $stock->setAttribute('expired_qty_computed', $info['expiredQty'] ?? null);
+            $stock->setAttribute('has_fresh_lot_computed', $info['hasFreshLot'] ?? null);
 
             $fieldList = ModuleFieldConfig::getApiFieldsForView('BranchStock', 'DetailView');
             $resource = new BranchStockResource($stock);
