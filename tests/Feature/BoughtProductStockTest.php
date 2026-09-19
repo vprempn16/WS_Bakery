@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
+use Tests\Support\BakeryFixtures;
 use Tests\TestCase;
 
 class BoughtProductStockTest extends TestCase
@@ -47,19 +48,15 @@ class BoughtProductStockTest extends TestCase
         $this->bought->category = 'biscuit';
         $this->bought->product_source = 'bought';
         $this->bought->status = 'active';
+        $this->bought->expiry_date = now()->addMonths(6)->toDateString();
         $this->bought->current_stock = 0;
         $this->bought->save();
 
-        $this->own = new Product();
-        $this->own->organization_id = $this->org->id;
-        $this->own->name = 'Butter Bun';
-        $this->own->price = 40;
-        $this->own->unit = 'pcs';
-        $this->own->category = 'bread';
-        $this->own->product_source = 'own';
-        $this->own->status = 'active';
-        $this->own->current_stock = 0;
-        $this->own->save();
+        $this->own = BakeryFixtures::ownProduct((string) $this->org->id, [
+            'name' => 'Butter Bun',
+            'category' => 'bread',
+            'current_stock' => 0,
+        ]);
 
         $this->ingredient = new Ingredient();
         $this->ingredient->organization_id = $this->org->id;
@@ -98,7 +95,7 @@ class BoughtProductStockTest extends TestCase
                     'productionDate' => now()->format('Y-m-d'),
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'bought-cannot-produce']);
 
         $response->assertStatus(400);
         $this->assertStringContainsString('bought', strtolower($response->json('message') ?? ''));
@@ -195,7 +192,7 @@ class BoughtProductStockTest extends TestCase
                     'productionDate' => now()->format('Y-m-d'),
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'bought-own-produce-1']);
 
         $response->assertStatus(201);
         $this->assertEquals(2.0, (float) $this->own->fresh()->current_stock);

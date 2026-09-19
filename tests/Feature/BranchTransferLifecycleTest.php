@@ -12,6 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
+use Tests\Support\BakeryFixtures;
 use Tests\TestCase;
 
 class BranchTransferLifecycleTest extends TestCase
@@ -58,15 +59,11 @@ class BranchTransferLifecycleTest extends TestCase
         $this->admin->branch_id = $this->warehouse->id;
         $this->admin->save();
 
-        $this->product = new Product();
-        $this->product->organization_id = $this->org->id;
-        $this->product->name = 'Bread';
-        $this->product->price = 40;
-        $this->product->unit = 'pcs';
-        $this->product->category = 'bread';
-        $this->product->status = 'active';
-        $this->product->current_stock = 100;
-        $this->product->save();
+        $this->product = BakeryFixtures::ownProduct((string) $this->org->id, [
+            'name' => 'Bread',
+            'category' => 'bread',
+            'current_stock' => 100,
+        ]);
     }
 
     private function createPendingTransfer(float $qty = 10): string
@@ -325,15 +322,13 @@ class BranchTransferLifecycleTest extends TestCase
     {
         Sanctum::actingAs($this->admin);
 
-        $laddu = new Product();
-        $laddu->organization_id = $this->org->id;
-        $laddu->name = 'Laddu';
-        $laddu->price = 400;
-        $laddu->unit = 'gm';
-        $laddu->category = 'sweet';
-        $laddu->status = 'active';
-        $laddu->current_stock = 5000;
-        $laddu->save();
+        $laddu = BakeryFixtures::ownProduct((string) $this->org->id, [
+            'name' => 'Laddu',
+            'price' => 400,
+            'unit' => 'gm',
+            'category' => 'sweet',
+            'current_stock' => 5000,
+        ]);
 
         $res = $this->postJson('/api/v1/BranchTransfer/new', [
             'data' => [
@@ -365,15 +360,13 @@ class BranchTransferLifecycleTest extends TestCase
     {
         Sanctum::actingAs($this->admin);
 
-        $laddu = new Product();
-        $laddu->organization_id = $this->org->id;
-        $laddu->name = 'Bulk Sweet';
-        $laddu->price = 400;
-        $laddu->unit = 'gm';
-        $laddu->category = 'sweet';
-        $laddu->status = 'active';
-        $laddu->current_stock = 5000;
-        $laddu->save();
+        $laddu = BakeryFixtures::ownProduct((string) $this->org->id, [
+            'name' => 'Bulk Sweet',
+            'price' => 400,
+            'unit' => 'gm',
+            'category' => 'sweet',
+            'current_stock' => 5000,
+        ]);
 
         $res = $this->postJson('/api/v1/BranchTransfer/new', [
             'data' => [
@@ -422,5 +415,87 @@ class BranchTransferLifecycleTest extends TestCase
         ], ['Idempotency-Key' => 'lifecycle-pcs-no-pieces-' . uniqid('', true)]);
 
         $res->assertStatus(422);
+    }
+
+    public function test_cannot_transfer_more_than_fresh_warehouse_stock(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $orgId = (string) $this->org->id;
+        $productId = (string) $this->product->id;
+        $userId = (string) $this->admin->id;
+
+        \Illuminate\Support\Facades\DB::table('production_batches')->insert([
+            [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'organization_id' => $orgId,
+                'product_id' => $productId,
+                'batch_number' => 'XFER-OLD-80',
+                'quantity_produced' => 80,
+                'production_date' => now()->subDays(2)->toDateString(),
+                'expiry_timestamp' => now()->subDay()->toDateTimeString(),
+                'status' => 'completed',
+                'created_by' => $userId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'organization_id' => $orgId,
+                'product_id' => $productId,
+                'batch_number' => 'XFER-NEW-20',
+                'quantity_produced' => 20,
+                'production_date' => now()->toDateString(),
+                'expiry_timestamp' => now()->addDays(2)->toDateTimeString(),
+                'status' => 'completed',
+                'created_by' => $userId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $blocked = $this->postJson('/api/v1/BranchTransfer/new', [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->retail->id,
+                    'transferDate' => now()->toDateString(),
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        [
+                            'productId' => $this->product->id,
+                            'quantity' => 50,
+                            'unit' => 'pcs',
+                            'pieces' => 50,
+                        ],
+                    ],
+                ],
+            ],
+        ], ['Idempotency-Key' => 'lifecycle-expired-block-' . uniqid('', true)]);
+
+        $blocked->assertStatus(400);
+        $this->assertStringContainsString('fresh warehouse stock', $blocked->json('message') ?? '');
+        $this->assertEquals(100.0, (float) $this->product->fresh()->current_stock);
+
+        $ok = $this->postJson('/api/v1/BranchTransfer/new', [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->retail->id,
+                    'transferDate' => now()->toDateString(),
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        [
+                            'productId' => $this->product->id,
+                            'quantity' => 20,
+                            'unit' => 'pcs',
+                            'pieces' => 20,
+                        ],
+                    ],
+                ],
+            ],
+        ], ['Idempotency-Key' => 'lifecycle-expired-ok-' . uniqid('', true)]);
+
+        $ok->assertStatus(201);
     }
 }

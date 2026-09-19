@@ -9,6 +9,7 @@ use App\Modules\Api\V1\InventoryTransaction\Requests\StoreInventoryTransactionRe
 use App\Modules\Api\V1\InventoryTransaction\Resources\InventoryTransactionResource;
 use App\Services\AuthUser;
 use App\Services\PermissionService;
+use App\Support\Idempotency;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
@@ -70,25 +71,33 @@ class InventoryTransactionController extends Controller
 
     public function store(StoreInventoryTransactionRequest $request)
     {
+        $user = AuthUser::requireUser();
+        $permissionService = new PermissionService($user);
+        if (! $permissionService->hasPermission('InventoryTransaction', 'create')) {
+            return $this->error("You don't have permission to create InventoryTransaction.", null, null, null, 403);
+        }
+
+        [$lock, $cacheKey, $early] = Idempotency::begin(
+            'inventory-transaction:create',
+            $request->header('Idempotency-Key'),
+            true
+        );
+        if ($early) {
+            return $early;
+        }
+
         $values = $request->input('data.values');
         $orgId = AuthUser::organizationId();
         $userId = AuthUser::id();
 
         try {
-            // Permission check without requiring BKModel return type
-            $user = AuthUser::requireUser();
-            $permissionService = new PermissionService($user);
-            if (!$permissionService->hasPermission('InventoryTransaction', 'create')) {
-                return $this->error("You don't have permission to create InventoryTransaction.", null, null, null, 403);
-            }
-
-            return DB::transaction(function () use ($values, $orgId, $userId) {
+            $response = DB::transaction(function () use ($values, $orgId, $userId) {
                 $ingredient = Ingredient::where('organization_id', $orgId)
                     ->where('id', $values['ingredientId'])
                     ->lockForUpdate()
                     ->first();
 
-                if (!$ingredient) {
+                if (! $ingredient) {
                     throw new \RuntimeException('Ingredient not found in your organization.');
                 }
 
@@ -103,7 +112,6 @@ class InventoryTransactionController extends Controller
                     }
                     $ingredient->current_stock = (float) $ingredient->current_stock - $qty;
                 } else {
-                    // in
                     $ingredient->current_stock = (float) $ingredient->current_stock + $qty;
                 }
 
@@ -120,10 +128,16 @@ class InventoryTransactionController extends Controller
 
                 return $this->success(new InventoryTransactionResource($transaction), 'Transaction created successfully.', 201);
             });
+
+            Idempotency::remember($cacheKey, $response);
+
+            return $response;
         } catch (\RuntimeException $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Exception $e) {
             return $this->error('Failed to create transaction: ' . $e->getMessage(), null, null, null, 500);
+        } finally {
+            Idempotency::release($lock);
         }
     }
 

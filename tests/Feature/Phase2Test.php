@@ -64,7 +64,7 @@ class Phase2Test extends TestCase
                     'referenceNote' => 'Purchased 1kg Sugar',
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'phase2-inv-in-1']);
         $txResponse->assertStatus(201);
 
         // Verify ingredient stock increased to 1000
@@ -79,8 +79,11 @@ class Phase2Test extends TestCase
                 'values' => [
                     'organizationId' => $org->id,
                     'name' => 'Sweet Bread',
+                    'productNumber' => '1',
                     'price' => 50,
                     'unit' => 'pcs',
+                    'category' => 'bread',
+                    'shelfLife' => 24,
                 ],
             ],
         ]);
@@ -98,8 +101,11 @@ class Phase2Test extends TestCase
                 'values' => [
                     'organizationId' => $org->id,
                     'name' => 'Sour Bread',
+                    'productNumber' => '2',
                     'price' => 60,
                     'unit' => 'pcs',
+                    'category' => 'bread',
+                    'shelfLife' => 24,
                 ],
             ],
         ]);

@@ -128,7 +128,7 @@ class OnSiteDemoFlowTest extends TestCase
                     'referenceNote' => 'Demo purchase',
                 ],
             ],
-        ])->assertStatus(201);
+        ], ['Idempotency-Key' => 'onsitedemoflowtest-inv-in-1'])->assertStatus(201);
 
         $this->assertDatabaseHas('ingredients', [
             'id' => $ingredientId,
@@ -144,6 +144,7 @@ class OnSiteDemoFlowTest extends TestCase
                     'price' => 40,
                     'unit' => 'pcs',
                     'category' => 'bread',
+                    'shelfLife' => 24,
                 ],
             ],
         ])->assertStatus(201)->json('data.id');
@@ -156,6 +157,7 @@ class OnSiteDemoFlowTest extends TestCase
                     'price' => 400,
                     'unit' => 'gm',
                     'category' => 'sweet',
+                    'shelfLife' => 24,
                 ],
             ],
         ])->assertStatus(201)->json('data.id');
@@ -178,7 +180,7 @@ class OnSiteDemoFlowTest extends TestCase
                     'productionDate' => now()->toDateString(),
                 ],
             ],
-        ])->assertSuccessful();
+        ], ['Idempotency-Key' => 'onsitedemoflowtest-produce-1'])->assertSuccessful();
 
         $this->assertEquals(20.0, (float) DB::table('products')->where('id', $breadId)->value('current_stock'));
 

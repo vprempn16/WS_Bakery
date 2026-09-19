@@ -127,6 +127,36 @@ class ShelfLifeStrictStatusTest extends TestCase
         $this->assertTrue($info['hasFreshLot']);
     }
 
+    public function test_after_returning_expired_qty_remaining_stock_is_fresh_only(): void
+    {
+        \Illuminate\Support\Facades\DB::table('products')
+            ->where('id', $this->productId)
+            ->update(['current_stock' => 200]);
+
+        $this->insertBatch('OLD-180', 180, Carbon::now()->subDay(), 'completed');
+        $this->insertBatch('NEW-20', 20, Carbon::now()->addDays(2), 'completed');
+
+        $before = ShelfLifeStatusService::statusForProducts(
+            $this->orgId,
+            [$this->productId],
+            [$this->productId => 200.0]
+        )[$this->productId];
+        $this->assertSame(ShelfLifeStatusService::STATUS_EXPIRED, $before['shelfStatus']);
+        $this->assertEquals(180.0, (float) $before['expiredQty']);
+        $this->assertTrue($before['hasFreshLot']);
+
+        ShelfLifeStatusService::markExpiredLotsWasted($this->orgId, $this->productId, 180.0);
+
+        $after = ShelfLifeStatusService::statusForProducts(
+            $this->orgId,
+            [$this->productId],
+            [$this->productId => 20.0]
+        )[$this->productId];
+        $this->assertSame(ShelfLifeStatusService::STATUS_FRESH, $after['shelfStatus']);
+        $this->assertEquals(0.0, (float) $after['expiredQty']);
+        $this->assertTrue($after['hasFreshLot']);
+    }
+
     public function test_cancelled_expired_batch_is_ignored(): void
     {
         $this->insertBatch('CAN-1', 4, Carbon::now()->subDay(), 'cancelled');
@@ -136,5 +166,21 @@ class ShelfLifeStrictStatusTest extends TestCase
 
         $this->assertSame(ShelfLifeStatusService::STATUS_FRESH, $info['shelfStatus']);
         $this->assertEquals(0.0, (float) $info['expiredQty']);
+    }
+
+    public function test_status_for_timestamp_classifies_fresh_expiring_expired(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-15 12:00:00'));
+
+        $fresh = ShelfLifeStatusService::statusForTimestamp(Carbon::parse('2026-09-20 18:30:00'));
+        $this->assertSame(ShelfLifeStatusService::STATUS_FRESH, $fresh['shelfStatus']);
+
+        $soon = ShelfLifeStatusService::statusForTimestamp(Carbon::parse('2026-09-16 06:00:00'));
+        $this->assertSame(ShelfLifeStatusService::STATUS_EXPIRING, $soon['shelfStatus']);
+
+        $expired = ShelfLifeStatusService::statusForTimestamp(Carbon::parse('2026-09-14 18:30:00'));
+        $this->assertSame(ShelfLifeStatusService::STATUS_EXPIRED, $expired['shelfStatus']);
+
+        Carbon::setTestNow();
     }
 }

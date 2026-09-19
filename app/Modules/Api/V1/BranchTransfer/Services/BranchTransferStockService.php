@@ -5,6 +5,7 @@ namespace App\Modules\Api\V1\BranchTransfer\Services;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer;
 use App\Modules\Api\V1\Product\Models\Product;
+use App\Services\ShelfLifeStatusService;
 
 class BranchTransferStockService
 {
@@ -47,6 +48,8 @@ class BranchTransferStockService
                     "Insufficient warehouse stock for {$product->name}. Available: {$product->current_stock}, requested: {$quantity}."
                 );
             }
+
+            $this->assertFreshWarehouseAvailable($product, $quantity);
         }
     }
 
@@ -153,6 +156,8 @@ class BranchTransferStockService
                 );
             }
 
+            $this->assertFreshWarehouseAvailable($product, $qty);
+
             $product->current_stock = (float) $product->current_stock - $qty;
             $product->save();
         }
@@ -242,6 +247,24 @@ class BranchTransferStockService
                 ->firstOrFail();
             $product->current_stock = (float) $product->current_stock + $qty;
             $product->save();
+        }
+    }
+
+    /**
+     * Transfers may only move fresh warehouse on-hand (ledger − expiredQty).
+     */
+    private function assertFreshWarehouseAvailable(Product $product, float $qty): void
+    {
+        $orgId = (string) $product->organization_id;
+        $productId = (string) $product->id;
+        $ledger = (float) $product->current_stock;
+        $shelf = ShelfLifeStatusService::statusForProducts($orgId, [$productId], [$productId => $ledger]);
+        $expired = (float) ($shelf[$productId]['expiredQty'] ?? 0);
+        $fresh = max(0.0, round($ledger - $expired, 2));
+        if ($qty > $fresh + 0.001) {
+            throw new \RuntimeException(
+                "Insufficient fresh warehouse stock for {$product->name}. Available: {$fresh}, requested: {$qty}. Return expired stock first."
+            );
         }
     }
 }

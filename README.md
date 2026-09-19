@@ -15,7 +15,7 @@ Laravel API for the BK Portal bakery ERP.
 - Run **`./setup.sh --live-update`** on existing production (lists pending migrations, `php artisan migrate --force`, field sync, staff profiles, image storage, transfer access). Do **not** run a full `./setup.sh` on a live DB — that path is for new installs.
 - Manual equivalent: `php artisan migrate --force` and start a queue worker if using the database/redis queue:
   `php artisan queue:work` (keep alive with Supervisor). Most POS/billing work is synchronous; bulk profile repair is queued (`RepairProfilesJob`).
-- Production env: `ALLOW_PUBLIC_REGISTRATION=false` (default when `APP_ENV=production`). Optional `BILLING_STAFF_MAX_DISCOUNT_PCT=0.10`. `CACHE_STORE=database` (or Redis) for Idempotency-Key locks.
+- Production env: `ALLOW_PUBLIC_REGISTRATION=false` (default when `APP_ENV=production`). Cashiers get branch `pos_tax_percent` GST (admin sets it in POS). `CACHE_STORE=database` (or Redis) for Idempotency-Key locks.
 - API security: org isolation, branch scoping, module permissions, billing catalog prices, staff discount cap, admin-only paid-bill void, security headers, and tiered throttles are enforced in code.
 - Do not expose Playwright/demo seed users in production.
 - Run dependency audits before release: `composer audit` and frontend `npm audit`.
@@ -51,7 +51,7 @@ After deploy: `./setup.sh --live-update` then confirm `php artisan migrate:statu
 
 - **Live installer** — `./setup.sh --live-update` applies all pending migrations (including Returns batches, product image folders, shelf-life columns, product source, ingredient category, product stock ledger, mandatory product number, SalesReturn CRM field fix). Does not recreate the DB or reset superadmin.
 - **Idempotency** — Shared `App\Support\Idempotency` on Material Withdrawal and Returns creates (Billing/Transfer already required the header).
-- **Billing** — Staff discount cap (`BILLING_STAFF_MAX_DISCOUNT_PCT`); only admins can cancel/re-hold a paid bill.
+- **Billing** — Cashiers get branch GST (`pos_tax_percent`); custom discount is admin-only. Only admins can cancel/re-hold a paid bill.
 - **Signup** — `ALLOW_PUBLIC_REGISTRATION` off in production by default.
 - **Returns** — Loss value uses catalog price + POS weight formula. Migrations `2026_09_04_224000_fix_sales_return_crm_fields_for_batches` and `2026_09_04_230000_hide_created_at_on_sales_return_list`.
 - **Agent docs** — See [`.agents/AGENTS.md`](./.agents/AGENTS.md) (workspace import: [`../.agents/AGENTS.md`](../.agents/AGENTS.md)).

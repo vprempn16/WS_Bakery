@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
+use Tests\Support\BakeryFixtures;
 use Tests\TestCase;
 
 class StockIntegrityTest extends TestCase
@@ -56,14 +57,11 @@ class StockIntegrityTest extends TestCase
         $this->ingredient->current_stock = 100;
         $this->ingredient->save();
 
-        $this->product = new Product();
-        $this->product->organization_id = $this->org->id;
-        $this->product->name = 'Bread';
-        $this->product->price = 40;
-        $this->product->unit = 'pcs';
-        $this->product->category = 'bakery';
-        $this->product->current_stock = 0;
-        $this->product->save();
+        $this->product = BakeryFixtures::ownProduct((string) $this->org->id, [
+            'name' => 'Bread',
+            'category' => 'bakery',
+            'current_stock' => 0,
+        ]);
     }
 
     public function test_inventory_out_rejects_insufficient_stock(): void
@@ -79,7 +77,7 @@ class StockIntegrityTest extends TestCase
                     'referenceNote' => 'Too much',
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'stock-integrity-inv-out-1']);
 
         $response->assertStatus(400);
         $this->assertStringContainsString('Insufficient', $response->json('message') ?? '');
@@ -111,7 +109,7 @@ class StockIntegrityTest extends TestCase
                     'productionDate' => now()->toDateString(),
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'stock-integrity-no-recipe']);
 
         $response->assertStatus(400);
         $this->assertStringContainsString('recipe', strtolower($response->json('message') ?? ''));
@@ -514,7 +512,7 @@ class StockIntegrityTest extends TestCase
                     'productionDate' => now()->toDateString(),
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'stock-integrity-produce-1']);
 
         $response->assertSuccessful();
         // Raw materials are deducted via Material Issue, not production batch.
@@ -571,15 +569,12 @@ class StockIntegrityTest extends TestCase
         $this->product->status = 'inactive';
         $this->product->save();
 
-        $active = new Product();
-        $active->organization_id = $this->org->id;
-        $active->name = 'Active Bun';
-        $active->price = 15;
-        $active->unit = 'pcs';
-        $active->category = 'bakery';
-        $active->status = 'active';
-        $active->current_stock = 0;
-        $active->save();
+        $active = BakeryFixtures::ownProduct((string) $this->org->id, [
+            'name' => 'Active Bun',
+            'price' => 15,
+            'category' => 'bakery',
+            'current_stock' => 0,
+        ]);
 
         $response = $this->withHeader('X-Branch-Id', (string) $this->branch->id)
             ->getJson('/api/v1/Billing/pos-products');
@@ -745,5 +740,135 @@ class StockIntegrityTest extends TestCase
             ->assertJsonPath('data.totalRevenue', 120)
             ->assertJsonPath('data.items.0.quantitySold', 3);
         $this->assertEquals(1, \App\Modules\Api\V1\BranchSales\Models\BranchDailyReport::count());
+    }
+
+    public function test_paid_bill_rejects_qty_above_fresh_stock(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        BranchStock::create([
+            'organization_id' => $this->org->id,
+            'branch_id' => $this->branch->id,
+            'product_id' => $this->product->id,
+            'current_stock' => 10,
+        ]);
+
+        $orgId = (string) $this->org->id;
+        $productId = (string) $this->product->id;
+        $userId = (string) $this->admin->id;
+
+        \Illuminate\Support\Facades\DB::table('production_batches')->insert([
+            [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'organization_id' => $orgId,
+                'product_id' => $productId,
+                'batch_number' => 'POS-OLD-6',
+                'quantity_produced' => 6,
+                'production_date' => now()->subDays(2)->toDateString(),
+                'expiry_timestamp' => now()->subDay()->toDateTimeString(),
+                'status' => 'completed',
+                'created_by' => $userId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'organization_id' => $orgId,
+                'product_id' => $productId,
+                'batch_number' => 'POS-NEW-4',
+                'quantity_produced' => 4,
+                'production_date' => now()->toDateString(),
+                'expiry_timestamp' => now()->addDays(2)->toDateTimeString(),
+                'status' => 'completed',
+                'created_by' => $userId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $overFresh = $this->postJson('/api/v1/Billing/new', [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->branch->id,
+                    'paymentMethod' => 'cash',
+                    'paymentStatus' => 'paid',
+                    'discountAmount' => 0,
+                    'taxAmount' => 0,
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        [
+                            'productId' => $this->product->id,
+                            'quantity' => 5,
+                            'unitPrice' => 40,
+                            'unit' => 'pcs',
+                            'category' => 'bakery',
+                        ],
+                    ],
+                ],
+            ],
+        ], ['Idempotency-Key' => 'stockintegritytest-fresh-block-1']);
+
+        $overFresh->assertStatus(400);
+        $this->assertStringContainsString('Insufficient fresh stock', $overFresh->json('message') ?? '');
+        $this->assertEquals(10.0, (float) BranchStock::where('product_id', $this->product->id)
+            ->where('branch_id', $this->branch->id)->value('current_stock'));
+
+        $ok = $this->postJson('/api/v1/Billing/new', [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->branch->id,
+                    'paymentMethod' => 'cash',
+                    'paymentStatus' => 'paid',
+                    'discountAmount' => 0,
+                    'taxAmount' => 0,
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        [
+                            'productId' => $this->product->id,
+                            'quantity' => 4,
+                            'unitPrice' => 40,
+                            'unit' => 'pcs',
+                            'category' => 'bakery',
+                        ],
+                    ],
+                ],
+            ],
+        ], ['Idempotency-Key' => 'stockintegritytest-fresh-ok-1']);
+
+        $ok->assertSuccessful();
+        $this->assertEquals(6.0, (float) BranchStock::where('product_id', $this->product->id)
+            ->where('branch_id', $this->branch->id)->value('current_stock'));
+    }
+
+    public function test_inventory_create_replays_same_idempotency_key(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $payload = [
+            'data' => [
+                'values' => [
+                    'ingredientId' => $this->ingredient->id,
+                    'type' => 'in',
+                    'quantity' => 10,
+                    'referenceNote' => 'Replay purchase',
+                ],
+            ],
+        ];
+        $headers = ['Idempotency-Key' => 'stock-integrity-inv-replay-1'];
+
+        $first = $this->postJson('/api/v1/InventoryTransaction/new', $payload, $headers);
+        $first->assertStatus(201);
+        $this->assertEquals(110.0, (float) $this->ingredient->fresh()->current_stock);
+
+        $second = $this->postJson('/api/v1/InventoryTransaction/new', $payload, $headers);
+        $second->assertStatus(201);
+        $firstId = $first->json('data.id') ?? $first->json('data.values.id');
+        $secondId = $second->json('data.id') ?? $second->json('data.values.id');
+        $this->assertNotEmpty($firstId);
+        $this->assertEquals($firstId, $secondId);
+        $this->assertEquals(110.0, (float) $this->ingredient->fresh()->current_stock);
+        $this->assertEquals(1, \App\Modules\Api\V1\InventoryTransaction\Models\InventoryTransaction::count());
     }
 }
