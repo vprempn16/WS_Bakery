@@ -132,6 +132,16 @@ class SalesReturnAndRoleMatrixTest extends TestCase
         ]);
     }
 
+    private function postReturn(array $payload)
+    {
+        static $n = 0;
+        $n++;
+
+        return $this->postJson('/api/v1/SalesReturn/new', $payload, [
+            'Idempotency-Key' => 'sales-return-role-'.$n,
+        ]);
+    }
+
     public function test_warehouse_staff_cannot_access_sales_returns(): void
     {
         Sanctum::actingAs($this->warehouseUser);
@@ -150,7 +160,7 @@ class SalesReturnAndRoleMatrixTest extends TestCase
     {
         Sanctum::actingAs($this->salesUser);
 
-        $response = $this->postJson('/api/v1/SalesReturn/new', [
+        $response = $this->postReturn( [
             'data' => [
                 'values' => [
                     'branchId' => $this->retail->id,
@@ -167,7 +177,7 @@ class SalesReturnAndRoleMatrixTest extends TestCase
                     ],
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'return-stock-down-1']);
 
         $response->assertStatus(201);
         $this->assertEquals(300.0, (float) $response->json('data.totalReturnValue'));
@@ -187,7 +197,7 @@ class SalesReturnAndRoleMatrixTest extends TestCase
     {
         Sanctum::actingAs($this->salesUser);
 
-        $response = $this->postJson('/api/v1/SalesReturn/new', [
+        $response = $this->postReturn( [
             'data' => [
                 'values' => [
                     'branchId' => $this->retail->id,
@@ -208,7 +218,7 @@ class SalesReturnAndRoleMatrixTest extends TestCase
                     ],
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'return-multi-1']);
 
         $response->assertStatus(201);
         // 5*30 + 4*25 = 150 + 100 = 250
@@ -225,7 +235,7 @@ class SalesReturnAndRoleMatrixTest extends TestCase
     {
         Sanctum::actingAs($this->salesUser);
 
-        $response = $this->postJson('/api/v1/SalesReturn/new', [
+        $response = $this->postReturn( [
             'data' => [
                 'values' => [
                     'branchId' => $this->retail->id,
@@ -241,7 +251,7 @@ class SalesReturnAndRoleMatrixTest extends TestCase
                     ],
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'return-insufficient-1']);
 
         $response->assertStatus(400);
         $this->assertEquals(15.0, (float) BranchStock::where('product_id', $this->product->id)
@@ -269,7 +279,7 @@ class SalesReturnAndRoleMatrixTest extends TestCase
             'current_stock' => 10000, // 10 kg in grams
         ]);
 
-        $response = $this->postJson('/api/v1/SalesReturn/new', [
+        $response = $this->postReturn( [
             'data' => [
                 'values' => [
                     'branchId' => $this->retail->id,
@@ -285,7 +295,7 @@ class SalesReturnAndRoleMatrixTest extends TestCase
                     ],
                 ],
             ],
-        ]);
+        ], ['Idempotency-Key' => 'return-weight-1']);
 
         $response->assertStatus(201);
         // (1 / 1000) * 450 = 0.45
@@ -298,7 +308,7 @@ class SalesReturnAndRoleMatrixTest extends TestCase
     {
         Sanctum::actingAs($this->salesUser);
 
-        $this->postJson('/api/v1/SalesReturn/new', [
+        $this->postReturn( [
             'data' => [
                 'values' => [
                     'branchId' => $this->retail->id,
@@ -314,7 +324,7 @@ class SalesReturnAndRoleMatrixTest extends TestCase
                     ],
                 ],
             ],
-        ])->assertStatus(201);
+        ], ['Idempotency-Key' => 'return-list-1'])->assertStatus(201);
 
         $list = $this->getJson('/api/v1/SalesReturn')->assertOk();
         $records = $list->json('data.records')
@@ -347,5 +357,105 @@ class SalesReturnAndRoleMatrixTest extends TestCase
         $names = array_column($fields ?? [], 'fieldname');
 
         $this->assertContains('productImage', $names);
+    }
+
+    /**
+     * P0: wastage must write off expired ledger qty (POS fresh gate must not block returns).
+     * 200 on hand = 180 expired + 20 fresh → return 180 → stock 20, shelf Fresh.
+     */
+    public function test_return_expired_qty_succeeds_and_clears_shelf_to_fresh(): void
+    {
+        Sanctum::actingAs($this->salesUser);
+
+        BranchStock::where('branch_id', $this->retail->id)
+            ->where('product_id', $this->product->id)
+            ->update(['current_stock' => 200]);
+
+        $userId = (string) $this->admin->id;
+        $orgId = (string) $this->org->id;
+        $productId = (string) $this->product->id;
+
+        \Illuminate\Support\Facades\DB::table('production_batches')->insert([
+            [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'organization_id' => $orgId,
+                'product_id' => $productId,
+                'batch_number' => 'RET-OLD-180',
+                'quantity_produced' => 180,
+                'production_date' => now()->subDays(2)->toDateString(),
+                'expiry_timestamp' => now()->subDay()->toDateTimeString(),
+                'status' => 'completed',
+                'created_by' => $userId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'organization_id' => $orgId,
+                'product_id' => $productId,
+                'batch_number' => 'RET-NEW-20',
+                'quantity_produced' => 20,
+                'production_date' => now()->toDateString(),
+                'expiry_timestamp' => now()->addDays(2)->toDateTimeString(),
+                'status' => 'completed',
+                'created_by' => $userId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $before = \App\Services\ShelfLifeStatusService::statusForProducts(
+            $orgId,
+            [$productId],
+            [$productId => 200.0]
+        )[$productId];
+        $this->assertSame(\App\Services\ShelfLifeStatusService::STATUS_EXPIRED, $before['shelfStatus']);
+        $this->assertEquals(180.0, (float) $before['expiredQty']);
+
+        // POS must reject selling more than fresh (20)
+        try {
+            app(\App\Modules\Api\V1\Billing\Services\BillingStockService::class)->deductForSale(
+                $orgId,
+                (string) $this->retail->id,
+                [['productId' => $productId, 'quantity' => 50]]
+            );
+            $this->fail('Expected insufficient fresh stock for POS sale');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('Insufficient fresh stock', $e->getMessage());
+        }
+
+        $response = $this->postReturn( [
+            'data' => [
+                'values' => [
+                    'branchId' => $this->retail->id,
+                    'returnDate' => now()->format('Y-m-d'),
+                    'notes' => 'Expired puffs write-off',
+                ],
+                'relatedRecords' => [
+                    'items' => [
+                        [
+                            'productId' => $this->product->id,
+                            'pieces' => 180,
+                            'unit' => 'pcs',
+                        ],
+                    ],
+                ],
+            ],
+        ], ['Idempotency-Key' => 'return-expired-180']);
+
+        $response->assertStatus(201);
+
+        $stock = BranchStock::where('branch_id', $this->retail->id)
+            ->where('product_id', $this->product->id)
+            ->first();
+        $this->assertEquals(20.0, (float) $stock->current_stock);
+
+        $after = \App\Services\ShelfLifeStatusService::statusForProducts(
+            $orgId,
+            [$productId],
+            [$productId => 20.0]
+        )[$productId];
+        $this->assertSame(\App\Services\ShelfLifeStatusService::STATUS_FRESH, $after['shelfStatus']);
+        $this->assertEquals(0.0, (float) $after['expiredQty']);
     }
 }

@@ -197,11 +197,12 @@ Vendor → Ingredient (stock in via InventoryTransaction / Adjust Stock — UI: 
     → Reports (Dashboard, ExpiringBatches, BranchShelfLife)
 ```
 
-### Shelf-life warnings (warn only)
+### Shelf-life (FIFO badges + sell/transfer gates)
 - `ShelfLifeStatusService` + `GET Reports/BranchShelfLife` (active branch via `X-Branch-Id`).
-- Heuristic: product has non-wasted `ProductionBatch` past / within 24h of `expiry_timestamp` **and** `BranchStock.current_stock > 0`. Not FIFO (BranchStock has no batch id).
-- Surfaces: POS tile badge + one toast; BranchStock `shelfStatus` column; Dashboard shelf-life block + toast.
-- **Never** block POS add/pay for expiry. Use Product `status=inactive` to hide from POS.
+- FIFO: leftover on-hand after attributing non-wasted lots is `expiredQty`. Surfaces: POS tile, BranchStock, Dashboard, transfer rows.
+- **POS pay** (`BillingStockService::deductForSale`) and **BranchTransfer** may only move **fresh** on-hand (`ledger − expiredQty`). Fresh check runs after `lockForUpdate` on the stock row.
+- **SalesReturn** uses `deductForWastage` (full ledger, including expired) then `markExpiredLotsWasted`. Do not put the POS fresh gate on wastage.
+- Inactive products (`status=inactive`) stay hidden from POS regardless of shelf life.
 
 ### Product number
 - `productNumber` is **mandatory** on create/edit (`ModuleFieldConfig` + `crm_fields` + Store/Update requests). Digits only; unique per org. Creating-hook auto-number remains only as a seeder/safety fallback when empty.
@@ -209,9 +210,9 @@ Vendor → Ingredient (stock in via InventoryTransaction / Adjust Stock — UI: 
 ### Stock rules
 1. **MaterialIssue (Material Withdrawal)**: deduct ingredient stock + log `InventoryTransaction` (`out`) when master takes raw materials. Ledger notes use `Material Withdrawal: …`. Cancel restores stock. Do not use Adjust Stock UI for this path.
 2. **ProductionBatch**: increase finished-goods `Product.current_stock` only. Do **not** deduct ingredients (already issued via MaterialIssue).
-3. **BranchTransfer**: deduct warehouse `Product.current_stock`; increase `BranchStock` on receive.
-4. **Billing (POS)**: deduct `BranchStock` for `branch_id` + product lines (same org). Never leave POS as “bill only” without stock movement.
-5. **SalesReturn (Returns)**: multi-item wastage batch; deduct `BranchStock` via `BillingStockService::deductForSale`. Header + `sales_return_items`. No billing FK.
+3. **BranchTransfer**: deduct warehouse `Product.current_stock`; increase `BranchStock` on receive. Transfer qty cannot exceed fresh warehouse stock.
+4. **Billing (POS)**: deduct `BranchStock` for `branch_id` + product lines (same org) via `deductForSale` (fresh-only). Never leave POS as “bill only” without stock movement.
+5. **SalesReturn (Returns)**: multi-item wastage batch; deduct `BranchStock` via `BillingStockService::deductForWastage`. Header + `sales_return_items`. No billing FK.
 6. **BranchDailyReport**: deduct sold + returned quantities from `BranchStock` where that path is enabled; do not treat Daily Report as a substitute for SalesReturn logging.
 7. Always scope by `organization_id`. Use `lockForUpdate()` inside stock transactions.
 
@@ -231,13 +232,13 @@ Vendor → Ingredient (stock in via InventoryTransaction / Adjust Stock — UI: 
 
 ### Idempotency (stock-mutating creates)
 - Shared helper: `App\Support\Idempotency` (`begin` / `remember` / `release`).
-- **Required** `Idempotency-Key` header on: Billing paid create/pay, BranchTransfer create, MaterialIssue create, SalesReturn create.
+- **Required** `Idempotency-Key` header on: Billing paid create/pay, BranchTransfer create, MaterialIssue create, SalesReturn create, InventoryTransaction create, ProductionBatch create.
 - Frontend: generate once per submit attempt via `nextIdempotencyKey()` and **reuse the same key on retry**; clear only after success.
 - Uses Laravel cache + `cache_locks`. Production must have `CACHE_STORE=database` (or Redis) so locks work. `cache_locks` is created by the default cache migration.
 
 ### Billing POS guards
 - **Void / re-hold paid bill** (restore stock): full admin only (`PermissionService::userIsFullAdmin`). Logged as warning.
-- **Staff discount cap:** non-admin cashiers limited to `config('app.billing_staff_max_discount_pct')` (env `BILLING_STAFF_MAX_DISCOUNT_PCT`, default `0.10`). Admins uncapped. Catalog prices still win over client line prices.
+- **Staff POS:** cashiers cannot set a custom discount (always ₹0). GST/tax on their bills is **`branches.pos_tax_percent`** computed server-side (client taxAmount is ignored). Admins still edit branch defaults via POS pencil / `PUT pos-settings`. Catalog prices still win over client line prices.
 - **Per-branch POS defaults:** `branches.pos_discount_amount` / `pos_tax_percent`. `GET|PUT Branch/{id}/pos-settings` (PUT = full admin). Frontend loads on branch switch; pencil Save persists. Do not clear these to 0 on branch switch in the client store.
 
 ### Public organization registration
@@ -285,6 +286,9 @@ Vendor → Ingredient (stock in via InventoryTransaction / Adjust Stock — UI: 
 | `2026_09_06_230000_add_wasted_at_to_product_stock_transactions` | Mark wasted receipt lots on Returns |
 | `2026_09_06_240000_seed_product_shelf_life_month_options` | Idempotent 3/4 Months shelf options |
 | `2026_09_06_250000_add_pos_defaults_to_branches` | Per-branch POS discount/tax columns |
+| `2026_09_15_093000_branch_stock_expiry_date_time_columns` | BranchStock expiry date/time list columns |
+| `2026_09_15_180000_production_batch_list_expiry_and_shelf_status` | Production batch list expiry + shelf status |
+| `2026_09_15_190000_product_expiry_date_crm_not_mandatory` | Product expiryDate CRM not mandatory (own products use shelfLife) |
 
 Also still required if never applied: `2026_08_14_163600_make_product_number_unique_per_organization`, `2026_08_30_200000_update_material_withdrawal_labels`.
 
@@ -303,6 +307,14 @@ String roles on users (`admin` / `superadmin`, `warehouse`, branch) plus Profile
 Prefer existing bakery helpers (`success`, `error`, `paginated` via `ResultTrait`). Keep HTTP/status conventions consistent with surrounding controllers. Do not invent a second response shape.
 
 ## 13. Changelog (agent reference)
+
+### 2026-09-19
+
+| Area | Change |
+|------|--------|
+| **POS GST** | Cashiers get `branches.pos_tax_percent` on paid/hold bills (server-side). Custom discount remains admin-only. |
+| **Shelf / stock** | POS `deductForSale` (fresh-only, locked); Returns `deductForWastage`; transfers cannot ship expired qty. |
+| **Migrations** | `2026_09_15_093000`, `_180000`, `_190000` — list expiry columns + product expiryDate not mandatory. |
 
 ### 2026-09-06
 

@@ -11,6 +11,7 @@ use App\Modules\Api\V1\Billing\Requests\UpdateBillingRequest;
 use App\Modules\Api\V1\Billing\Resources\BillingResource;
 use App\Modules\Api\V1\Billing\Services\BillingPriceService;
 use App\Modules\Api\V1\Billing\Services\BillingStockService;
+use App\Modules\Api\V1\Branch\Models\Branch;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
@@ -288,16 +289,12 @@ class BillingController extends Controller
 
                     $discount = max(0, (float) ($data['discountAmount'] ?? 0));
                     $tax = max(0, (float) ($data['taxAmount'] ?? 0));
-                    $this->assertBillingAdjustmentsAllowed($discount, $tax);
-                    $this->assertDiscountAllowed($discount, $subTotal);
-                    if ($discount > $subTotal) {
-                        throw new \RuntimeException('Discount cannot exceed subtotal.');
-                    }
-                    $taxable = $subTotal - $discount;
-                    if ($tax > $taxable) {
-                        throw new \RuntimeException('Tax amount is unreasonably high.');
-                    }
-
+                    [$discount, $tax] = $this->resolvePosAdjustments(
+                        (string) $data['branchId'],
+                        $subTotal,
+                        $discount,
+                        $tax
+                    );
                     $billing->sub_total = $subTotal;
                     $billing->discount_amount = $discount;
                     $billing->tax_amount = $tax;
@@ -571,14 +568,14 @@ class BillingController extends Controller
                     $subTotal = (float) $billing->sub_total;
                     $discount = (float) $billing->discount_amount;
                     $tax = (float) $billing->tax_amount;
-                    $this->assertBillingAdjustmentsAllowed($discount, $tax);
-                    $this->assertDiscountAllowed($discount, $subTotal);
-                    if ($discount > $subTotal) {
-                        throw new \RuntimeException('Discount cannot exceed subtotal.');
-                    }
-                    if ($tax > max(0, $subTotal - $discount)) {
-                        throw new \RuntimeException('Tax amount is unreasonably high.');
-                    }
+                    [$discount, $tax] = $this->resolvePosAdjustments(
+                        (string) $billing->branch_id,
+                        $subTotal,
+                        $discount,
+                        $tax
+                    );
+                    $billing->discount_amount = $discount;
+                    $billing->tax_amount = $tax;
 
                     $billing->grand_total = ($subTotal - $discount) + $tax;
                     $billing->save();
@@ -815,6 +812,45 @@ class BillingController extends Controller
         }
     }
 
+    /**
+     * Staff: discount is always 0; tax is branch pos_tax_percent of subtotal (ignore client amounts).
+     * Admin: requested discount/tax stand, with the existing discount-cap helper (admins uncapped).
+     *
+     * @return array{0: float, 1: float}
+     */
+    private function resolvePosAdjustments(
+        string $branchId,
+        float $subTotal,
+        float $requestedDiscount,
+        float $requestedTax
+    ): array {
+        $user = AuthUser::user();
+        $isAdmin = $user && (new PermissionService($user))->userIsFullAdmin();
+
+        $discount = max(0.0, $requestedDiscount);
+        $tax = max(0.0, $requestedTax);
+
+        if (! $isAdmin) {
+            $discount = 0.0;
+            $orgId = AuthUser::organizationId();
+            $branch = Branch::where('organization_id', $orgId)->where('id', $branchId)->first();
+            $pct = max(0.0, min(100.0, (float) ($branch?->pos_tax_percent ?? 0)));
+            $tax = round(max(0.0, $subTotal) * ($pct / 100), 2);
+        } else {
+            $this->assertDiscountAllowed($discount, $subTotal);
+        }
+
+        if ($discount > $subTotal + 0.001) {
+            throw new \RuntimeException('Discount cannot exceed subtotal.');
+        }
+        $taxable = max(0.0, $subTotal - $discount);
+        if ($tax > $taxable + 0.001) {
+            throw new \RuntimeException('Tax amount is unreasonably high.');
+        }
+
+        return [$discount, $tax];
+    }
+
     private function assertDiscountAllowed(float $discount, float $subTotal): void
     {
         if ($discount <= 0 || $subTotal <= 0) {
@@ -841,22 +877,6 @@ class BillingController extends Controller
                 "Discount above {$pctLabel}% of the subtotal requires an admin."
             );
         }
-    }
-
-    private function assertBillingAdjustmentsAllowed(float $discount, float $tax): void
-    {
-        if ($discount <= 0 && $tax <= 0) {
-            return;
-        }
-
-        $user = AuthUser::user();
-        if ($user && (new PermissionService($user))->userIsFullAdmin()) {
-            return;
-        }
-
-        throw new \RuntimeException(
-            'Only an admin can apply discount or tax on a bill.'
-        );
     }
 
     /**

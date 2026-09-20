@@ -14,7 +14,7 @@ class ExpiryReportController extends Controller
 {
     /**
      * Branch-scoped shelf-life warnings for products with stock at the active branch.
-     * Warn-only: does not block POS sales.
+     * POS and transfers still block expired qty; this endpoint is informational.
      */
     public function branchShelfLife(Request $request)
     {
@@ -72,7 +72,7 @@ class ExpiryReportController extends Controller
                 'productName' => $batch->product ? $batch->product->name : 'Unknown',
                 'shelfLife' => $batch->product ? $batch->product->shelf_life : null,
                 'quantityProduced' => (float) $batch->quantity_produced,
-                'productionDate' => $batch->production_date ? $batch->production_date->format('Y-m-d') : null,
+                'productionDate' => $batch->production_date ? $batch->production_date->format('Y-m-d H:i:s') : null,
                 'expiryTimestamp' => $expiry ? $expiry->format('Y-m-d H:i:s') : null,
             ];
 

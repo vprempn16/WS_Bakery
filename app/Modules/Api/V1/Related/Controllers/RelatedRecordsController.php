@@ -15,6 +15,7 @@ use App\Modules\Api\V1\Vendor\Models\Vendor;
 use App\Services\AuthUser;
 use App\Services\BranchAccess;
 use App\Services\CRM\RecordObject;
+use App\Services\ShelfLifeStatusService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -33,16 +34,23 @@ class RelatedRecordsController extends Controller
             ->orderByDesc('production_date')
             ->limit(100)
             ->get()
-            ->map(fn (ProductionBatch $b) => [
-                'id' => $b->id,
-                'batchNumber' => $b->batch_number,
-                'quantityProduced' => (float) $b->quantity_produced,
-                'unit' => $b->product?->unit,
-                'productionDate' => optional($b->production_date)?->format('Y-m-d H:i:s'),
-                'expiryDate' => optional($b->expiry_timestamp)?->format('Y-m-d'),
-                'expiryTime' => optional($b->expiry_timestamp)?->format('g:i a'),
-                'status' => $b->status,
-            ]);
+            ->map(function (ProductionBatch $b) {
+                $expiry = $b->expiry_timestamp;
+                $shelf = ShelfLifeStatusService::statusForTimestamp($expiry);
+
+                return [
+                    'id' => $b->id,
+                    'batchNumber' => $b->batch_number,
+                    'quantityProduced' => (float) $b->quantity_produced,
+                    'unit' => $b->product?->unit,
+                    'productionDate' => optional($b->production_date)?->format('Y-m-d H:i:s'),
+                    'expiryDate' => $expiry ? $expiry->format('Y-m-d') : null,
+                    'expiryTime' => $expiry ? $expiry->format('g:i a') : null,
+                    'expiryTimestamp' => $expiry ? $expiry->format('Y-m-d H:i:s') : null,
+                    'shelfStatus' => $shelf['shelfStatus'],
+                    'status' => $b->status,
+                ];
+            });
 
         return $this->success(['list' => $rows]);
     }
@@ -344,6 +352,7 @@ class RelatedRecordsController extends Controller
         $batch = RecordObject::make('ProductionBatch', $id, [], 'DetailView');
         $batch->load('product');
         $expiry = $batch->expiry_timestamp;
+        $shelf = ShelfLifeStatusService::statusForTimestamp($expiry);
 
         return $this->success([
             'values' => [
@@ -355,6 +364,8 @@ class RelatedRecordsController extends Controller
                 'productionDate' => optional($batch->production_date)?->format('Y-m-d H:i:s'),
                 'expiryDate' => $expiry ? $expiry->format('Y-m-d') : null,
                 'expiryTime' => $expiry ? $expiry->format('g:i a') : null,
+                'expiryTimestamp' => $expiry ? $expiry->format('Y-m-d H:i:s') : null,
+                'shelfStatus' => $shelf['shelfStatus'],
                 'status' => $batch->status,
                 'notes' => $batch->notes,
             ],

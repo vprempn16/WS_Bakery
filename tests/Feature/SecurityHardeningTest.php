@@ -372,9 +372,12 @@ class SecurityHardeningTest extends TestCase
         $this->assertEquals((float) $billing->sub_total + 1.0, (float) $billing->grand_total);
     }
 
-    public function test_staff_cannot_apply_discount_or_tax(): void
+    public function test_staff_discount_is_ignored_and_tax_comes_from_branch(): void
     {
         Sanctum::actingAs($this->staffA);
+
+        $this->branchA->pos_tax_percent = 5;
+        $this->branchA->save();
 
         BranchStock::create([
             'organization_id' => $this->orgA->id,
@@ -406,8 +409,14 @@ class SecurityHardeningTest extends TestCase
             ],
         ], ['Idempotency-Key' => 'securityhardeningtest-staff-adj-1']);
 
-        $response->assertStatus(400);
-        $this->assertStringContainsString('admin', strtolower($response->json('message') ?? ''));
+        $response->assertSuccessful();
+        $payload = $response->json('data');
+        $billId = data_get($payload, 'id') ?? data_get($payload, 'values.id');
+        $billing = Billing::find($billId);
+
+        $this->assertEquals(0.0, (float) $billing->discount_amount);
+        $this->assertEquals(2.5, (float) $billing->tax_amount);
+        $this->assertEquals(52.5, (float) $billing->grand_total);
     }
 
     public function test_inline_edit_blocks_payment_status(): void

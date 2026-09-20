@@ -190,8 +190,8 @@ class SalesReturnController extends Controller
                 $record->total_return_value = round($totalReturnValue, 2);
                 $record->save();
 
-                // Wastage: deduct branch stock (never add back)
-                app(BillingStockService::class)->deductForSale($orgId, (string) $branchId, $stockItems);
+                // Wastage: deduct full ledger stock (expired + fresh). Do not use POS fresh-only gate.
+                app(BillingStockService::class)->deductForWastage($orgId, (string) $branchId, $stockItems);
 
                 // Clear expired lot badges for returned quantities (own batches + bought receipts)
                 foreach ($stockItems as $stockItem) {

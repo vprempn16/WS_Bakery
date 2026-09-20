@@ -20,8 +20,9 @@ class ShelfLifeStatusService
     /**
      * Map productId => shelf info for the given products.
      *
-     * Strict rule: if any past (non-cancelled/wasted) lot exists, status is expired
-     * even when newer fresh lots exist. hasFreshLot flags dual-badge UI.
+     * FIFO: leftover on-hand after attributing fresh lots is expiredQty.
+     * shelfStatus is expired only when expiredQty > 0. hasFreshLot is remaining
+     * on-hand after expiredQty (stock - expiredQty > 0).
      *
      * @param  array<int, string>  $productIds
      * @param  array<string, float>  $stockByProduct  productId => currentStock
@@ -172,8 +173,9 @@ class ShelfLifeStatusService
                 $freshOnHand = min($freshSum, $stock);
                 $expiredQty = round(min($pastSum, max(0.0, $stock - $freshOnHand)), 2);
             }
-            $hasFreshLot = count($futureLots) > 0;
+            $hasFutureLots = count($futureLots) > 0;
             $hasPastLot = count($pastLots) > 0;
+            $hasFreshLot = round(max(0.0, $stock - $expiredQty), 2) > 0;
 
             $earliestPast = null;
             foreach ($pastLots as $lot) {
@@ -192,18 +194,18 @@ class ShelfLifeStatusService
                 }
             }
 
-            if (! $hasPastLot && ! $hasFreshLot) {
+            if (! $hasPastLot && ! $hasFutureLots) {
                 $result[$productId] = [
                     'shelfStatus' => self::STATUS_FRESH,
                     'earliestExpiry' => null,
                     'expiredQty' => 0.0,
-                    'hasFreshLot' => false,
+                    'hasFreshLot' => $hasFreshLot,
                 ];
                 continue;
             }
 
-            // Strict: any past lot => expired (Fresh dual-badge via hasFreshLot)
-            if ($hasPastLot) {
+            // Expired only when on-hand leftover is attributed to past lots.
+            if ($expiredQty > 0) {
                 $result[$productId] = [
                     'shelfStatus' => self::STATUS_EXPIRED,
                     'earliestExpiry' => $earliestPast?->format('Y-m-d H:i:s'),
@@ -218,11 +220,42 @@ class ShelfLifeStatusService
                 'shelfStatus' => $status,
                 'earliestExpiry' => $earliestFuture?->format('Y-m-d H:i:s'),
                 'expiredQty' => 0.0,
-                'hasFreshLot' => true,
+                'hasFreshLot' => $hasFreshLot,
             ];
         }
 
         return $result;
+    }
+
+    /**
+     * Classify a single expiry timestamp (production batch row).
+     *
+     * @return array{shelfStatus: ?string, earliestExpiry: ?string}
+     */
+    public static function statusForTimestamp(?Carbon $expiry, int $warningHours = 24): array
+    {
+        if (! $expiry) {
+            return [
+                'shelfStatus' => null,
+                'earliestExpiry' => null,
+            ];
+        }
+
+        $now = Carbon::now();
+        $warningThreshold = $now->copy()->addHours($warningHours);
+
+        if ($expiry->isPast()) {
+            $status = self::STATUS_EXPIRED;
+        } elseif ($expiry->lessThanOrEqualTo($warningThreshold)) {
+            $status = self::STATUS_EXPIRING;
+        } else {
+            $status = self::STATUS_FRESH;
+        }
+
+        return [
+            'shelfStatus' => $status,
+            'earliestExpiry' => $expiry->format('Y-m-d H:i:s'),
+        ];
     }
 
     /**

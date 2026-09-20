@@ -13,6 +13,7 @@ use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Modules\Api\V1\SavedFilter\Services\QueryFilterService;
 use App\Services\AuthUser;
 use App\Services\CRM\RecordObject;
+use App\Support\Idempotency;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
@@ -79,95 +80,95 @@ class ProductionBatchController extends Controller
     {
         $orgId = AuthUser::organizationId();
         $userId = AuthUser::id();
+
+        [$lock, $cacheKey, $early] = Idempotency::begin(
+            'production-batch:create:'.$orgId,
+            $request->header('Idempotency-Key'),
+            true
+        );
+        if ($early) {
+            return $early;
+        }
+
         $values = $request->input('data.values');
 
         try {
-            DB::beginTransaction();
+            $response = DB::transaction(function () use ($values, $orgId, $userId) {
+                try {
+                    /** @var Product $product */
+                    $product = RecordObject::make('Product', $values['productId'], [], 'DetailView');
+                } catch (\Exception $e) {
+                    throw new \RuntimeException('The selected product does not exist or access is denied.');
+                }
+                if (! $product->isSellable()) {
+                    throw new \RuntimeException('Cannot produce: product is inactive. Activate it first.');
+                }
 
-            try {
-                /** @var Product $product */
-                $product = RecordObject::make('Product', $values['productId'], [], 'DetailView');
-            } catch (\Exception $e) {
-                DB::rollBack();
-                return $this->error('The selected product does not exist or access is denied.');
-            }
-            if (! $product->isSellable()) {
-                DB::rollBack();
-                return $this->error('Cannot produce: product is inactive. Activate it first.', null, null, null, 400);
-            }
+                if ($product->isBought()) {
+                    throw new \RuntimeException(
+                        'Cannot log production: this is a bought (outside brand) product. Receive stock instead, then transfer and sell in POS.'
+                    );
+                }
 
-            if ($product->isBought()) {
-                DB::rollBack();
+                if (! Recipe::where('product_id', $product->id)->exists()) {
+                    throw new \RuntimeException(
+                        'Cannot log production: this product has no recipe (Bill of Materials). Open the product and add ingredients first.'
+                    );
+                }
 
-                return $this->error(
-                    'Cannot log production: this is a bought (outside brand) product. Receive stock instead, then transfer and sell in POS.',
-                    null,
-                    null,
-                    null,
-                    400
-                );
-            }
-
-            if (! Recipe::where('product_id', $product->id)->exists()) {
-                DB::rollBack();
-
-                return $this->error(
-                    'Cannot log production: this product has no recipe (Bill of Materials). Open the product and add ingredients first.',
-                    null,
-                    null,
-                    null,
-                    400
-                );
-            }
-
-            // Ingredients are deducted when master takes raw material (Material Issue), not here.
-            $unit = strtolower(trim((string) ($product->unit ?? '')));
-            $isPieceUnit = in_array($unit, ['pcs', 'pc', 'piece', 'pieces'], true);
-            $quantityProduced = (float) $values['quantityProduced'];
-            try {
+                // Ingredients are deducted when master takes raw material (Material Issue), not here.
+                $unit = strtolower(trim((string) ($product->unit ?? '')));
+                $isPieceUnit = in_array($unit, ['pcs', 'pc', 'piece', 'pieces'], true);
+                $quantityProduced = (float) $values['quantityProduced'];
                 $productionDate = $this->parseProductionDate((string) $values['productionDate']);
                 $expiryTimestamp = $this->resolveExpiryTimestamp($product, $productionDate);
-            } catch (\InvalidArgumentException $e) {
-                DB::rollBack();
 
-                return $this->error($e->getMessage(), null, null, null, 422);
-            }
+                /** @var ProductionBatch $batch */
+                $batch = RecordObject::make('ProductionBatch', null, [
+                    'productId' => $product->id,
+                    'quantityProduced' => $quantityProduced,
+                    'pieces' => $values['pieces'] ?? null,
+                    'productionDate' => $values['productionDate'],
+                    'notes' => $values['notes'] ?? null,
+                ], 'CreateView');
+                $batch->organization_id = $orgId;
+                $batch->product_id = $product->id;
+                $batch->quantity_produced = $quantityProduced;
+                if ($isPieceUnit) {
+                    $batch->pieces = (int) round($quantityProduced);
+                } else {
+                    $batch->pieces = isset($values['pieces']) && $values['pieces'] !== ''
+                        ? (int) $values['pieces']
+                        : null;
+                }
+                $batch->production_date = $productionDate;
+                $batch->expiry_timestamp = $expiryTimestamp;
+                $batch->status = 'completed';
+                $batch->notes = $values['notes'] ?? null;
+                $batch->created_by = $userId;
+                $batch->save();
 
-            /** @var ProductionBatch $batch */
-            $batch = RecordObject::make('ProductionBatch', null, [
-                'productId' => $product->id,
-                'quantityProduced' => $quantityProduced,
-                'pieces' => $values['pieces'] ?? null,
-                'productionDate' => $values['productionDate'],
-                'notes' => $values['notes'] ?? null,
-            ], 'CreateView');
-            $batch->organization_id = $orgId;
-            $batch->product_id = $product->id;
-            $batch->quantity_produced = $quantityProduced;
-            if ($isPieceUnit) {
-                $batch->pieces = (int) round($quantityProduced);
-            } else {
-                $batch->pieces = isset($values['pieces']) && $values['pieces'] !== ''
-                    ? (int) $values['pieces']
-                    : null;
-            }
-            $batch->production_date = $productionDate;
-            $batch->expiry_timestamp = $expiryTimestamp;
-            $batch->status = 'completed';
-            $batch->notes = $values['notes'] ?? null;
-            $batch->created_by = $userId;
-            $batch->save();
+                $product = Product::where('organization_id', $orgId)->where('id', $product->id)->lockForUpdate()->firstOrFail();
+                $product->current_stock = (float) $product->current_stock + $quantityProduced;
+                $product->save();
 
-            $product = Product::where('organization_id', $orgId)->where('id', $product->id)->lockForUpdate()->firstOrFail();
-            $product->current_stock = (float) $product->current_stock + $quantityProduced;
-            $product->save();
+                return $this->success(new ProductionBatchResource($batch), 'Production batch logged successfully.', 201);
+            });
 
-            DB::commit();
+            // Success-only: a failed first attempt must not block a later retry with the same key.
+            Idempotency::remember($cacheKey, $response);
 
-            return $this->success(new ProductionBatchResource($batch), 'Production batch logged successfully.', 201);
+            return $response;
+        } catch (\InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), null, null, null, 422);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Exception $e) {
-            DB::rollBack();
-            return $this->error('Failed to log production batch: ' . $e->getMessage(), null, null, null, 500);
+            report($e);
+
+            return $this->error('Failed to log production batch. Please try again.', null, null, null, 500);
+        } finally {
+            Idempotency::release($lock);
         }
     }
 
@@ -285,7 +286,9 @@ class ProductionBatchController extends Controller
             return $this->error($e->getMessage(), null, null, null, 400);
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->error('Failed to update production batch: ' . $e->getMessage(), null, null, null, 500);
+            report($e);
+
+            return $this->error('Failed to update production batch. Please try again.', null, null, null, 500);
         }
     }
 
