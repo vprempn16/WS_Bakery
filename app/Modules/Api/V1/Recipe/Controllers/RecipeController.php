@@ -30,11 +30,20 @@ class RecipeController extends Controller
 
         $product = Product::findOrFail($productId);
         $perPage = $request->query('per_page', 20);
+        $allRecipes = $product->recipes()->with('ingredient')->get();
+        $recipeStatus = Recipe::statusForRecipes($allRecipes);
         $recipes = $product->recipes()->with('ingredient')->paginate($perPage);
 
         $fieldList = \App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig::getApiFieldsForView('Recipe', 'DetailView');
 
-        return $this->paginated(RecipeResource::collection($recipes)->resource, $fieldList);
+        $response = $this->paginated(RecipeResource::collection($recipes)->resource, $fieldList);
+        $payload = $response->getData(true);
+        if (is_array($payload) && isset($payload['data']) && is_array($payload['data'])) {
+            $payload['data']['recipeStatus'] = $recipeStatus;
+            $response->setData($payload);
+        }
+
+        return $response;
     }
 
     public function store(StoreRecipeRequest $request, $productId)
@@ -62,10 +71,14 @@ class RecipeController extends Controller
             );
         }
         $values = $request->input('data.values');
+        $pending = filter_var($values['quantityPending'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         $recipe = Recipe::updateOrCreate(
             ['product_id' => $product->id, 'ingredient_id' => $values['ingredientId']],
-            ['quantity_required' => $values['quantityRequired']]
+            [
+                'quantity_required' => $pending ? null : $values['quantityRequired'],
+                'quantity_pending' => $pending,
+            ]
         );
 
         $recipe->load('ingredient');

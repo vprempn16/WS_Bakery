@@ -20,6 +20,9 @@ class Ingredient extends \App\Models\BKModel
     public const CATEGORIES = [
         'raw',
         'packaging',
+        'cake_packaging',
+        'food_packing_covers',
+        'carry_bags',
         'oil',
         'flour',
         'dal',

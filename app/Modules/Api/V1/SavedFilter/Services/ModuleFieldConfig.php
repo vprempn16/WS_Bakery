@@ -97,6 +97,9 @@ class ModuleFieldConfig
                 'options' => [
                     ['value' => 'raw', 'label' => 'Raw'],
                     ['value' => 'packaging', 'label' => 'Packaging'],
+                    ['value' => 'cake_packaging', 'label' => 'Cake Packaging'],
+                    ['value' => 'food_packing_covers', 'label' => 'Food Packing Covers'],
+                    ['value' => 'carry_bags', 'label' => 'Carry Bags'],
                     ['value' => 'oil', 'label' => 'Oil'],
                     ['value' => 'flour', 'label' => 'Flour'],
                     ['value' => 'dal', 'label' => 'Dal / Pulses'],

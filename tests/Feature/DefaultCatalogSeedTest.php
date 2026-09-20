@@ -7,6 +7,7 @@ use App\Modules\Api\V1\Organization\Models\Organization;
 use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\ProductionBatch\Models\ProductionBatch;
 use App\Modules\Api\V1\Recipe\Models\Recipe;
+use App\Services\DefaultCatalogService;
 use Database\Seeders\ClientDemoBakerySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +30,7 @@ class DefaultCatalogSeedTest extends TestCase
         $ingredients = Ingredient::withoutGlobalScopes()->where('organization_id', $org->id)->get();
         $this->assertCount(count($ingredientDefs), $ingredients);
 
-        $maida = $ingredients->firstWhere('name', 'Maida Flour');
+        $maida = $ingredients->firstWhere('name', 'Maida / Wheat Flour (மைதா மாவு)');
         $this->assertNotNull($maida);
         $this->assertSame('flour', $maida->category);
         $this->assertSame('gm', $maida->unit);
@@ -39,6 +40,19 @@ class DefaultCatalogSeedTest extends TestCase
         $this->assertNotNull($oil);
         $this->assertSame('oil', $oil->category);
         $this->assertSame('ml', $oil->unit);
+
+        $cakeBoard = $ingredients->firstWhere('name', 'Cake Board 1 kg (கேக் போர்டு 1 கிலோ)');
+        $this->assertNotNull($cakeBoard);
+        $this->assertSame('cake_packaging', $cakeBoard->category);
+        $this->assertSame('pcs', $cakeBoard->unit);
+
+        $carryBag = $ingredients->firstWhere('name', 'Easy Carry Bag 10 x 13 (ஈஸி கேரி பேக் 10 x 13)');
+        $this->assertNotNull($carryBag);
+        $this->assertSame('carry_bags', $carryBag->category);
+
+        $cover = $ingredients->firstWhere('name', 'Milk Cover 5 x 7 (பால் கவர் 5 x 7)');
+        $this->assertNotNull($cover);
+        $this->assertSame('food_packing_covers', $cover->category);
 
         $products = Product::withoutGlobalScopes()->where('organization_id', $org->id)->get();
         $this->assertCount(count($productDefs), $products);
@@ -100,7 +114,7 @@ class DefaultCatalogSeedTest extends TestCase
 
         $maida = Ingredient::withoutGlobalScopes()
             ->where('organization_id', $orgId)
-            ->where('name', 'Maida Flour')
+            ->where('name', 'Maida / Wheat Flour (மைதா மாவு)')
             ->first();
         $this->assertNotNull($maida);
         $this->assertSame('flour', $maida->category);
@@ -109,5 +123,58 @@ class DefaultCatalogSeedTest extends TestCase
         $this->assertSame(0, ProductionBatch::withoutGlobalScopes()->where('organization_id', $orgId)->count());
         $this->assertSame(0, DB::table('billings')->where('organization_id', $orgId)->count());
         $this->assertSame(0, DB::table('inventory_transactions')->where('organization_id', $orgId)->count());
+    }
+
+    public function test_catalog_seed_is_idempotent_and_renames_aliases_without_changing_stock_or_unit(): void
+    {
+        $this->seed(ClientDemoBakerySeeder::class);
+
+        $org = Organization::where('email', 'demo@client-bakery.test')->first();
+        $this->assertNotNull($org);
+
+        $ghee = Ingredient::withoutGlobalScopes()
+            ->where('organization_id', $org->id)
+            ->where('name', 'Ghee (நெய்)')
+            ->first();
+        $this->assertNotNull($ghee);
+
+        // Simulate a legacy row name + custom stock/unit that must be preserved on re-seed.
+        $ghee->name = 'Ghee';
+        $ghee->current_stock = 12345;
+        $ghee->unit = 'gm';
+        $ghee->save();
+
+        $legacyId = $ghee->id;
+        $countBefore = Ingredient::withoutGlobalScopes()->where('organization_id', $org->id)->count();
+
+        app(DefaultCatalogService::class)->seedForOrganization((string) $org->id, false);
+        app(DefaultCatalogService::class)->seedForOrganization((string) $org->id, false);
+
+        $countAfter = Ingredient::withoutGlobalScopes()->where('organization_id', $org->id)->count();
+        $this->assertSame($countBefore, $countAfter);
+
+        $renamed = Ingredient::withoutGlobalScopes()->find($legacyId);
+        $this->assertNotNull($renamed);
+        $this->assertSame('Ghee (நெய்)', $renamed->name);
+        $this->assertSame(12345.0, (float) $renamed->current_stock);
+        $this->assertSame('gm', $renamed->unit);
+
+        $ingredientDefs = require base_path('client-pvt/ingredients.php');
+        $this->assertSame(
+            count($ingredientDefs),
+            Ingredient::withoutGlobalScopes()->where('organization_id', $org->id)->count()
+        );
+
+        $names = Ingredient::withoutGlobalScopes()
+            ->where('organization_id', $org->id)
+            ->pluck('name');
+        $this->assertSame($names->count(), $names->unique()->count());
+    }
+
+    public function test_packaging_categories_are_accepted_by_model(): void
+    {
+        foreach (['cake_packaging', 'food_packing_covers', 'carry_bags'] as $category) {
+            $this->assertContains($category, Ingredient::CATEGORIES);
+        }
     }
 }

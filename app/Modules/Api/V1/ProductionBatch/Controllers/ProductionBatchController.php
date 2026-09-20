@@ -116,6 +116,18 @@ class ProductionBatchController extends Controller
                     );
                 }
 
+                $recipes = Recipe::where('product_id', $product->id)->with('ingredient')->get();
+                $pending = $recipes->filter(fn (Recipe $r) => $r->isPending());
+                if ($pending->isNotEmpty()) {
+                    $names = $pending->map(function (Recipe $r) {
+                        return $r->ingredient?->name ?? 'Unknown ingredient';
+                    })->unique()->values()->all();
+                    throw new \RuntimeException(
+                        'Cannot log production: recipe is incomplete for '.$product->name
+                        .'. Recipe quantity missing: '.implode(', ', $names).'.'
+                    );
+                }
+
                 // Ingredients are deducted when master takes raw material (Material Issue), not here.
                 $unit = strtolower(trim((string) ($product->unit ?? '')));
                 $isPieceUnit = in_array($unit, ['pcs', 'pc', 'piece', 'pieces'], true);

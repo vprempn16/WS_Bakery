@@ -17,6 +17,12 @@ class Recipe extends Model
         'product_id',
         'ingredient_id',
         'quantity_required',
+        'quantity_pending',
+    ];
+
+    protected $casts = [
+        'quantity_pending' => 'boolean',
+        'quantity_required' => 'float',
     ];
 
     public function product()
@@ -27,5 +33,31 @@ class Recipe extends Model
     public function ingredient()
     {
         return $this->belongsTo(Ingredient::class);
+    }
+
+    public function isPending(): bool
+    {
+        return (bool) $this->quantity_pending || $this->quantity_required === null;
+    }
+
+    /**
+     * Derive product BOM status from recipe lines.
+     *
+     * @param  \Illuminate\Support\Collection<int, Recipe>|iterable<Recipe>  $recipes
+     */
+    public static function statusForRecipes(iterable $recipes): string
+    {
+        $list = collect($recipes);
+        if ($list->isEmpty()) {
+            return 'incomplete';
+        }
+
+        foreach ($list as $recipe) {
+            if ($recipe->isPending()) {
+                return 'incomplete';
+            }
+        }
+
+        return 'complete';
     }
 }
