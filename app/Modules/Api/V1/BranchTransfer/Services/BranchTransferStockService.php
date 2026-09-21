@@ -5,7 +5,9 @@ namespace App\Modules\Api\V1\BranchTransfer\Services;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchStock;
 use App\Modules\Api\V1\BranchTransfer\Models\BranchTransfer;
 use App\Modules\Api\V1\Product\Models\Product;
+use App\Modules\Api\V1\Branch\Models\Branch;
 use App\Services\ShelfLifeStatusService;
+use App\Services\WarehouseExpiredStockService;
 
 class BranchTransferStockService
 {
@@ -18,6 +20,17 @@ class BranchTransferStockService
     public const STATUS_COMPLETED = 'completed';
 
     public const STATUS_CANCELLED = 'cancelled';
+
+    /**
+     * Soft-check warehouse availability + destination-only expiry without locking (create-time).
+     *
+     * @param  array<int, array{productId:string, quantity:float|int|string}>  $items
+     */
+    public function assertTransferAllowed(string $orgId, string $destinationBranchId, array $items): void
+    {
+        $this->assertWarehouseAvailability($orgId, $items);
+        $this->assertDestinationHasNoExpiredProductStock($orgId, $destinationBranchId, $items);
+    }
 
     /**
      * Soft-check warehouse availability without locking (create-time validation).
@@ -43,9 +56,10 @@ class BranchTransferStockService
                 );
             }
 
-            if ((float) $product->current_stock < $quantity) {
+            $onHand = WarehouseExpiredStockService::warehouseOnHand($orgId, $productId, true);
+            if ($onHand < $quantity) {
                 throw new \RuntimeException(
-                    "Insufficient warehouse stock for {$product->name}. Available: {$product->current_stock}, requested: {$quantity}."
+                    "Insufficient warehouse stock for {$product->name}. Available: {$onHand}, requested: {$quantity}."
                 );
             }
 
@@ -150,13 +164,22 @@ class BranchTransferStockService
                 );
             }
 
-            if ((float) $product->current_stock < $qty) {
+            WarehouseExpiredStockService::forgetCache();
+            $onHand = WarehouseExpiredStockService::warehouseOnHand($orgId, (string) $item->product_id, true);
+            $product->refresh();
+
+            if ($onHand < $qty) {
                 throw new \RuntimeException(
-                    "Insufficient warehouse stock for {$product->name}. Available: {$product->current_stock}, requested: {$qty}."
+                    "Insufficient warehouse stock for {$product->name}. Available: {$onHand}, requested: {$qty}."
                 );
             }
 
             $this->assertFreshWarehouseAvailable($product, $qty);
+            $this->assertDestinationHasNoExpiredProductStock(
+                $orgId,
+                (string) $transfer->branch_id,
+                [['productId' => (string) $item->product_id, 'quantity' => $qty]]
+            );
 
             $product->current_stock = (float) $product->current_stock - $qty;
             $product->save();
@@ -262,9 +285,154 @@ class BranchTransferStockService
         $expired = (float) ($shelf[$productId]['expiredQty'] ?? 0);
         $fresh = max(0.0, round($ledger - $expired, 2));
         if ($qty > $fresh + 0.001) {
+            $warehouseName = WarehouseExpiredStockService::warehouseNameForOrg($orgId);
             throw new \RuntimeException(
-                "Insufficient fresh warehouse stock for {$product->name}. Available: {$fresh}, requested: {$qty}. Return expired stock first."
+                "Cannot transfer expired batch: {$product->name} — expired stock remains in {$warehouseName}. Select a fresh production quantity before transferring. Available fresh: {$fresh}, requested: {$qty}."
             );
         }
+    }
+
+    /**
+     * Block transfer when the selected destination (only) has expired on-hand of the same product.
+     *
+     * @param  array<int, array{productId?:string, quantity?:float|int|string}>  $items
+     */
+    public function assertDestinationHasNoExpiredProductStock(string $orgId, string $destinationBranchId, array $items): void
+    {
+        $destination = Branch::query()
+            ->where('organization_id', $orgId)
+            ->where('id', $destinationBranchId)
+            ->first();
+        $destName = $destination?->name ?: 'the destination';
+
+        $productIds = [];
+        foreach ($items as $item) {
+            $productId = (string) ($item['productId'] ?? '');
+            if ($productId !== '') {
+                $productIds[] = $productId;
+            }
+        }
+        $productIds = array_values(array_unique($productIds));
+        if ($productIds === []) {
+            return;
+        }
+
+        $stocks = BranchStock::query()
+            ->where('organization_id', $orgId)
+            ->where('branch_id', $destinationBranchId)
+            ->whereIn('product_id', $productIds)
+            ->get(['product_id', 'current_stock'])
+            ->keyBy(fn ($row) => (string) $row->product_id);
+
+        $products = Product::query()
+            ->where('organization_id', $orgId)
+            ->whereIn('id', $productIds)
+            ->get(['id', 'name', 'unit'])
+            ->keyBy(fn ($p) => (string) $p->id);
+
+        foreach ($productIds as $productId) {
+            $destStock = (float) ($stocks->get($productId)?->current_stock ?? 0);
+            if ($destStock <= 0.001) {
+                continue;
+            }
+
+            $product = $products->get($productId);
+            $name = $product?->name ?: 'This product';
+            $unit = $product?->unit ?: 'pcs';
+
+            $warehouse = WarehouseExpiredStockService::warehouseShelfForProduct($orgId, $productId);
+            $warehouseFresh = max(0.0, round((float) $warehouse['currentStock'] - (float) $warehouse['expiredQty'], 2));
+
+            $shelf = ShelfLifeStatusService::statusForProducts(
+                $orgId,
+                [$productId],
+                [$productId => $destStock],
+                24,
+                [$productId => $warehouseFresh]
+            );
+            $expired = (float) ($shelf[$productId]['expiredQty'] ?? 0);
+            if ($expired <= 0.001) {
+                continue;
+            }
+
+            $qtyLabel = rtrim(rtrim(number_format($expired, 2, '.', ''), '0'), '.');
+
+            throw new \RuntimeException(
+                "Expired {$name} stock found in {$destName}. {$destName} has {$qtyLabel} {$unit} of expired {$name}. Process the expired stock from {$destName} before transferring additional {$name}."
+            );
+        }
+    }
+
+    /**
+     * Destination-only expired qty preview for the transfer form.
+     *
+     * @param  array<int, string>  $productIds
+     * @return array{
+     *   branchId: string,
+     *   branchName: string,
+     *   products: list<array{productId: string, name: string, unit: ?string, expiredQty: float, currentStock: float}>
+     * }
+     */
+    public function destinationExpiryPreview(string $orgId, string $destinationBranchId, array $productIds): array
+    {
+        $destination = Branch::query()
+            ->where('organization_id', $orgId)
+            ->where('id', $destinationBranchId)
+            ->firstOrFail();
+
+        $productIds = array_values(array_unique(array_filter(array_map('strval', $productIds))));
+        $products = [];
+        if ($productIds === []) {
+            return [
+                'branchId' => (string) $destination->id,
+                'branchName' => (string) ($destination->name ?: 'Retail branch'),
+                'products' => [],
+            ];
+        }
+
+        $stocks = BranchStock::query()
+            ->where('organization_id', $orgId)
+            ->where('branch_id', $destinationBranchId)
+            ->whereIn('product_id', $productIds)
+            ->get(['product_id', 'current_stock'])
+            ->keyBy(fn ($row) => (string) $row->product_id);
+
+        $meta = Product::query()
+            ->where('organization_id', $orgId)
+            ->whereIn('id', $productIds)
+            ->get(['id', 'name', 'unit'])
+            ->keyBy(fn ($p) => (string) $p->id);
+
+        foreach ($productIds as $productId) {
+            $destStock = (float) ($stocks->get($productId)?->current_stock ?? 0);
+            $expired = 0.0;
+            if ($destStock > 0.001) {
+                $warehouse = WarehouseExpiredStockService::warehouseShelfForProduct($orgId, $productId);
+                $warehouseFresh = max(0.0, round((float) $warehouse['currentStock'] - (float) $warehouse['expiredQty'], 2));
+                $shelf = ShelfLifeStatusService::statusForProducts(
+                    $orgId,
+                    [$productId],
+                    [$productId => $destStock],
+                    24,
+                    [$productId => $warehouseFresh]
+                );
+                $expired = (float) ($shelf[$productId]['expiredQty'] ?? 0);
+            }
+
+            $product = $meta->get($productId);
+            $products[] = [
+                'productId' => $productId,
+                'name' => $product?->name ?: 'Unknown',
+                'unit' => $product?->unit,
+                'expiredQty' => $expired,
+                'currentStock' => $destStock,
+            ];
+        }
+
+        return [
+            'branchId' => (string) $destination->id,
+            'branchName' => (string) ($destination->name ?: 'Retail branch'),
+            'products' => $products,
+        ];
     }
 }

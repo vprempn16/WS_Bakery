@@ -19,6 +19,7 @@ use App\Services\AuthUser;
 use App\Services\BranchAccess;
 use App\Services\CRM\RecordObject;
 use App\Services\ShelfLifeStatusService;
+use App\Services\WarehouseExpiredStockService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
@@ -178,15 +179,26 @@ class ProductController extends Controller
                 ->all();
         }
 
+        $warehouseOnHandByProduct = [];
+        if (! $useBranchStock && $productIds !== []) {
+            foreach ($productIds as $id) {
+                $warehouseOnHandByProduct[(string) $id] = WarehouseExpiredStockService::warehouseOnHand(
+                    (string) $orgId,
+                    (string) $id,
+                    true
+                );
+            }
+        }
+
         $shelfStockGate = $useBranchStock
             ? collect($productIds)->mapWithKeys(fn ($id) => [
                 (string) $id => (float) ($branchStockByProduct[(string) $id] ?? $branchStockByProduct[$id] ?? 0),
             ])->all()
-            : [];
+            : $warehouseOnHandByProduct;
 
         $shelfMap = ShelfLifeStatusService::statusForProducts((string) $orgId, $productIds, $shelfStockGate);
 
-        $products->getCollection()->transform(function ($row) use ($shelfMap, $useBranchStock, $branchStockByProduct) {
+        $products->getCollection()->transform(function ($row) use ($shelfMap, $useBranchStock, $branchStockByProduct, $warehouseOnHandByProduct) {
             $info = $shelfMap[(string) $row->id] ?? null;
             $row->setAttribute('shelf_status_computed', $info['shelfStatus'] ?? null);
             $row->setAttribute('earliest_expiry_computed', $info['earliestExpiry'] ?? null);
@@ -198,6 +210,8 @@ class ProductController extends Controller
                 $branchQty = (float) ($branchStockByProduct[$pid] ?? $branchStockByProduct[$row->id] ?? 0);
                 $row->setAttribute('warehouse_stock_computed', (float) ($row->current_stock ?? 0));
                 $row->current_stock = $branchQty;
+            } elseif (isset($warehouseOnHandByProduct[(string) $row->id])) {
+                $row->current_stock = $warehouseOnHandByProduct[(string) $row->id];
             }
 
             return $row;
@@ -291,7 +305,7 @@ class ProductController extends Controller
 
             $shelfGate = $useBranchStock
                 ? [(string) $product->id => (float) $branchQty]
-                : [];
+                : [(string) $product->id => WarehouseExpiredStockService::warehouseOnHand($orgId, (string) $product->id, true)];
             $shelfMap = ShelfLifeStatusService::statusForProducts($orgId, [(string) $product->id], $shelfGate);
             $info = $shelfMap[(string) $product->id] ?? null;
             $product->setAttribute('shelf_status_computed', $info['shelfStatus'] ?? null);
@@ -302,6 +316,9 @@ class ProductController extends Controller
             if ($useBranchStock) {
                 $product->setAttribute('warehouse_stock_computed', (float) ($product->current_stock ?? 0));
                 $product->current_stock = (float) $branchQty;
+            } else {
+                $product->refresh();
+                $product->current_stock = WarehouseExpiredStockService::warehouseOnHand($orgId, (string) $product->id);
             }
 
             $resource = new ProductResource($product);

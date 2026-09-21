@@ -12,7 +12,9 @@ use App\Modules\Api\V1\SavedFilter\Models\SavedFilter;
 use App\Modules\Api\V1\SavedFilter\Services\ModuleFieldConfig;
 use App\Modules\Api\V1\SavedFilter\Services\QueryFilterService;
 use App\Services\AuthUser;
+use App\Services\BranchAccess;
 use App\Services\CRM\RecordObject;
+use App\Services\WarehouseExpiredStockService;
 use App\Support\Idempotency;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -71,6 +73,36 @@ class ProductionBatchController extends Controller
         }
 
         $batches = $query->with('product')->orderBy('created_at', 'desc')->paginate($perPage);
+        $batches->getCollection()->transform(function ($batch) {
+            $resolved = (new ProductionBatchResource($batch))->resolve();
+            foreach ([
+                'shelfStatus',
+                'statusLabel',
+                'currentLocation',
+                'locationType',
+                'canProcessExpiredStock',
+                'canReturnExpiredStock',
+                'expiredAtBranchId',
+                'expiredAtBranchName',
+                'expiredAtBranchQty',
+                'warehouseExpiredQty',
+                'warehouseName',
+                'wastedAt',
+                'wastedQuantity',
+                'wastedReason',
+                'productName',
+                'productUnit',
+                'expiryDate',
+                'expiryTime',
+                'expiryTimestamp',
+            ] as $key) {
+                if (array_key_exists($key, $resolved)) {
+                    $batch->setAttribute($key, $resolved[$key]);
+                }
+            }
+
+            return $batch;
+        });
         $fieldList = ModuleFieldConfig::getApiFieldsForView('ProductionBatch', 'DetailView');
 
         return $this->paginated(ProductionBatchResource::collection($batches)->resource, $fieldList);
@@ -164,7 +196,13 @@ class ProductionBatchController extends Controller
                 $product->current_stock = (float) $product->current_stock + $quantityProduced;
                 $product->save();
 
-                return $this->success(new ProductionBatchResource($batch), 'Production batch logged successfully.', 201);
+                $warehouseName = WarehouseExpiredStockService::warehouseNameForOrg((string) $orgId);
+                $expiryLabel = $expiryTimestamp->format('g:i a, j M Y');
+                $message = "{$product->name} — {$batch->batch_number} is in {$warehouseName}. Transfer this production to a branch before it expires at {$expiryLabel}.";
+
+                $batch->load('product');
+
+                return $this->success(new ProductionBatchResource($batch), $message, 201);
             });
 
             // Success-only: a failed first attempt must not block a later retry with the same key.
@@ -214,9 +252,14 @@ class ProductionBatchController extends Controller
             /** @var ProductionBatch $batch */
             $batch = RecordObject::make('ProductionBatch', $id, [], 'EditView');
 
-            if (strtolower((string) $batch->status) === 'cancelled') {
+            $currentStatus = strtolower((string) $batch->status);
+            if ($currentStatus === 'cancelled') {
                 DB::rollBack();
                 return $this->error('Cancelled production batches cannot be edited.', null, null, null, 400);
+            }
+            if (in_array($currentStatus, ['wasted', 'disposed'], true)) {
+                DB::rollBack();
+                return $this->error('Disposed production batches cannot be edited.', null, null, null, 400);
             }
 
             if (isset($values['notes'])) {
@@ -318,8 +361,12 @@ class ProductionBatchController extends Controller
                 /** @var ProductionBatch $batch */
                 $batch = RecordObject::make('ProductionBatch', $id, [], 'EditView');
 
-                if (strtolower((string) $batch->status) === 'cancelled') {
+                $currentStatus = strtolower((string) $batch->status);
+                if ($currentStatus === 'cancelled') {
                     return $this->error('Production batch is already cancelled.', null, null, null, 400);
+                }
+                if (in_array($currentStatus, ['wasted', 'disposed'], true)) {
+                    return $this->error('Disposed production batches cannot be cancelled.', null, null, null, 400);
                 }
 
                 $this->reverseProductionStock($batch, $orgId);
@@ -335,6 +382,76 @@ class ProductionBatchController extends Controller
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), null, null, null, 400);
         }
+    }
+
+    /**
+     * Dispose expired warehouse leftover for this batch (write-off). Not a branch return.
+     */
+    public function disposeExpired($id)
+    {
+        $user = AuthUser::requireUser();
+        $permissionService = new \App\Services\PermissionService($user);
+        if ($deny = $permissionService->denyMessage('ProductionBatch', 'edit')) {
+            return $this->error($deny, null, null, null, 403);
+        }
+        if (! $user->isFullAdmin() && ! BranchAccess::isWarehouseUser($user)) {
+            return $this->error('Only warehouse staff can process expired warehouse stock.', null, null, null, 403);
+        }
+
+        try {
+            /** @var ProductionBatch $batch */
+            $batch = RecordObject::make('ProductionBatch', $id, [], 'EditView');
+            $result = app(WarehouseExpiredStockService::class)->dispose($batch, (string) AuthUser::organizationId());
+            $batch->refresh()->load('product');
+            $qtyLabel = rtrim(rtrim(number_format($result['quantity'], 2, '.', ''), '0'), '.');
+            $unit = $result['unit'] ?: 'pcs';
+            $message = "Batch {$result['batchNumber']} — {$qtyLabel} {$unit} disposed from {$result['warehouseName']}. It is no longer available for transfer or POS. Open Production Batches and filter Status = Disposed to review write-offs.";
+
+            return $this->success(new ProductionBatchResource($batch), $message);
+        } catch (ModelNotFoundException $e) {
+            return $this->error('Production Batch not found.', null, null, null, 404);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 422);
+        } catch (\Exception $e) {
+            report($e);
+
+            return $this->error('Failed to process expired stock. Please try again.', null, null, null, 500);
+        }
+    }
+
+    /**
+     * Oldest expired warehouse batch for a product (Process Expired from Product list).
+     */
+    public function expiredWarehouse(Request $request)
+    {
+        $user = AuthUser::requireUser();
+        $permissionService = new \App\Services\PermissionService($user);
+        if ($deny = $permissionService->denyMessage('ProductionBatch', 'view')) {
+            return $this->error($deny, null, null, null, 403);
+        }
+
+        $productId = (string) ($request->query('productId') ?? $request->query('product_id') ?? '');
+        if ($productId === '') {
+            return $this->error('productId is required.', null, null, null, 422);
+        }
+
+        $orgId = (string) AuthUser::organizationId();
+        try {
+            RecordObject::make('Product', $productId, [], 'DetailView');
+        } catch (\Exception $e) {
+            return $this->error('The selected product does not exist or access is denied.', null, null, null, 404);
+        }
+
+        $batch = WarehouseExpiredStockService::oldestExpiredWarehouseBatch($orgId, $productId);
+        if (! $batch) {
+            $warehouseName = WarehouseExpiredStockService::warehouseNameForOrg($orgId);
+
+            return $this->error("No expired warehouse production batch found in {$warehouseName}.", null, null, null, 404);
+        }
+
+        $batch->load('product');
+
+        return $this->success(new ProductionBatchResource($batch), 'Expired warehouse batch fetched.');
     }
 
     /**

@@ -474,7 +474,7 @@ class BranchTransferLifecycleTest extends TestCase
         ], ['Idempotency-Key' => 'lifecycle-expired-block-' . uniqid('', true)]);
 
         $blocked->assertStatus(400);
-        $this->assertStringContainsString('fresh warehouse stock', $blocked->json('message') ?? '');
+        $this->assertStringContainsString('expired stock remains', $blocked->json('message') ?? '');
         $this->assertEquals(100.0, (float) $this->product->fresh()->current_stock);
 
         $ok = $this->postJson('/api/v1/BranchTransfer/new', [
