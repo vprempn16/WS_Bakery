@@ -229,7 +229,7 @@ class ProductionPlanController extends Controller
                 $productWarnings = [];
                 $productMaterials = [];
 
-                $recipes = Recipe::where('product_id', $product->id)->get();
+                $recipes = Recipe::where('product_id', $product->id)->with('ingredient')->get();
                 if ($product->isBought()) {
                     $msg = "{$product->name} is a bought (outside brand) product — no materials needed. Receive stock instead of baking.";
                     $warnings[] = $msg;
@@ -239,8 +239,14 @@ class ProductionPlanController extends Controller
                     $warnings[] = $msg;
                     $productWarnings[] = $msg;
                 } else {
+                    $pendingNames = [];
                     $perProductNeeded = [];
                     foreach ($recipes as $recipe) {
+                        if ($recipe->isPending()) {
+                            $pendingNames[] = $recipe->ingredient?->name ?? 'Unknown ingredient';
+                            continue;
+                        }
+
                         $ingredientId = $recipe->ingredient_id;
                         $qty = (float) $recipe->quantity_required * $plannedQty;
                         if (!isset($perProductNeeded[$ingredientId])) {
@@ -252,6 +258,13 @@ class ProductionPlanController extends Controller
                             $needed[$ingredientId] = 0.0;
                         }
                         $needed[$ingredientId] += $qty;
+                    }
+
+                    if ($pendingNames !== []) {
+                        $msg = "{$product->name} recipe is incomplete. Recipe quantity missing: "
+                            .implode(', ', array_unique($pendingNames)).'.';
+                        $warnings[] = $msg;
+                        $productWarnings[] = $msg;
                     }
 
                     foreach ($perProductNeeded as $ingredientId => $qtyNeeded) {
@@ -269,6 +282,7 @@ class ProductionPlanController extends Controller
                     'productName' => $product->name,
                     'plannedQuantity' => round($plannedQty, 2),
                     'unit' => $product->unit,
+                    'recipeStatus' => Recipe::statusForRecipes($recipes),
                     'materials' => $productMaterials,
                     'warnings' => $productWarnings,
                 ];

@@ -59,8 +59,17 @@ trait Auditable
         // Never persist password hashes in audit payloads
         unset($oldValues['password'], $oldValues['remember_token'], $newValues['password'], $newValues['remember_token']);
 
+        $organizationId = $this->organization_id
+            ?? AuthUser::organizationId()
+            ?? (Auth::check() ? Auth::user()->organization_id : null);
+
+        // Catalog seed / console may touch models without an auth org context.
+        if (! $organizationId) {
+            return;
+        }
+
         AuditLog::create([
-            'organization_id' => $this->organization_id ?? AuthUser::organizationId() ?? (Auth::check() ? Auth::user()->organization_id : null),
+            'organization_id' => $organizationId,
             'user_id' => $userId,
             'module' => $className,
             'record_id' => $this->id,
