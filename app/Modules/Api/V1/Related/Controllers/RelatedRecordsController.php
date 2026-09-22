@@ -16,6 +16,7 @@ use App\Services\AuthUser;
 use App\Services\BranchAccess;
 use App\Services\CRM\RecordObject;
 use App\Services\ShelfLifeStatusService;
+use App\Services\WarehouseExpiredStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -353,6 +354,8 @@ class RelatedRecordsController extends Controller
         $batch->load('product');
         $expiry = $batch->expiry_timestamp;
         $shelf = ShelfLifeStatusService::statusForTimestamp($expiry);
+        $context = WarehouseExpiredStockService::locationContext($batch, true);
+        $statusNorm = strtolower((string) ($batch->status ?? ''));
 
         return $this->success([
             'values' => [
@@ -367,7 +370,19 @@ class RelatedRecordsController extends Controller
                 'expiryTimestamp' => $expiry ? $expiry->format('Y-m-d H:i:s') : null,
                 'shelfStatus' => $shelf['shelfStatus'],
                 'status' => $batch->status,
+                'statusLabel' => in_array($statusNorm, ['wasted', 'disposed'], true) ? 'Disposed' : $batch->status,
                 'notes' => $batch->notes,
+                'wastedAt' => optional($batch->wasted_at)?->format('Y-m-d H:i:s'),
+                'wastedQuantity' => $batch->wasted_quantity !== null ? (float) $batch->wasted_quantity : null,
+                'wastedReason' => $batch->wasted_reason,
+                'currentLocation' => $context['currentLocation'],
+                'locationType' => $context['locationType'],
+                'canProcessExpiredStock' => $context['canProcessExpiredStock'],
+                'canReturnExpiredStock' => $context['canReturnExpiredStock'],
+                'expiredAtBranchId' => $context['expiredAtBranchId'],
+                'expiredAtBranchName' => $context['expiredAtBranchName'],
+                'expiredAtBranchQty' => $context['expiredAtBranchQty'],
+                'warehouseName' => $context['warehouseName'],
             ],
         ]);
     }

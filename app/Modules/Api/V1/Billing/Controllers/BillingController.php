@@ -666,14 +666,23 @@ class BillingController extends Controller
         $paginator = $query->paginate($perPage);
         $productIds = collect($paginator->items())->pluck('id')->all();
 
+        // Always build a full branch stock gate (0 when no BranchStock row).
+        // An empty pluck [] disables ShelfLifeStatusService's stock gate and
+        // falsely attributes org-wide expired lots to this branch (ghost POS toast).
         $stockByProduct = [];
-        if ($branchId && !empty($productIds)) {
-            $stockByProduct = BranchStock::where('organization_id', $orgId)
+        if ($branchId && ! empty($productIds)) {
+            $branchRows = BranchStock::where('organization_id', $orgId)
                 ->where('branch_id', $branchId)
                 ->whereIn('product_id', $productIds)
                 ->pluck('current_stock', 'product_id')
                 ->map(fn ($stock) => (float) $stock)
                 ->all();
+
+            $stockByProduct = collect($productIds)->mapWithKeys(function ($id) use ($branchRows) {
+                $key = (string) $id;
+
+                return [$key => (float) ($branchRows[$key] ?? $branchRows[$id] ?? 0)];
+            })->all();
         }
 
         $shelfByProduct = [];
@@ -688,7 +697,8 @@ class BillingController extends Controller
         $imageService = app(ImageUploadService::class);
         $formatted = collect($paginator->items())->map(function ($item) use ($stockByProduct, $imageService, $shelfByProduct) {
             $imageUrl = $imageService->transformToUrl($item->product_image);
-            $shelf = $shelfByProduct[$item->id] ?? null;
+            $pid = (string) $item->id;
+            $shelf = $shelfByProduct[$pid] ?? $shelfByProduct[$item->id] ?? null;
 
             return [
                 'id' => $item->id,
@@ -698,7 +708,7 @@ class BillingController extends Controller
                 'unit' => $item->unit,
                 'category' => $item->category,
                 'status' => strtolower((string) ($item->status ?? 'active')) === 'inactive' ? 'inactive' : 'active',
-                'currentStock' => (float) ($stockByProduct[$item->id] ?? 0),
+                'currentStock' => (float) ($stockByProduct[$pid] ?? $stockByProduct[$item->id] ?? 0),
                 'shelfStatus' => $shelf['shelfStatus'] ?? null,
                 'earliestExpiry' => $shelf['earliestExpiry'] ?? null,
                 'expiredQty' => (float) ($shelf['expiredQty'] ?? 0),

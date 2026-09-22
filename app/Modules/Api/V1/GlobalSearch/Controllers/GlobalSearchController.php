@@ -257,15 +257,38 @@ class GlobalSearchController extends Controller
                 'module' => 'Branch',
                 'model' => \App\Modules\Api\V1\Branch\Models\Branch::class,
                 'searchColumns' => ['name', 'address', 'phone'],
-                'label' => function ($r) {
-                    $type = strtolower((string) ($r->type ?? ''));
-                    $suffix = $type === 'warehouse' ? ' (Warehouse)' : ($type === 'retail' ? ' (Retail)' : '');
-
-                    return ($r->name ?? 'Branch') . $suffix;
-                },
+                'label' => function ($r) { return $r->name ?? 'Branch'; },
                 'searchText' => function ($r) { return $r->name . ',' . $r->phone; },
             ],
         ];
+    }
+
+    /**
+     * Modules whose branchId picker is a retail destination (never warehouse).
+     *
+     * @var list<string>
+     */
+    private const RETAIL_DESTINATION_MODULES = [
+        'branchtransfer',
+        'salesreturn',
+    ];
+
+    protected function isRetailDestinationModule(?string $modulename): bool
+    {
+        return in_array(strtolower((string) $modulename), self::RETAIL_DESTINATION_MODULES, true);
+    }
+
+    protected function branchPickerLabel(object $record, bool $retailOnly): string
+    {
+        $name = (string) ($record->name ?? 'Branch');
+        if ($retailOnly) {
+            return $name;
+        }
+
+        $type = strtolower((string) ($record->type ?? ''));
+        $suffix = $type === 'warehouse' ? ' (Warehouse)' : ($type === 'retail' ? ' (Retail)' : '');
+
+        return $name . $suffix;
     }
 
     /**
@@ -296,12 +319,21 @@ class GlobalSearchController extends Controller
     {
         $value = trim((string) $request->query('value', ''));
 
+        $crmField = null;
+        $mappings = $this->getFieldMapping();
+        if (! array_key_exists((string) $fieldname, $mappings)) {
+            $crmField = DB::table('crm_fields')
+                ->where('id', $fieldname)
+                ->where('deleted', 0)
+                ->first();
+        }
+
         $resolvedKey = $this->resolveFieldKey((string) $fieldname);
         if (! $resolvedKey) {
             return $this->error('Invalid field name for relation search');
         }
 
-        $mapping = $this->getFieldMapping()[$resolvedKey];
+        $mapping = $mappings[$resolvedKey];
         $modelClass = $mapping['model'];
         $module = $mapping['module'];
         $searchColumns = $mapping['searchColumns'];
@@ -316,12 +348,23 @@ class GlobalSearchController extends Controller
             $query->where('id', $user->organization_id);
         }
 
+        $retailOnly = filter_var($request->query('retailOnly'), FILTER_VALIDATE_BOOLEAN)
+            || $this->isRetailDestinationModule($crmField->modulename ?? null);
+
         // Branch picker scoping:
-        // - Warehouse staff pick transfer destinations → retail branches only
+        // - Transfer/return destination pickers → retail branches only (admins included)
+        // - Warehouse staff pick destinations → retail branches only
         // - Retail/sales staff → their assigned branch only
-        // - Full admins → all org branches
-        if ($module === 'Branch' && $user && method_exists($user, 'isFullAdmin') && ! $user->isFullAdmin()) {
-            if (\App\Services\BranchAccess::isWarehouseUser($user)) {
+        // - Full admins on User/other branch pickers → all org branches
+        if ($module === 'Branch' && $user) {
+            $isAdmin = method_exists($user, 'isFullAdmin') && $user->isFullAdmin();
+            $isWarehouse = \App\Services\BranchAccess::isWarehouseUser($user);
+
+            if ($isAdmin) {
+                if ($retailOnly) {
+                    $query->whereRaw('LOWER(type) != ?', ['warehouse']);
+                }
+            } elseif ($retailOnly || $isWarehouse) {
                 $query->whereRaw('LOWER(type) != ?', ['warehouse']);
             } elseif ($user->branch_id) {
                 $query->where('id', $user->branch_id);
@@ -365,9 +408,12 @@ class GlobalSearchController extends Controller
 
         $valuesList = [];
         foreach ($records as $record) {
+            $label = $module === 'Branch'
+                ? $this->branchPickerLabel($record, $retailOnly)
+                : $mapping['label']($record);
             $row = [
                 'id' => $record->id,
-                'label' => $mapping['label']($record),
+                'label' => $label,
                 'search_text' => $mapping['searchText']($record),
             ];
             if ($module === 'Product') {

@@ -5,6 +5,7 @@ namespace App\Modules\Api\V1\SalesReturn\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Api\V1\Billing\Services\BillingPriceService;
 use App\Modules\Api\V1\Billing\Services\BillingStockService;
+use App\Modules\Api\V1\Branch\Models\Branch;
 use App\Modules\Api\V1\Product\Models\Product;
 use App\Modules\Api\V1\SalesReturn\Models\SalesReturn;
 use App\Modules\Api\V1\SalesReturn\Models\SalesReturnItem;
@@ -121,6 +122,23 @@ class SalesReturnController extends Controller
             Idempotency::release($lock);
 
             return $this->error($e->getMessage(), null, null, null, 403);
+        }
+
+        $returnBranch = Branch::query()
+            ->where('organization_id', $orgId)
+            ->where('id', $branchId)
+            ->first();
+        if ($returnBranch && strtolower((string) ($returnBranch->type ?? '')) === 'warehouse') {
+            Idempotency::release($lock);
+            $warehouseName = $returnBranch->name ?: 'Main Warehouse';
+
+            return $this->error(
+                "Warehouse expired stock in {$warehouseName} must be processed with Process Expired Stock, not a branch return.",
+                null,
+                null,
+                null,
+                422
+            );
         }
 
         try {

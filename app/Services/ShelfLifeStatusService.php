@@ -26,6 +26,7 @@ class ShelfLifeStatusService
      *
      * @param  array<int, string>  $productIds
      * @param  array<string, float>  $stockByProduct  productId => currentStock
+     * @param  array<string, float>  $excludeFreshQtyByProduct  fresh qty known to sit elsewhere (e.g. warehouse)
      * @return array<string, array{
      *   shelfStatus: ?string,
      *   earliestExpiry: ?string,
@@ -37,7 +38,8 @@ class ShelfLifeStatusService
         string $orgId,
         array $productIds,
         array $stockByProduct = [],
-        int $warningHours = 24
+        int $warningHours = 24,
+        array $excludeFreshQtyByProduct = []
     ): array {
         $productIds = array_values(array_unique(array_filter($productIds)));
         if ($productIds === []) {
@@ -53,7 +55,7 @@ class ShelfLifeStatusService
             ->whereIn('product_id', $productIds)
             ->where(function ($q) {
                 $q->whereNull('status')
-                    ->orWhereRaw('LOWER(status) NOT IN (?, ?)', ['wasted', 'cancelled']);
+                    ->orWhereRaw('LOWER(status) NOT IN (?, ?, ?)', ['wasted', 'cancelled', 'disposed']);
             })
             ->whereNotNull('expiry_timestamp')
             ->orderBy('expiry_timestamp')
@@ -165,6 +167,10 @@ class ShelfLifeStatusService
 
             $pastSum = round(array_sum(array_column($pastLots, 'qty')), 2);
             $freshSum = round(array_sum(array_column($futureLots, 'qty')), 2);
+            $excludeFresh = max(0.0, (float) ($excludeFreshQtyByProduct[$productId] ?? 0));
+            if ($excludeFresh > 0) {
+                $freshSum = round(max(0.0, $freshSum - $excludeFresh), 2);
+            }
             // FIFO remaining: treat freshest produced as still on hand first, then attribute
             // leftover stock to expired lots. Caps prevent fresh receipts from inflating Expired · N.
             if ($stock <= 0) {
@@ -278,7 +284,7 @@ class ShelfLifeStatusService
             ->where('product_id', $productId)
             ->where(function ($q) {
                 $q->whereNull('status')
-                    ->orWhereRaw('LOWER(status) NOT IN (?, ?)', ['wasted', 'cancelled']);
+                    ->orWhereRaw('LOWER(status) NOT IN (?, ?, ?)', ['wasted', 'cancelled', 'disposed']);
             })
             ->whereNotNull('expiry_timestamp')
             ->where('expiry_timestamp', '<', $now)

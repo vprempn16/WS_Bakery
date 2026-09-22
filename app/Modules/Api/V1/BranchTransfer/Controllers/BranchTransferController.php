@@ -148,7 +148,7 @@ class BranchTransferController extends Controller
                     }
                 }
 
-                $this->stockService->assertWarehouseAvailability($orgId, $itemsData);
+                $this->stockService->assertTransferAllowed($orgId, (string) $branchId, $itemsData);
 
                 /** @var BranchTransfer $transfer */
                 $transfer = RecordObject::make('BranchTransfer', null, [
@@ -386,7 +386,7 @@ class BranchTransferController extends Controller
             }
         }
 
-        $this->stockService->assertWarehouseAvailability($orgId, $itemsData);
+        $this->stockService->assertTransferAllowed($orgId, (string) $transfer->branch_id, $itemsData);
 
         BranchTransferItem::where('organization_id', $orgId)
             ->where('branch_transfer_id', $transfer->id)
@@ -538,6 +538,45 @@ class BranchTransferController extends Controller
 
             return $this->error($prefix . $message, null, null, null, $status);
         }
+    }
+
+    /**
+     * Destination-branch expired qty for selected products only (transfer form preview).
+     */
+    public function destinationExpiry(Request $request)
+    {
+        $user = AuthUser::requireUser();
+        $permissionService = new \App\Services\PermissionService($user);
+        if (
+            ! $permissionService->hasPermission('BranchTransfer', 'view')
+            && ! $permissionService->hasPermission('BranchTransfer', 'create')
+        ) {
+            return $this->error("You don't have permission to view BranchTransfer.", null, null, null, 403);
+        }
+
+        $branchId = (string) ($request->query('branchId') ?? $request->query('branch_id') ?? '');
+        if ($branchId === '') {
+            return $this->error('branchId is required.', null, null, null, 422);
+        }
+
+        try {
+            BranchAccess::assertCanAccessTransferDestination($user, $branchId);
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), null, null, null, 403);
+        }
+
+        $productIds = $request->query('productIds', $request->query('productId', []));
+        if (is_string($productIds)) {
+            $productIds = array_values(array_filter(array_map('trim', explode(',', $productIds))));
+        }
+        if (! is_array($productIds)) {
+            $productIds = [];
+        }
+
+        $orgId = (string) AuthUser::organizationId();
+        $data = $this->stockService->destinationExpiryPreview($orgId, $branchId, $productIds);
+
+        return $this->success($data, 'Destination expiry fetched.');
     }
 
     /**

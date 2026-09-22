@@ -66,19 +66,22 @@ class BranchStockController extends Controller
             ->all();
         $shelfMap = ShelfLifeStatusService::statusForProducts((string) $orgId, $productIds, $stockByProduct);
 
-        $stocks->getCollection()->transform(function ($row) use ($shelfMap) {
+        // Transform through BranchStockResource so list returns camelCase
+        // (currentStock, shelfStatus, expiredQty) — same shape as show().
+        // Using ::collection(...)->resource previously leaked raw Eloquent rows.
+        $stocks->through(function ($row) use ($shelfMap) {
             $info = $shelfMap[(string) $row->product_id] ?? null;
             $row->setAttribute('shelf_status_computed', $info['shelfStatus'] ?? null);
             $row->setAttribute('earliest_expiry_computed', $info['earliestExpiry'] ?? null);
             $row->setAttribute('expired_qty_computed', $info['expiredQty'] ?? null);
             $row->setAttribute('has_fresh_lot_computed', $info['hasFreshLot'] ?? null);
 
-            return $row;
+            return (new BranchStockResource($row))->resolve();
         });
 
         $fieldList = ModuleFieldConfig::getApiFieldsForView('BranchStock', 'DetailView');
 
-        return $this->paginated(BranchStockResource::collection($stocks)->resource, $fieldList);
+        return $this->paginated($stocks, $fieldList);
     }
 
     public function show(Request $request, $id)

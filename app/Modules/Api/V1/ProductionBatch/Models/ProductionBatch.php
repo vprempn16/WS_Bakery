@@ -21,6 +21,8 @@ class ProductionBatch extends BKModel
         'pieces' => 'integer',
         'production_date' => 'datetime',
         'expiry_timestamp' => 'datetime',
+        'wasted_at' => 'datetime',
+        'wasted_quantity' => 'decimal:2',
     ];
 
     protected static function booted()
