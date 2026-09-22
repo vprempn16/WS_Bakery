@@ -235,6 +235,49 @@ class FilterTest extends TestCase
         $this->assertEquals($ing2->id, $res->json('data.list.0.id'));
     }
 
+    public function test_low_stock_endpoint_excludes_zero_stock_and_stock_above_minimum()
+    {
+        $this->makeIngredient([
+            'organization_id' => $this->orgA->id,
+            'name' => 'Unused Catalog Item',
+            'unit' => 'gm',
+            'current_stock' => 0,
+            'minimum_stock_level' => 1,
+        ]);
+
+        $this->makeIngredient([
+            'organization_id' => $this->orgA->id,
+            'name' => 'Healthy Stock',
+            'unit' => 'gm',
+            'current_stock' => 88,
+            'minimum_stock_level' => 1,
+        ]);
+
+        $this->makeIngredient([
+            'organization_id' => $this->orgA->id,
+            'name' => 'No Reorder Point',
+            'unit' => 'gm',
+            'current_stock' => 5,
+            'minimum_stock_level' => 0,
+        ]);
+
+        $low = $this->makeIngredient([
+            'organization_id' => $this->orgA->id,
+            'name' => 'Needs Reorder',
+            'unit' => 'gm',
+            'current_stock' => 1,
+            'minimum_stock_level' => 5,
+        ]);
+
+        \Laravel\Sanctum\Sanctum::actingAs($this->userA);
+
+        $res = $this->getJson('/api/v1/Ingredient/low-stock');
+        $res->assertStatus(200);
+        $this->assertEquals(1, $res->json('data.meta.total'));
+        $this->assertCount(1, $res->json('data.list'));
+        $this->assertEquals($low->id, $res->json('data.list.0.id'));
+    }
+
     public function test_inventory_transaction_filters()
     {
         $ing = $this->makeIngredient([
