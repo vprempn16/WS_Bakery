@@ -4,9 +4,9 @@ namespace App\Modules\Api\V1\Ingredient\Models;
 
 use App\Modules\Api\V1\Organization\Models\Organization;
 use App\Modules\Api\V1\Vendor\Models\Vendor;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 
 class Ingredient extends \App\Models\BKModel
 {
@@ -53,6 +53,18 @@ class Ingredient extends \App\Models\BKModel
                 $ingredient->category = in_array($cat, self::CATEGORIES, true) ? $cat : 'raw';
             }
         });
+    }
+
+    /**
+     * Has remaining stock but at or below reorder point.
+     * Zero stock is out-of-stock, not low; min 0 means no reorder alert.
+     */
+    public function scopeLowStock(Builder $query): Builder
+    {
+        return $query
+            ->where('minimum_stock_level', '>', 0)
+            ->where('current_stock', '>', 0)
+            ->whereColumn('current_stock', '<=', 'minimum_stock_level');
     }
 
     public function organization()
