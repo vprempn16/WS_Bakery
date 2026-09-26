@@ -246,7 +246,7 @@ class PermissionService
         return (int) ($fieldSettings['invisible'] ?? 1) === 0;
     }
 
-    public function canWriteField(string $module, string $fieldId): bool
+    public function canWriteField(string $module, string $fieldId, string $actionKey = 'edit'): bool
     {
         if ($this->isFullAdmin()) {
             return true;
@@ -256,7 +256,11 @@ class PermissionService
             return false;
         }
 
-        if (! $this->hasPermission($module, 'edit')) {
+        if (! in_array($actionKey, ['create', 'edit'], true)) {
+            $actionKey = 'edit';
+        }
+
+        if (! $this->hasPermission($module, $actionKey)) {
             return false;
         }
 

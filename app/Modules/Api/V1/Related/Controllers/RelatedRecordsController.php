@@ -436,7 +436,7 @@ class RelatedRecordsController extends Controller
     private function assertBranch(string $id)
     {
         $branch = RecordObject::make('Branch', $id, [], 'DetailView');
-        BranchAccess::assertCanAccessBranch(AuthUser::user(), (string) $id);
+        BranchAccess::assertCanViewListedBranch(AuthUser::user(), (string) $id);
 
         return $branch;
     }

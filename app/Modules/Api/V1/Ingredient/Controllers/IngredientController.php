@@ -72,7 +72,7 @@ class IngredientController extends Controller
             }
         }
 
-        $ingredients = $query->paginate($perPage);
+        $ingredients = $query->orderBy('name')->paginate($perPage);
         $fieldList = FieldModelManager::make('Ingredient', 'DetailView', false)->getApiFormFields();
 
         return $this->paginated(IngredientResource::collection($ingredients)->resource, $fieldList);

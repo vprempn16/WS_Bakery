@@ -32,6 +32,43 @@ class BranchAccess
     }
 
     /**
+     * Branches a user may open in read-only lists and related tabs.
+     * Matches BranchController::index: admins and warehouse staff see every org branch;
+     * everyone else sees only their assigned branch. This does not grant operating
+     * or write access (see canAccessBranch).
+     */
+    public static function canViewListedBranch(?User $user, string $branchId): bool
+    {
+        if (! $user || $branchId === '') {
+            return false;
+        }
+
+        $exists = Branch::where('organization_id', $user->organization_id)
+            ->where('id', $branchId)
+            ->exists();
+
+        if (! $exists) {
+            return false;
+        }
+
+        if ($user->isFullAdmin() || self::isWarehouseUser($user)) {
+            return true;
+        }
+
+        return (string) ($user->branch_id ?? '') === (string) $branchId;
+    }
+
+    /**
+     * @throws \RuntimeException
+     */
+    public static function assertCanViewListedBranch(?User $user, string $branchId): void
+    {
+        if (! self::canViewListedBranch($user, $branchId)) {
+            throw new \RuntimeException('You are not allowed to access this branch.');
+        }
+    }
+
+    /**
      * @throws \RuntimeException
      */
     public static function assertCanAccessBranch(?User $user, string $branchId): void

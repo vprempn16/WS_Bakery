@@ -165,7 +165,7 @@ class ProductController extends Controller
             }
         }
 
-        $products = $query->paginate($perPage);
+        $products = $query->orderBy('name')->paginate($perPage);
 
         $productIds = $products->getCollection()->pluck('id')->filter()->values()->all();
         $branchStockByProduct = [];

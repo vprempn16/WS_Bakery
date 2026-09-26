@@ -66,7 +66,7 @@ class BranchController extends Controller
         }
 
         $perPage = \App\Support\ApiPagination::perPage($request);
-        $branches = $query->paginate($perPage);
+        $branches = $query->orderBy('name')->paginate($perPage);
         $fieldList = ModuleFieldConfig::getApiFieldsForView('Branch', 'DetailView');
 
         return $this->paginated(BranchResource::collection($branches)->resource, $fieldList);
