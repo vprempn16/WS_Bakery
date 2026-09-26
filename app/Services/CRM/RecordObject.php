@@ -112,7 +112,8 @@ class RecordObject
                         continue;
                     }
 
-                    if (!$permissionService->canWriteField($resolvedModule, $fieldId)) {
+                    $writeAction = $viewType === 'CreateView' ? 'create' : 'edit';
+                    if (!$permissionService->canWriteField($resolvedModule, $fieldId, $writeAction)) {
                         throw new PermissionDeniedException(
                             "You don't have permission to edit this field"
                         );

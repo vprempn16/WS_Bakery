@@ -339,6 +339,14 @@ class GlobalSearchController extends Controller
         $searchColumns = $mapping['searchColumns'];
 
         $user = Auth::user();
+        if (! $user) {
+            return $this->error('Authentication required.', null, null, null, 401);
+        }
+
+        $permissionService = new \App\Services\PermissionService($user);
+        if (! $permissionService->hasPermission($module, 'view')) {
+            return $this->error("You don't have permission to view {$module}.", null, null, null, 403);
+        }
 
         $query = $modelClass::query();
 
