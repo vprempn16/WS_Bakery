@@ -39,6 +39,14 @@ class BranchStockController extends Controller
             $q->where('product_id', $productId);
         });
 
+        $query->when($request->query('search'), function ($q, $search) {
+            $like = '%'.addcslashes((string) $search, '%_\\').'%';
+            $q->whereHas('product', function ($productQuery) use ($like) {
+                $productQuery->where('name', 'like', $like)
+                    ->orWhere('product_number', 'like', $like);
+            });
+        });
+
         if ($request->has('savedFilterId')) {
             $savedFilter = \App\Modules\Api\V1\SavedFilter\Models\SavedFilter::where('organization_id', $orgId)
                 ->findOrFail($request->query('savedFilterId'));

@@ -33,6 +33,17 @@ class ProductStockTransactionController extends Controller
             $q->where('product_id', $productId);
         });
 
+        $query->when($request->query('search'), function ($q, $search) {
+            $like = '%'.addcslashes((string) $search, '%_\\').'%';
+            $q->where(function ($inner) use ($like) {
+                $inner->where('reference_note', 'like', $like)
+                    ->orWhereHas('product', function ($productQuery) use ($like) {
+                        $productQuery->where('name', 'like', $like)
+                            ->orWhere('product_number', 'like', $like);
+                    });
+            });
+        });
+
         $query->when($request->query('type'), function ($q, $type) {
             $q->where('type', $type);
         });
