@@ -34,6 +34,16 @@ class InventoryTransactionController extends Controller
             $q->where('ingredient_id', $ingredientId);
         });
 
+        $query->when($request->query('search'), function ($q, $search) {
+            $like = '%'.addcslashes((string) $search, '%_\\').'%';
+            $q->where(function ($inner) use ($like) {
+                $inner->where('reference_note', 'like', $like)
+                    ->orWhereHas('ingredient', function ($ingredientQuery) use ($like) {
+                        $ingredientQuery->where('name', 'like', $like);
+                    });
+            });
+        });
+
         $query->when($request->query('type'), function ($q, $type) {
             $q->where('type', $type);
         });

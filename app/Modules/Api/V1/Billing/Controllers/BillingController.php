@@ -63,6 +63,15 @@ class BillingController extends Controller
             $query->whereDate('billing_date', '<=', $request->query('dateTo'));
         }
 
+        $query->when($request->query('search'), function ($q, $search) {
+            $like = '%'.addcslashes((string) $search, '%_\\').'%';
+            $q->where(function ($inner) use ($like) {
+                $inner->where('bill_number', 'like', $like)
+                    ->orWhere('customer_name', 'like', $like)
+                    ->orWhere('customer_phone', 'like', $like);
+            });
+        });
+
         $billings = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         $fieldList = FieldModelManager::make('Billing', 'DetailView', false)->getApiFormFields();

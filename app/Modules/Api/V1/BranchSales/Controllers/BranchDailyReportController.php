@@ -41,6 +41,11 @@ class BranchDailyReportController extends Controller
             return $this->error($e->getMessage(), null, null, null, 403);
         }
 
+        $query->when($request->query('search'), function ($q, $search) {
+            $like = '%'.addcslashes((string) $search, '%_\\').'%';
+            $q->where('notes', 'like', $like);
+        });
+
         if ($request->has('savedFilterId')) {
             $savedFilter = SavedFilter::where('organization_id', $orgId)
                 ->findOrFail($request->query('savedFilterId'));

@@ -38,6 +38,11 @@ class ProductionPlanController extends Controller
             ->where('organization_id', $orgId)
             ->where('status', '!=', 'cancelled');
 
+        $query->when($request->query('search'), function ($q, $search) {
+            $like = '%'.addcslashes((string) $search, '%_\\').'%';
+            $q->where('notes', 'like', $like);
+        });
+
         if ($request->has('savedFilterId')) {
             $savedFilter = SavedFilter::where('organization_id', $orgId)
                 ->findOrFail($request->query('savedFilterId'));
