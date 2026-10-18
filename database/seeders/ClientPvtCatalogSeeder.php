@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Hash;
  * Configurable admin variables: Set $adminEmail and $adminPassword below.
  * Seeding will ONLY happen for that admin user's organization!
  *
+ * Seeding copies client-pvt/images/{product number}.jpg into public storage when that file exists.
  * Run via:
  *   php8.3 artisan db:seed --class=Database\\Seeders\\ClientPvtCatalogSeeder
  */
