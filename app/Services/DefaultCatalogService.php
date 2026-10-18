@@ -9,6 +9,7 @@ use App\Modules\Api\V1\Recipe\Models\Recipe;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -268,8 +269,13 @@ class DefaultCatalogService
                 'price' => $row['price'] ?? 0,
                 'unit' => $unit,
                 'category' => $row['category'] ?? 'other',
+                'product_number' => $number,
                 'updated_at' => now(),
             ];
+            $imagePath = $this->localProductImagePath($number);
+            if ($imagePath !== null && Schema::hasColumn('products', 'product_image')) {
+                $values['product_image'] = $imagePath;
+            }
             if ($hasStatus) {
                 $values['status'] = 'active';
             }
@@ -436,5 +442,27 @@ class DefaultCatalogService
         }
 
         return array_values($data);
+    }
+
+    /**
+     * Catalog photo shipped in client-pvt/images/{number}.ext, copied into public storage.
+     * If that file is absent, use an image already stored for this number. Never downloads.
+     */
+    private function localProductImagePath(string $number): ?string
+    {
+        foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+            $relative = "uploads/images/product/{$number}.{$ext}";
+            $catalog = base_path("client-pvt/images/{$number}.{$ext}");
+            if (is_file($catalog)) {
+                Storage::disk('public')->put($relative, (string) file_get_contents($catalog));
+
+                return $relative;
+            }
+            if (Storage::disk('public')->exists($relative)) {
+                return $relative;
+            }
+        }
+
+        return null;
     }
 }

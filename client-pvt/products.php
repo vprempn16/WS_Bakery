@@ -16,7 +16,7 @@ return [
     // 1. EXISTING CORE ITEMS (9101 - 9108)
     // ==========================================
     [
-        'number' => '9101',
+        'number' => '1',
         'name' => 'Besan Laddu (கடலை மாவு லட்டு)',
         'category' => 'sweet',
         'price' => 400,
@@ -30,7 +30,7 @@ return [
         ],
     ],
     [
-        'number' => '9102',
+        'number' => '2',
         'name' => 'Garam Masala Mix (கரம் மசாலா)',
         'category' => 'spices',
         'price' => 350,
@@ -46,7 +46,7 @@ return [
         ],
     ],
     [
-        'number' => '9103',
+        'number' => '3',
         'name' => 'White Bread (வெள்ளை பிரெட்)',
         'category' => 'bread',
         'price' => 40,
@@ -62,7 +62,7 @@ return [
         ],
     ],
     [
-        'number' => '9104',
+        'number' => '4',
         'name' => 'Vanilla Cake (வெண்ணிலா கேக்)',
         'category' => 'bakery',
         'price' => 550,
@@ -78,7 +78,7 @@ return [
         ],
     ],
     [
-        'number' => '9105',
+        'number' => '5',
         'name' => 'Chocolate Cake (சாக்லேட் கேக்)',
         'category' => 'bakery',
         'price' => 650,
@@ -95,7 +95,7 @@ return [
         ],
     ],
     [
-        'number' => '9106',
+        'number' => '6',
         'name' => 'Salt Biscuit (சால்ட் பிஸ்கட்)',
         'category' => 'biscuit',
         'price' => 10,
@@ -110,7 +110,7 @@ return [
         ],
     ],
     [
-        'number' => '9107',
+        'number' => '7',
         'name' => 'Coconut Biscuit (தேங்காய் பிஸ்கட்)',
         'category' => 'biscuit',
         'price' => 12,
@@ -126,7 +126,7 @@ return [
         ],
     ],
     [
-        'number' => '9108',
+        'number' => '8',
         'name' => 'Mixed Jam (மிக்ஸட் ஜாம்)',
         'category' => 'other',
         'price' => 80,
@@ -140,7 +140,7 @@ return [
     // 2. EXISTING SNACKS & ROLLS (9201 - 9214)
     // ==========================================
     [
-        'number' => '9201',
+        'number' => '9',
         'name' => 'Bun (பன்)',
         'category' => 'bread',
         'price' => 15,
@@ -156,7 +156,7 @@ return [
         ],
     ],
     [
-        'number' => '9202',
+        'number' => '10',
         'name' => 'Veg Puff (வெஜ் பஃப்)',
         'category' => 'bakery',
         'price' => 25,
@@ -176,7 +176,7 @@ return [
         ],
     ],
     [
-        'number' => '9203',
+        'number' => '11',
         'name' => 'Egg Puff (முட்டை பஃப்)',
         'category' => 'bakery',
         'price' => 30,
@@ -196,7 +196,7 @@ return [
         ],
     ],
     [
-        'number' => '9204',
+        'number' => '12',
         'name' => 'Chicken Puff (சிக்கன் பஃப்)',
         'category' => 'bakery',
         'price' => 35,
@@ -216,7 +216,7 @@ return [
         ],
     ],
     [
-        'number' => '9205',
+        'number' => '13',
         'name' => 'Chicken Roll (சிக்கன் ரோல்)',
         'category' => 'bakery',
         'price' => 40,
@@ -236,7 +236,7 @@ return [
         ],
     ],
     [
-        'number' => '9206',
+        'number' => '14',
         'name' => 'Veg Roll (வெஜ் ரோல்)',
         'category' => 'bakery',
         'price' => 30,
@@ -256,7 +256,7 @@ return [
         ],
     ],
     [
-        'number' => '9207',
+        'number' => '15',
         'name' => 'Honey Cake (ஹனி கேக்)',
         'category' => 'bakery',
         'price' => 600,
@@ -273,7 +273,7 @@ return [
         ],
     ],
     [
-        'number' => '9208',
+        'number' => '16',
         'name' => 'Black Forest Cake (பிளாக் பாரஸ்ட் கேக்)',
         'category' => 'bakery',
         'price' => 800,
@@ -288,7 +288,7 @@ return [
         ],
     ],
     [
-        'number' => '9209',
+        'number' => '17',
         'name' => 'White Forest Cake (ஒயிட் பாரஸ்ட் கேக்)',
         'category' => 'bakery',
         'price' => 800,
@@ -303,7 +303,7 @@ return [
         ],
     ],
     [
-        'number' => '9210',
+        'number' => '18',
         'name' => 'Red Velvet Cake (ரெட் வெல்வெட் கேக்)',
         'category' => 'bakery',
         'price' => 850,
@@ -318,7 +318,7 @@ return [
         ],
     ],
     [
-        'number' => '9211',
+        'number' => '19',
         'name' => 'Madakku Bun (மடக்கு பன்)',
         'category' => 'bread',
         'price' => 20,
@@ -331,7 +331,7 @@ return [
         ],
     ],
     [
-        'number' => '9212',
+        'number' => '20',
         'name' => 'Butter Bun (பட்டர் பன்)',
         'category' => 'bread',
         'price' => 25,
@@ -345,7 +345,7 @@ return [
         ],
     ],
     [
-        'number' => '9213',
+        'number' => '21',
         'name' => 'Fruit Bun (புரூட் பன்)',
         'category' => 'bread',
         'price' => 25,
@@ -359,7 +359,7 @@ return [
         ],
     ],
     [
-        'number' => '9214',
+        'number' => '22',
         'name' => 'Jam Bun (ஜாம் பன்)',
         'category' => 'bread',
         'price' => 25,
@@ -377,7 +377,7 @@ return [
     // 3. BUNS, BREADS & PASTRIES FROM IMAGE (9215 - 9220)
     // ==========================================
     [
-        'number' => '9215',
+        'number' => '23',
         'name' => 'Plain Bun / Sada Bun (சாதா பன்)',
         'category' => 'bread',
         'price' => 12,
@@ -393,7 +393,7 @@ return [
         ],
     ],
     [
-        'number' => '9216',
+        'number' => '24',
         'name' => 'Donut (டோனட்)',
         'category' => 'bakery',
         'price' => 35,
@@ -410,7 +410,7 @@ return [
         ],
     ],
     [
-        'number' => '9217',
+        'number' => '25',
         'name' => 'Dilpasand (தில்பசந்த்)',
         'category' => 'bakery',
         'price' => 45,
@@ -427,7 +427,7 @@ return [
         ],
     ],
     [
-        'number' => '9218',
+        'number' => '26',
         'name' => 'Pan Bun / Cream Pan (பேன் பன்)',
         'category' => 'bread',
         'price' => 25,
@@ -443,7 +443,7 @@ return [
         ],
     ],
     [
-        'number' => '9219',
+        'number' => '27',
         'name' => 'Bombay Bun / Pav (பம்பாய் பன்)',
         'category' => 'bread',
         'price' => 20,
@@ -459,7 +459,7 @@ return [
         ],
     ],
     [
-        'number' => '9220',
+        'number' => '28',
         'name' => 'Sweet Milk Bread (பிரெட் / மில்க் பிரெட்)',
         'category' => 'bread',
         'price' => 45,
@@ -480,7 +480,7 @@ return [
     // 4. BISCUITS & RUSKS FROM IMAGE (9301 - 9307)
     // ==========================================
     [
-        'number' => '9301',
+        'number' => '29',
         'name' => 'Heartin Biscuit (ஆர்டின் பிஸ்கட்)',
         'category' => 'biscuit',
         'price' => 15,
@@ -495,7 +495,7 @@ return [
         ],
     ],
     [
-        'number' => '9302',
+        'number' => '30',
         'name' => 'Fruit Biscuit (புரூட் பிஸ்கட்)',
         'category' => 'biscuit',
         'price' => 15,
@@ -510,7 +510,7 @@ return [
         ],
     ],
     [
-        'number' => '9303',
+        'number' => '31',
         'name' => 'Wine / Malt Biscuit (ஒயின் பிஸ்கட்)',
         'category' => 'biscuit',
         'price' => 15,
@@ -526,7 +526,7 @@ return [
         ],
     ],
     [
-        'number' => '9304',
+        'number' => '32',
         'name' => 'Macaroon / Tuticorin Macaroon (மக்ரூன்)',
         'category' => 'biscuit',
         'price' => 25,
@@ -541,7 +541,7 @@ return [
         ],
     ],
     [
-        'number' => '9305',
+        'number' => '33',
         'name' => 'Pineapple Biscuit (பைனாப்பிள் பிஸ்கட்)',
         'category' => 'biscuit',
         'price' => 15,
@@ -556,7 +556,7 @@ return [
         ],
     ],
     [
-        'number' => '9306',
+        'number' => '34',
         'name' => 'Orange Biscuit (ஆரஞ்ச் பிஸ்கட்)',
         'category' => 'biscuit',
         'price' => 15,
@@ -571,7 +571,7 @@ return [
         ],
     ],
     [
-        'number' => '9307',
+        'number' => '35',
         'name' => 'Butter Rusk (ரஸ்க் / வெண்ணெய் ரஸ்க்)',
         'category' => 'biscuit',
         'price' => 10,
@@ -591,7 +591,7 @@ return [
     // 5. SAVORIES & MIXTURES FROM IMAGE (9401 - 9418)
     // ==========================================
     [
-        'number' => '9401',
+        'number' => '36',
         'name' => 'Madras Mixture (மிக்சர்)',
         'category' => 'savory',
         'price' => 280,
@@ -609,7 +609,7 @@ return [
         ],
     ],
     [
-        'number' => '9402',
+        'number' => '37',
         'name' => 'Omapodi (ஓமப்பொடி)',
         'category' => 'savory',
         'price' => 260,
@@ -625,7 +625,7 @@ return [
         ],
     ],
     [
-        'number' => '9403',
+        'number' => '38',
         'name' => 'Kara Sev (காரச்சேவ்)',
         'category' => 'savory',
         'price' => 280,
@@ -642,7 +642,7 @@ return [
         ],
     ],
     [
-        'number' => '9404',
+        'number' => '39',
         'name' => 'Seeval / Ribbon Pakoda (சீவல்)',
         'category' => 'savory',
         'price' => 280,
@@ -660,7 +660,7 @@ return [
         ],
     ],
     [
-        'number' => '9405',
+        'number' => '40',
         'name' => 'Murukku (முறுக்கு)',
         'category' => 'savory',
         'price' => 300,
@@ -677,7 +677,7 @@ return [
         ],
     ],
     [
-        'number' => '9406',
+        'number' => '41',
         'name' => 'Andhra Murukku (ஆந்திரா முறுக்கு)',
         'category' => 'savory',
         'price' => 320,
@@ -694,7 +694,7 @@ return [
         ],
     ],
     [
-        'number' => '9407',
+        'number' => '42',
         'name' => 'Butter Murukku (பட்டர் முறுக்கு)',
         'category' => 'savory',
         'price' => 320,
@@ -710,7 +710,7 @@ return [
         ],
     ],
     [
-        'number' => '9408',
+        'number' => '43',
         'name' => 'Thukada / Ribbon Sev (துக்கடா)',
         'category' => 'savory',
         'price' => 280,
@@ -726,7 +726,7 @@ return [
         ],
     ],
     [
-        'number' => '9409',
+        'number' => '44',
         'name' => 'Potato Chips / Vathal (வத்தல் / சிப்ஸ்)',
         'category' => 'savory',
         'price' => 320,
@@ -740,7 +740,7 @@ return [
         ],
     ],
     [
-        'number' => '9410',
+        'number' => '45',
         'name' => 'Pakoda / Onion Pakoda (பக்கோடா)',
         'category' => 'savory',
         'price' => 240,
@@ -757,7 +757,7 @@ return [
         ],
     ],
     [
-        'number' => '9411',
+        'number' => '46',
         'name' => 'Pepper Sev / Pepper Banana (பெப்பரி காரச்சேவ்)',
         'category' => 'savory',
         'price' => 300,
@@ -773,7 +773,7 @@ return [
         ],
     ],
     [
-        'number' => '9412',
+        'number' => '47',
         'name' => 'Special Mixture (ஸ்பெஷல் மிக்சர்)',
         'category' => 'savory',
         'price' => 360,
@@ -791,7 +791,7 @@ return [
         ],
     ],
     [
-        'number' => '9413',
+        'number' => '48',
         'name' => 'Fried Moong Dal / Payaru (பயறு மிக்சர்)',
         'category' => 'savory',
         'price' => 320,
@@ -805,7 +805,7 @@ return [
         ],
     ],
     [
-        'number' => '9414',
+        'number' => '49',
         'name' => 'Thani Sev / Plain Omapodi (தனி ஓமப்பொடி)',
         'category' => 'savory',
         'price' => 260,
@@ -820,7 +820,7 @@ return [
         ],
     ],
     [
-        'number' => '9415',
+        'number' => '50',
         'name' => 'Masala Peanut / Masala Kadalai (மசால் கடலை)',
         'category' => 'savory',
         'price' => 300,
@@ -837,7 +837,7 @@ return [
         ],
     ],
     [
-        'number' => '9416',
+        'number' => '51',
         'name' => 'Kara Boondi (காரா பூந்தி)',
         'category' => 'savory',
         'price' => 280,
@@ -855,7 +855,7 @@ return [
         ],
     ],
     [
-        'number' => '9417',
+        'number' => '52',
         'name' => 'Navadhanyam Mixture (நவதானியம் மிக்சர்)',
         'category' => 'savory',
         'price' => 340,
@@ -871,7 +871,7 @@ return [
         ],
     ],
     [
-        'number' => '9418',
+        'number' => '53',
         'name' => 'Roasted Chana / Konda Kadalai (கொண்டைக்கடலை)',
         'category' => 'savory',
         'price' => 280,
@@ -890,7 +890,7 @@ return [
     // 6. TRADITIONAL SWEETS FROM IMAGE (9501 - 9517)
     // ==========================================
     [
-        'number' => '9501',
+        'number' => '54',
         'name' => 'Tirunelveli Wheat Halwa (அல்வா)',
         'category' => 'sweet',
         'price' => 420,
@@ -906,7 +906,7 @@ return [
         ],
     ],
     [
-        'number' => '9502',
+        'number' => '55',
         'name' => 'Badusha (பாதுஷா)',
         'category' => 'sweet',
         'price' => 380,
@@ -922,7 +922,7 @@ return [
         ],
     ],
     [
-        'number' => '9503',
+        'number' => '56',
         'name' => 'Khaja / Madatha Khaja (காஜா / கண் காஜா)',
         'category' => 'sweet',
         'price' => 360,
@@ -938,7 +938,7 @@ return [
         ],
     ],
     [
-        'number' => '9504',
+        'number' => '57',
         'name' => 'Traditional Mysore Pak (மைசூர் பாக்)',
         'category' => 'sweet',
         'price' => 400,
@@ -953,7 +953,7 @@ return [
         ],
     ],
     [
-        'number' => '9505',
+        'number' => '58',
         'name' => 'Milk Peda / Milk Sweet (மில்க் ஸ்வீட் / பேடா)',
         'category' => 'sweet',
         'price' => 480,
@@ -969,7 +969,7 @@ return [
         ],
     ],
     [
-        'number' => '9506',
+        'number' => '59',
         'name' => 'Gulab Jamun (குலாப் ஜாமூன்)',
         'category' => 'sweet',
         'price' => 360,
@@ -985,7 +985,7 @@ return [
         ],
     ],
     [
-        'number' => '9507',
+        'number' => '60',
         'name' => 'Nice Peda / Kova (நைஸ் ஸ்வீட்)',
         'category' => 'sweet',
         'price' => 460,
@@ -1000,7 +1000,7 @@ return [
         ],
     ],
     [
-        'number' => '9508',
+        'number' => '61',
         'name' => 'Boondi Laddu (பூந்தி லட்டு)',
         'category' => 'sweet',
         'price' => 360,
@@ -1017,7 +1017,7 @@ return [
         ],
     ],
     [
-        'number' => '9509',
+        'number' => '62',
         'name' => 'Special Ghee Laddu (ஸ்பெஷல் நெய் லட்டு)',
         'category' => 'sweet',
         'price' => 450,
@@ -1034,7 +1034,7 @@ return [
         ],
     ],
     [
-        'number' => '9510',
+        'number' => '63',
         'name' => 'Coconut Barfi (தேங்காய் பர்பி)',
         'category' => 'sweet',
         'price' => 380,
@@ -1049,7 +1049,7 @@ return [
         ],
     ],
     [
-        'number' => '9511',
+        'number' => '64',
         'name' => 'Kalakand / Milk Cake (கலாகந்த்)',
         'category' => 'sweet',
         'price' => 480,
@@ -1064,7 +1064,7 @@ return [
         ],
     ],
     [
-        'number' => '9512',
+        'number' => '65',
         'name' => 'Milk Mysore Pak (மில்க் மைசூர் பாக்)',
         'category' => 'sweet',
         'price' => 520,
@@ -1079,7 +1079,7 @@ return [
         ],
     ],
     [
-        'number' => '9513',
+        'number' => '66',
         'name' => 'Karupatti Mysore Pak (கருப்பட்டி மைசூர் பாக்)',
         'category' => 'sweet',
         'price' => 480,
@@ -1093,7 +1093,7 @@ return [
         ],
     ],
     [
-        'number' => '9514',
+        'number' => '67',
         'name' => 'Sweet Boondi (இனிப்பு பூந்தி)',
         'category' => 'sweet',
         'price' => 320,
@@ -1108,7 +1108,7 @@ return [
         ],
     ],
     [
-        'number' => '9515',
+        'number' => '68',
         'name' => 'Kala Jamun (கலா ஜாமூன்)',
         'category' => 'sweet',
         'price' => 400,
@@ -1125,7 +1125,7 @@ return [
         ],
     ],
     [
-        'number' => '9516',
+        'number' => '69',
         'name' => 'Milagu Sweet / Athirasam (முளகு ஸ்வீட்)',
         'category' => 'sweet',
         'price' => 360,
@@ -1140,7 +1140,7 @@ return [
         ],
     ],
     [
-        'number' => '9517',
+        'number' => '70',
         'name' => 'Assorted Milk Sweets (மில்க் ஸ்வீட்ஸ்)',
         'category' => 'sweet',
         'price' => 500,
@@ -1161,7 +1161,7 @@ return [
     // 7. CAKES, ROLLS & PUDDINGS FROM IMAGE (9601 - 9609)
     // ==========================================
     [
-        'number' => '9601',
+        'number' => '71',
         'name' => 'Sponge Cake (ஸ்பாஞ்சு கேக்)',
         'category' => 'bakery',
         'price' => 450,
@@ -1178,7 +1178,7 @@ return [
         ],
     ],
     [
-        'number' => '9602',
+        'number' => '72',
         'name' => 'Caramel Pudding Cake (புட்டிங் கேக்)',
         'category' => 'bakery',
         'price' => 500,
@@ -1194,7 +1194,7 @@ return [
         ],
     ],
     [
-        'number' => '9603',
+        'number' => '73',
         'name' => 'Traditional Plum Cake (பிளம் கேக்)',
         'category' => 'bakery',
         'price' => 650,
@@ -1213,7 +1213,7 @@ return [
         ],
     ],
     [
-        'number' => '9604',
+        'number' => '74',
         'name' => 'Banana Cake (பனானா கேக்)',
         'category' => 'bakery',
         'price' => 480,
@@ -1230,7 +1230,7 @@ return [
         ],
     ],
     [
-        'number' => '9605',
+        'number' => '75',
         'name' => 'Rich Plum Cake (ரீச் கேக்)',
         'category' => 'bakery',
         'price' => 750,
@@ -1250,7 +1250,7 @@ return [
         ],
     ],
     [
-        'number' => '9606',
+        'number' => '76',
         'name' => 'Swiss Roll / Vanilla Cream Roll (ரோல் கேக்)',
         'category' => 'bakery',
         'price' => 30,
@@ -1266,7 +1266,7 @@ return [
         ],
     ],
     [
-        'number' => '9607',
+        'number' => '77',
         'name' => 'Choco Swiss Roll (சாக்லேட் ரோல்)',
         'category' => 'bakery',
         'price' => 35,
@@ -1283,7 +1283,7 @@ return [
         ],
     ],
     [
-        'number' => '9608',
+        'number' => '78',
         'name' => 'Orange Jam Swiss Roll (ஆரஞ்ச் ரோல்)',
         'category' => 'bakery',
         'price' => 30,
@@ -1299,7 +1299,7 @@ return [
         ],
     ],
     [
-        'number' => '9609',
+        'number' => '79',
         'name' => 'Black Forest Dry Pastry (பிளாக் பாரஸ்ட் டிரை)',
         'category' => 'bakery',
         'price' => 60,

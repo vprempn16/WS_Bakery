@@ -165,7 +165,10 @@ class ProductController extends Controller
             }
         }
 
-        $products = $query->orderBy('name')->paginate($perPage);
+        $cast = $query->getConnection()->getDriverName() === 'sqlite'
+            ? 'CAST(product_number AS INTEGER)'
+            : 'CAST(product_number AS UNSIGNED)';
+        $products = $query->orderByRaw($cast)->orderBy('name')->paginate($perPage);
 
         $productIds = $products->getCollection()->pluck('id')->filter()->values()->all();
         $branchStockByProduct = [];
